@@ -73,11 +73,32 @@ docker compose -f docker-compose.prod.yml exec mongo \
 docker compose -f docker-compose.prod.yml cp mongo:/tmp/clip.gz ./clip-backup.gz
 ```
 
-## Notes / caveats (demo build)
+## Authentication & security
 
-- **No real auth.** The `/admin` console and role switching are open. Don't
-  advertise the `/admin` path publicly, or add HTTP basic auth on it at the
-  nginx/vhost layer.
+Auth is real: bcrypt-hashed passwords, JWT bearer tokens, role-based access,
+and per-resource ownership checks. Configure via `.env`:
+
+- `SECRET_KEY` (required) — `openssl rand -hex 32`
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — provisions the only admin account on boot.
+  This is the sole way into `/admin`; there is no demo-admin unless you set
+  `ENABLE_DEMO_ADMIN=true`.
+- `ENABLE_DEMO_LOGIN=true` — one-click demo customer/clipper for showcasing.
+- Change the admin password by editing `.env` and re-running the up command.
+
+### Enabling Google Sign-In
+
+1. In Google Cloud Console create an OAuth 2.0 **Web** client ID. Add your
+   origin (e.g. `https://clips.yourdomain.com`) to Authorized JavaScript origins.
+2. Put the client ID in `.env` as `GOOGLE_CLIENT_ID=...`
+3. Rebuild so it's baked into the frontend:
+   `docker compose -f docker-compose.prod.yml up -d --build`
+
+The Google button appears automatically once configured; the backend verifies
+the token against the same client ID.
+
+## Remaining caveats
+
 - **Uploads are simulated** and **payments are mocked** — see README. Wire up
   S3/GCS storage and Stripe/Solana before real users transact.
-- Data auto-seeds on first backend start.
+- Demo marketplace data auto-seeds on first backend start (`SEED_DEMO_DATA`).
+- The in-memory rate limiter is per-instance; use Redis if you scale out.
