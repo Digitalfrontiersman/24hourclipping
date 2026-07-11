@@ -16,3 +16,5 @@ email-validator==2.3.0
 # Google OAuth verification (optional feature; imported lazily)
 google-auth==2.55.2
 requests==2.34.2
+# Card payments (Stripe Checkout)
+stripe==14.4.1

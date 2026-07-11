@@ -18,16 +18,45 @@ export default function Checkout() {
       setP(proj);
       if (proj.funded) setFunded(true);
     }).catch(() => {});
+
+    // Returning from Stripe Checkout: confirm the payment, then mark funded.
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (sessionId) {
+      setPaying(true);
+      dbAdapter.confirmCardCheckout(projectId, sessionId)
+        .then(() => { setFunded(true); notify.success("Payment received", "Your project is now live in the marketplace"); })
+        .catch(() => notify.urgent("We couldn't confirm that payment"))
+        .finally(() => { setPaying(false); window.history.replaceState({}, "", `/customer/checkout/${projectId}`); });
+    } else if (params.get("canceled")) {
+      notify.urgent("Payment canceled");
+      window.history.replaceState({}, "", `/customer/checkout/${projectId}`);
+    }
   }, [projectId]);
 
   const fund = async () => {
     setPaying(true);
     try {
-      await paymentAdapter.fund(projectId, method);
-      setFunded(true);
-      notify.success("Project funded", "Your job is now live in the marketplace");
+      if (method === "card") {
+        // Real hosted card checkout (Stripe). Redirect to the hosted page.
+        try {
+          const { url } = await dbAdapter.createCardCheckout(projectId);
+          window.location.href = url;
+          return;
+        } catch (err) {
+          if (err.response?.status !== 503) throw err;
+          // Card payments not configured on the server — fall back to the demo path.
+          await paymentAdapter.fund(projectId, method);
+          setFunded(true);
+          notify.success("Project funded (demo)", "Card payments aren't configured yet — simulated.");
+        }
+      } else {
+        await paymentAdapter.fund(projectId, method);
+        setFunded(true);
+        notify.success("Project funded", "Your job is now live in the marketplace");
+      }
     } catch {
-      notify.urgent("Payment simulation failed");
+      notify.urgent("Payment failed");
     }
     setPaying(false);
   };
@@ -82,7 +111,7 @@ export default function Checkout() {
               <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base" disabled={paying} onClick={fund}>
                 {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : `Fund Project — $${p.budget}`}
               </button>
-              <p className="text-[10px] text-zinc-600 text-center mt-3">Demo payment — no real funds move. Released to the clipper only when you approve.</p>
+              <p className="text-[10px] text-zinc-600 text-center mt-3">Card checkout is powered by Stripe. Released to the clipper only when you approve.</p>
             </>
           ) : (
             <div className="py-6 text-center" data-testid="funded-state">

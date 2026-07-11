@@ -37,6 +37,8 @@ services:
       EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
       MEDIA_ROOT: /data/media
       UPLOAD_MAX_MB: "${UPLOAD_MAX_MB:-1024}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://clip42.duckdns.org}"
     volumes:
       - media_data:/data/media
     expose:

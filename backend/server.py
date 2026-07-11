@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from seed import seed_db, bond_for
 import auth
 import storage
+import payments
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -444,6 +445,38 @@ async def fund_project(project_id: str, body: FundRequest, user: dict = Depends(
     if not r.matched_count:
         raise HTTPException(404, "Project not found")
     return {"ok": True, "tx_hash": tx}
+
+
+@api_router.post("/projects/{project_id}/checkout")
+async def create_card_checkout(project_id: str, user: dict = Depends(get_current_user)):
+    p = await _require_project_owner(project_id, user)
+    if not payments.is_configured():
+        raise HTTPException(503, "Card payments are not configured on this server")
+    try:
+        url = payments.create_checkout_session(p)
+    except Exception as e:
+        logger.error("Stripe checkout error: %s", e)
+        raise HTTPException(502, "Could not start card checkout")
+    return {"url": url, "test_mode": payments.is_test_mode()}
+
+
+@api_router.post("/projects/{project_id}/checkout/confirm")
+async def confirm_card_checkout(project_id: str, body: dict, user: dict = Depends(get_current_user)):
+    await _require_project_owner(project_id, user)
+    if not payments.is_configured():
+        raise HTTPException(503, "Card payments are not configured on this server")
+    session_id = (body or {}).get("session_id")
+    if not session_id:
+        raise HTTPException(400, "session_id required")
+    try:
+        paid = payments.session_is_paid(session_id, project_id)
+    except Exception as e:
+        logger.error("Stripe confirm error: %s", e)
+        raise HTTPException(502, "Could not verify payment")
+    if not paid:
+        raise HTTPException(402, "Payment not completed")
+    await db.projects.update_one({"id": project_id}, {"$set": {"funded": True, "status": "open", "payment_method": "card", "tx_hash": session_id}})
+    return {"ok": True}
 
 @api_router.get("/projects/{project_id}/bids")
 async def get_bids(project_id: str):

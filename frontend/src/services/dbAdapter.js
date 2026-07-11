@@ -9,6 +9,8 @@ export const dbAdapter = {
   getProject: (id) => api.get(`/projects/${id}`).then((r) => r.data),
   createProject: (data) => api.post("/projects", data).then((r) => r.data),
   fundProject: (id, method) => api.post(`/projects/${id}/fund`, { payment_method: method }).then((r) => r.data),
+  createCardCheckout: (id) => api.post(`/projects/${id}/checkout`).then((r) => r.data),
+  confirmCardCheckout: (id, sessionId) => api.post(`/projects/${id}/checkout/confirm`, { session_id: sessionId }).then((r) => r.data),
   getBids: (projectId) => api.get(`/projects/${projectId}/bids`).then((r) => r.data),
   createBid: (projectId, data) => api.post(`/projects/${projectId}/bids`, data).then((r) => r.data),
   acceptBid: (bidId) => api.post(`/bids/${bidId}/accept`).then((r) => r.data),
