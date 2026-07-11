@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp } from "lucide-react";
+import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp, Gavel } from "lucide-react";
 import Footer from "@/components/Footer";
 import ClipperCard from "@/components/ClipperCard";
 import { DEMO_VIDEOS } from "@/data/demoVideos";
@@ -260,6 +260,58 @@ export default function Landing() {
           <div className="font-mono text-7xl font-extrabold text-[#CCFF00] mb-4">8%</div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-4">One simple success fee.</h2>
           <p className="text-zinc-400 leading-relaxed">We only earn when your project is completed and you approve the clip. No subscriptions, no listing fees, no surprises. Bidding is always free.</p>
+        </div>
+      </section>
+
+      {/* WHICH SIDE ARE YOU ON — role picker */}
+      <section className="py-20 border-t border-white/10 bg-[#0A0A0A]" data-testid="which-side-section">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter uppercase">
+              Which side are you on?
+            </h2>
+            <p className="mt-4 font-mono text-sm sm:text-base text-zinc-400 tracking-wide">
+              Two roles. One marketplace. Zero friction.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+            {/* I NEED A CLIP — customer */}
+            <div className="card-dark p-8 sm:p-10 flex flex-col hover:border-[#CCFF00]/50 transition-colors group" data-testid="side-need-clip-card">
+              <div className="w-14 h-14 rounded-xl border-2 border-[#CCFF00]/70 flex items-center justify-center mb-8 group-hover:shadow-[0_0_24px_rgba(204,255,0,0.35)] transition-shadow">
+                <Zap className="w-7 h-7 text-[#CCFF00]" strokeWidth={2.5} />
+              </div>
+              <h3 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mb-4">I NEED A CLIP</h3>
+              <p className="text-zinc-400 leading-relaxed mb-8 flex-1">
+                Post footage, set your budget, pick from live bids. First cut lands in your inbox within 24 hours — guaranteed by a Deadline Bond.
+              </p>
+              <Link
+                to="/customer/create"
+                data-testid="side-post-project-btn"
+                className="btn-lime h-13 py-4 w-full justify-center text-sm tracking-widest uppercase font-extrabold"
+              >
+                Post a project
+              </Link>
+            </div>
+
+            {/* I MAKE CLIPS — clipper */}
+            <div className="card-dark p-8 sm:p-10 flex flex-col hover:border-[#FF4500]/50 transition-colors group" data-testid="side-make-clips-card">
+              <div className="w-14 h-14 rounded-xl border-2 border-[#FF4500]/70 flex items-center justify-center mb-8 group-hover:shadow-[0_0_24px_rgba(255,69,0,0.35)] transition-shadow">
+                <Gavel className="w-7 h-7 text-[#FF4500]" strokeWidth={2.5} />
+              </div>
+              <h3 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mb-4">I MAKE CLIPS</h3>
+              <p className="text-zinc-400 leading-relaxed mb-8 flex-1">
+                Browse open jobs, bid your price and pitch, lock a Deadline Bond. Deliver on time, earn 92% of your bid — platform takes 8% only on success.
+              </p>
+              <Link
+                to="/clipper/onboarding"
+                data-testid="side-apply-clipper-btn"
+                className="h-13 py-4 w-full inline-flex items-center justify-center rounded-xl border-2 border-[#FF4500] text-[#FF4500] font-extrabold text-sm tracking-widest uppercase hover:bg-[#FF4500] hover:text-black transition-colors"
+              >
+                Apply as a clipper
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
