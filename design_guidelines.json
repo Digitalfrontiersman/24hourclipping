@@ -1,0 +1,136 @@
+{
+  "theme": "dark",
+  "typography": {
+    "fonts": {
+      "headings": "Manrope",
+      "body": "IBM Plex Sans",
+      "mono_and_countdowns": "JetBrains Mono"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight",
+      "h3": "text-xl sm:text-2xl font-semibold tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed tracking-normal",
+      "labels": "text-xs font-bold uppercase tracking-[0.2em]",
+      "countdown_large": "text-6xl sm:text-8xl font-black font-mono tracking-tighter text-coral-500",
+      "countdown_small": "text-2xl font-bold font-mono tracking-tight text-coral-500"
+    },
+    "instructions": "Never use generic 'Inter' for headings. Use JetBrains Mono for all timers, countdowns, bid numbers, and financial figures. Ensure headings have tight tracking (tracking-tighter) for a premium, modern feel."
+  },
+  "colors": {
+    "backgrounds": {
+      "app_bg": "#0A0A0A",
+      "panel_bg": "#121212",
+      "card_bg": "#1A1A1A",
+      "card_bg_light": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "tertiary": "#71717A",
+      "inverse": "#000000"
+    },
+    "accents": {
+      "signal_green": "#CCFF00",
+      "signal_green_hover": "#B3E600",
+      "coral_orange": "#FF4500",
+      "coral_orange_hover": "#E63E00",
+      "white_action": "#FFFFFF"
+    },
+    "borders": {
+      "subtle": "rgba(255, 255, 255, 0.1)",
+      "focus": "#CCFF00",
+      "active": "#FF4500"
+    },
+    "forbidden_colors": [
+      "#7351B7", 
+      "#8A2BE2", 
+      "Generic AI purples",
+      "Excessive gradients", 
+      "Teal green"
+    ],
+    "instructions": "Strictly adhere to the dark graphite/near-black theme with crisp white areas. Use Signal Green (#CCFF00) EXCLUSIVELY for successful states, live contracts, and 'live' indicators. Use Coral Orange (#FF4500) EXCLUSIVELY for urgency, countdowns, and Rescue Mode. Buttons should often be crisp solid white with black text for high contrast, or Signal Green for primary 'Go' actions."
+  },
+  "spacing_and_layouts": {
+    "spacing_scale": "Use generous padding: p-6, p-8 for cards; p-12, p-24 for layout sections.",
+    "border_radius": "Premium rounded cards: Use rounded-2xl or rounded-3xl for main containers, rounded-full for pills and action buttons.",
+    "grids": {
+      "marketing_hero": "Asymmetric bento grid (grid-cols-1 md:grid-cols-12 gap-8) overlapping video thumbnails with bold typography.",
+      "marketplace_feed": "Dense, highly scannable grid (grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6). Use strict h-full on children.",
+      "live_bid_room": "Split pane layout. Left: Video Brief & Details. Right: Live incoming bids feed. (md:grid-cols-[2fr_1fr])."
+    },
+    "instructions": "One dominant action per screen. Friction is fiction. Keep forms sparse, large inputs, and highly legible. Use pure HTML/Tailwind for marketing layouts, and Shadcn for complex interactive forms inside the dashboard."
+  },
+  "surfaces_and_visual_enhancers": {
+    "cards": "Solid graphite backgrounds (#1A1A1A) with 1px subtle white borders (border-white/10). No muddy glassmorphism for functional areas.",
+    "live_pulses": "Use a 'Tracing Beam' or glowing border effect for cards that are 'CONTRACT LIVE'. Add animate-pulse to a signal-green dot for live bids.",
+    "shadows": "Keep shadows restrained. Rely on 1px borders and contrast for separation. No soft glowing drop-shadows unless it's a specific live status emitter.",
+    "textures": "Subtle noise overlay (grain) on the marketing hero background to break digital flatness."
+  },
+  "motion": {
+    "philosophy": "Restrained motion. Apple-level polish with sports-interface energy.",
+    "interactions": "Hover states must have crisp transitions. Buttons should have a slight scale down (active:scale-95).",
+    "live_bids": "Incoming bids should slide down and fade in (Framer Motion: initial y: -20, opacity: 0).",
+    "countdowns": "Timers should tick strictly. Add a subtle 'heartbeat' scale effect on the colon or last second when under 1 hour."
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full). Primary: bg-[#CCFF00] text-black hover:bg-[#B3E600]. Secondary: bg-white text-black hover:bg-gray-200. Destructive/Urgent: bg-[#FF4500] text-white.",
+    "badges": "Use rounded-full, px-3 py-1. Live: border border-[#CCFF00] text-[#CCFF00]. Urgent: border border-[#FF4500] text-[#FF4500].",
+    "inputs": "Large, accessible. bg-[#121212] border-white/20 text-white focus:border-[#CCFF00] focus:ring-1 focus:ring-[#CCFF00] h-12 or h-14.",
+    "video_thumbnails": "Large, 16:9 or 9:16 aspect ratios. Must have an overlay gradient at the bottom (bg-gradient-to-t from-black/80 to-transparent) to ensure white text legibility."
+  },
+  "media": {
+    "image_urls": {
+      "hero_creator": {
+        "url": "https://images.pexels.com/photos/14540970/pexels-photo-14540970.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Podcast/Creator studio setup, use as main marketing background or creator persona."
+      },
+      "video_editor_1": {
+        "url": "https://images.pexels.com/photos/8100060/pexels-photo-8100060.jpeg",
+        "description": "Video clipper working in a dark room with dual monitors. Use for Clipper Directory or Onboarding."
+      },
+      "video_editor_2": {
+        "url": "https://images.pexels.com/photos/8102680/pexels-photo-8102680.jpeg",
+        "description": "Team editing video. Good for agency clipper profile."
+      },
+      "action_footage_1": {
+        "url": "https://images.unsplash.com/photo-1478700485868-972b69dc3fc4",
+        "description": "Snowboarding extreme sports action. Use as demo video thumbnail for projects."
+      },
+      "action_footage_2": {
+        "url": "https://images.unsplash.com/photo-1445605081472-9788fb3bc02f",
+        "description": "Motocross flying action. Use as demo video thumbnail for projects."
+      },
+      "action_footage_3": {
+        "url": "https://images.pexels.com/photos/10089230/pexels-photo-10089230.jpeg",
+        "description": "Kitesurfing trick. Use as demo video thumbnail for projects."
+      }
+    },
+    "instructions": "Use these exact URLs for imagery. Do not use generic placeholders like via.placeholder.com. When a brand logo is needed, use Lucide React icons (e.g., Twitch, Youtube) or style generic shapes sharply."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over images uses dark overlays or text-shadows. The Signal Green (#CCFF00) and Coral Orange (#FF4500) must only be used with Black/Dark backgrounds for readability, or with Black text if they are background colors.",
+    "testing": "All interactive elements (buttons, form fields, tabs, project cards) MUST have data-testid attributes (e.g., data-testid='post-clip-btn')."
+  },
+  "3d_and_creative_libraries": {
+    "framer_motion": "Mandatory for live bid arrivals, countdown updates, and page transitions.",
+    "lucide_react": "Use for all iconography.",
+    "sonner": "Use for all toast notifications. Toasts must be styled dark with green/orange accents depending on success/urgent states."
+  },
+  "universal_guidelines_for_main_agent": [
+    "Do not build generic centered layouts. Use asymmetry and strong left-alignment.",
+    "Do not use transparent dropdown menus. Ensure all popovers/dropdowns have solid #1A1A1A backgrounds with borders.",
+    "No crypto jargon in the UI. Replace any Web3 terminology with simple marketplace terms (e.g., 'Lock Deadline Bond' -> 'Confirm & Lock'). The 'Powered by Solana' badge should be a subtle trust indicator in the footer/hero.",
+    "Use Lucide-react for all icons.",
+    "Never apply universal transition (transition: all). Target specific properties (transition-colors, transition-transform).",
+    "No AI emojis in text (e.g., no 🚀 or 🔮). Keep the tone ultra-professional, urgent, and energetic."
+  ],
+  "pages_and_features": [
+    "Landing Page: High-impact hero, animated 'live' marketplace preview, 'How it Works' steps, 'Powered by Solana' badge.",
+    "Customer Dashboard: Create project wizard, active clips with large countdowns.",
+    "Live Job Marketplace: Filterable jobs for clippers, real-time bid UI.",
+    "Clipper Dashboard / Bidding Room: Live pulsing UI to submit bids, lock bond, and upload final cuts.",
+    "Clip Room: The collaborative space with the giant 24-hour ticking clock, version history, and chat."
+  ]
+}
