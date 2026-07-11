@@ -8,6 +8,9 @@ RUN yarn install
 COPY . .
 # Same-origin API: the app calls "/api", which nginx proxies to the backend.
 ENV REACT_APP_BACKEND_URL=""
+# Optional Google Sign-In client id, baked in at build time.
+ARG REACT_APP_GOOGLE_CLIENT_ID=""
+ENV REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
 RUN yarn build
 
 # ---- Serve stage: nginx serves the build and reverse-proxies /api ----

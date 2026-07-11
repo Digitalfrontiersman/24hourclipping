@@ -20,6 +20,13 @@ import ClipperDashboard from "@/pages/clipper/ClipperDashboard";
 import JobDetails from "@/pages/clipper/JobDetails";
 import ClipperRoom from "@/pages/clipper/ClipperRoom";
 import Admin from "@/pages/Admin";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import ProtectedRoute from "@/components/ProtectedRoute";
+
+const Customer = ({ children }) => <ProtectedRoute roles={["customer", "admin"]}>{children}</ProtectedRoute>;
+const Clipper = ({ children }) => <ProtectedRoute roles={["clipper", "admin"]}>{children}</ProtectedRoute>;
+const AdminOnly = ({ children }) => <ProtectedRoute roles={["admin"]}>{children}</ProtectedRoute>;
 
 function App() {
   return (
@@ -28,23 +35,32 @@ function App() {
         <AppProvider>
           <Navbar />
           <Routes>
+            {/* Public */}
             <Route path="/" element={<Landing />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/clippers" element={<Directory />} />
             <Route path="/clippers/:id" element={<ClipperProfile />} />
-            <Route path="/customer" element={<CustomerDashboard />} />
-            <Route path="/customer/create" element={<CreateProject />} />
-            <Route path="/customer/concierge" element={<Concierge />} />
-            <Route path="/customer/brand" element={<BrandProfile />} />
-            <Route path="/customer/checkout/:projectId" element={<Checkout />} />
-            <Route path="/customer/bids/:projectId" element={<BidRoom />} />
-            <Route path="/customer/clip-room/:contractId" element={<ClipRoom />} />
-            <Route path="/customer/review/:contractId" element={<DeliveryReview />} />
-            <Route path="/clipper/onboarding" element={<ClipperOnboarding />} />
-            <Route path="/clipper" element={<ClipperDashboard />} />
-            <Route path="/clipper/job/:projectId" element={<JobDetails />} />
-            <Route path="/clipper/room/:contractId" element={<ClipperRoom />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Customer */}
+            <Route path="/customer" element={<Customer><CustomerDashboard /></Customer>} />
+            <Route path="/customer/create" element={<Customer><CreateProject /></Customer>} />
+            <Route path="/customer/concierge" element={<Customer><Concierge /></Customer>} />
+            <Route path="/customer/brand" element={<Customer><BrandProfile /></Customer>} />
+            <Route path="/customer/checkout/:projectId" element={<Customer><Checkout /></Customer>} />
+            <Route path="/customer/bids/:projectId" element={<Customer><BidRoom /></Customer>} />
+            <Route path="/customer/clip-room/:contractId" element={<Customer><ClipRoom /></Customer>} />
+            <Route path="/customer/review/:contractId" element={<Customer><DeliveryReview /></Customer>} />
+
+            {/* Clipper */}
+            <Route path="/clipper/onboarding" element={<Clipper><ClipperOnboarding /></Clipper>} />
+            <Route path="/clipper" element={<Clipper><ClipperDashboard /></Clipper>} />
+            <Route path="/clipper/job/:projectId" element={<Clipper><JobDetails /></Clipper>} />
+            <Route path="/clipper/room/:contractId" element={<Clipper><ClipperRoom /></Clipper>} />
+
+            {/* Admin */}
+            <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
           </Routes>
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#1A1A1A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
         </AppProvider>

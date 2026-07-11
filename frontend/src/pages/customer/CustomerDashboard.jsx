@@ -14,7 +14,7 @@ export default function CustomerDashboard() {
   const { user } = useApp();
 
   useEffect(() => {
-    dbAdapter.getProjects().then(setProjects).catch(() => {});
+    dbAdapter.getProjects({ mine: true }).then(setProjects).catch(() => {});
     dbAdapter.getContracts().then(setContracts).catch(() => {});
     dbAdapter.getBrandProfiles().then((b) => setBrand(b[0])).catch(() => {});
   }, []);

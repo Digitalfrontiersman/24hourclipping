@@ -3,11 +3,12 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { Shield, ArrowLeft, CheckCircle2 } from "lucide-react";
-
-const ME = "clipper-1";
+import { useApp } from "@/context/AppContext";
 
 export default function JobDetails() {
   const { projectId } = useParams();
+  const { user } = useApp();
+  const ME = user?.id;
   const nav = useNavigate();
   const [p, setP] = useState(null);
   const [amount, setAmount] = useState("");
@@ -19,12 +20,12 @@ export default function JobDetails() {
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(Math.round(proj.budget * 0.9)); }).catch(() => {});
-    dbAdapter.getClipper(ME).then(setMe).catch(() => {});
-  }, [projectId]);
+    if (ME) dbAdapter.getClipper(ME).then(setMe).catch(() => {});
+  }, [projectId, ME]);
 
   const submit = async () => {
     if (!amount || !pitch.trim()) return notify.urgent("Add a bid price and a one-line pitch");
-    await dbAdapter.createBid(projectId, { clipper_id: ME, amount: Number(amount), pitch, eta_hours: Number(eta) });
+    await dbAdapter.createBid(projectId, { amount: Number(amount), pitch, eta_hours: Number(eta) });
     setPlaced(true);
     notify.success("Bid placed", "You'll be notified the moment the customer responds");
   };

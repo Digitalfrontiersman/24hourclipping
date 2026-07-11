@@ -1,13 +1,33 @@
-// MOCK AUTH ADAPTER — replace with real auth provider (JWT / OAuth) later.
-const USERS = {
-  customer: { id: "demo-customer", name: "Aria Chen", label: "Customer", credits: 150 },
-  clipper: { id: "clipper-1", name: "Maya Torres", label: "Clipper" },
-  admin: { id: "demo-admin", name: "Admin", label: "Administrator" },
-};
+// REAL AUTH ADAPTER — talks to the FastAPI auth endpoints and stores the JWT.
+import { api, setToken, clearToken, getToken } from "./api";
 
 export const authAdapter = {
-  getRole: () => localStorage.getItem("24hc_role") || "customer",
-  setRole: (role) => localStorage.setItem("24hc_role", role),
-  getUser: (role) => USERS[role] || USERS.customer,
-  isAuthenticated: () => true,
+  async register({ email, password, name, role }) {
+    const { data } = await api.post("/auth/register", { email, password, name, role });
+    setToken(data.access_token);
+    return data.user;
+  },
+  async login({ email, password }) {
+    const { data } = await api.post("/auth/login", { email, password });
+    setToken(data.access_token);
+    return data.user;
+  },
+  async google({ credential, role }) {
+    const { data } = await api.post("/auth/google", { credential, role });
+    setToken(data.access_token);
+    return data.user;
+  },
+  async demo(role) {
+    const { data } = await api.post("/auth/demo", { role });
+    setToken(data.access_token);
+    return data.user;
+  },
+  async me() {
+    const { data } = await api.get("/auth/me");
+    return data;
+  },
+  logout() {
+    clearToken();
+  },
+  isAuthenticated: () => !!getToken(),
 };

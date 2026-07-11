@@ -6,19 +6,21 @@ import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
 import { Star, Timer, TrendingUp, ArrowRight } from "lucide-react";
-
-const ME = "clipper-1";
+import { useApp } from "@/context/AppContext";
 
 export default function ClipperDashboard() {
+  const { user } = useApp();
+  const ME = user?.id;
   const [me, setMe] = useState(null);
   const [projects, setProjects] = useState([]);
   const [contracts, setContracts] = useState([]);
 
   useEffect(() => {
+    if (!ME) return;
     dbAdapter.getClipper(ME).then(setMe).catch(() => {});
     dbAdapter.getProjects({ status: "open" }).then(setProjects).catch(() => {});
     dbAdapter.getContracts().then((cs) => setContracts(cs.filter((c) => c.clipper_id === ME))).catch(() => {});
-  }, []);
+  }, [ME]);
 
   const active = contracts.filter((c) => ["live", "revision", "delivered"].includes(c.status));
 
