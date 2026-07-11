@@ -157,7 +157,7 @@ export default function BidRoom() {
       {/* Confirm modal */}
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent className="bg-[#1A1A1A] border-white/10 text-white">
-          <h3 className="font-display font-extrabold text-xl">Confirm your clipper{selected.length > 1 ? "s" : ""}</h3>
+          <DialogTitle className="font-display font-extrabold text-xl">Confirm your clipper{selected.length > 1 ? "s" : ""}</DialogTitle>
           {selectedBids.map((b) => (
             <div key={b.id} className="flex justify-between items-center py-2 border-b border-white/10 text-sm">
               <span>{b.clipper?.name}</span><span className="font-mono font-bold text-[#CCFF00]">${b.amount}</span>
@@ -172,6 +172,7 @@ export default function BidRoom() {
       {/* Contract live overlay */}
       <Dialog open={!!accepting}>
         <DialogContent className="bg-[#0A0A0A] border-white/10 text-white text-center [&>button]:hidden">
+          <DialogTitle className="sr-only">Contract status</DialogTitle>
           {accepting === "waiting" ? (
             <div className="py-8" data-testid="awaiting-clipper-state">
               <Loader2 className="w-10 h-10 animate-spin text-[#CCFF00] mx-auto mb-4" />

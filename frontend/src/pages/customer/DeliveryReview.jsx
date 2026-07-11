@@ -4,7 +4,7 @@ import { dbAdapter } from "@/services/dbAdapter";
 import { paymentAdapter } from "@/services/paymentAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { Star, Download, RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export default function DeliveryReview() {
   const { contractId } = useParams();
@@ -91,7 +91,7 @@ export default function DeliveryReview() {
 
       <Dialog open={revising} onOpenChange={setRevising}>
         <DialogContent className="bg-[#1A1A1A] border-white/10 text-white">
-          <h3 className="font-display font-extrabold text-xl">Request revisions</h3>
+          <DialogTitle className="font-display font-extrabold text-xl">Request revisions</DialogTitle>
           <textarea data-testid="revision-text-input" className="input-dark h-28 py-3 text-sm" placeholder="Be specific: 'Tighten the intro to 1.5s, swap the end card…'" value={revText} onChange={(e) => setRevText(e.target.value)} />
           <button data-testid="submit-revision-btn" className="btn-coral h-12 w-full" onClick={requestRevision}>Send Revision Request</button>
         </DialogContent>
@@ -99,6 +99,7 @@ export default function DeliveryReview() {
 
       <Dialog open={!!approved}>
         <DialogContent className="bg-[#0A0A0A] border-[#CCFF00]/40 text-white text-center [&>button]:hidden">
+          <DialogTitle className="sr-only">Payment released</DialogTitle>
           <div className="py-6" data-testid="approval-success">
             <CheckCircle2 className="w-14 h-14 text-[#CCFF00] mx-auto mb-4" />
             <p className="font-display font-extrabold text-2xl mb-2">Payment released</p>
