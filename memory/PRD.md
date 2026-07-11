@@ -53,6 +53,14 @@ Build a complete, polished, responsive frontend MVP for "24 HOUR CLIPPING" — a
 - Generated hero image (streamer girl, lime-lit room) via image tool; CSS keyframes added: lime-flicker, clip-snip
 - USER DECISION: TypeScript migration explicitly declined ("Skip it, JS is fine") — JS/.jsx is now the accepted stack, do NOT re-propose
 
+## Feb 2026 — Hero Banner v2 Bug Fix (fork)
+- User feedback: previous AI streamer photo looked weak + mobile hero card was cluttered.
+- Regenerated a much better cinematic streamer image via Gemini Nano Banana → saved locally at `/app/frontend/public/hero_streamer_a.png` (RGB gaming room, warm/lime split lighting, authentic mid-laugh).
+- Mobile cleanup in `HeroBanner.jsx`: card max-width 320px on mobile, countdown badge / caption / scrubber scale down, "Clipping" chip hidden below `sm` breakpoint, 3D tilt disabled on `(hover: none)` touch devices.
+- Before/After row moved OUT of the card into its own tidy row below the card — now renders cleanly on both mobile and desktop with "Before: 45 min VOD" / "After: 0:45 clip" labels.
+- Verified via `testing_agent_v3_fork` iteration_2 → 9/9 checks pass at 1920x900 and 390x844, zero horizontal overflow, no console errors.
+
+
 ## Backlog (unchanged priority)
 - P1: Real WebSocket bid feed (replace realtimeAdapter mock)
 - P1: Pre-acceptance messaging in Bid Room
