@@ -46,7 +46,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link to="/" data-testid="nav-logo" className="flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter">
           <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
-          <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
+          <span>Clip<span className="text-[#CCFF00]">24</span></span>
         </Link>
 
         <div className="hidden md:flex items-center gap-1">

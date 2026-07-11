@@ -556,7 +556,7 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
     }
 
 # ---------- AI Concierge ----------
-CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for 24 Hour Clipping, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.
+CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for Clip24, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.
 
 Your job: through a SHORT, friendly conversation (max 4-5 questions total, ONE question per message), gather what's needed for a project brief:
 - What footage they have (link or upload) and whether they know the exact moment or want the clipper to find the best moment
