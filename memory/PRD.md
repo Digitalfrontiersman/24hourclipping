@@ -45,3 +45,16 @@ Build a complete, polished, responsive frontend MVP for "24 HOUR CLIPPING" — a
 - P2: Multi-clipper contract view (accepting N clippers creates N contracts; UI navigates to first)
 - P2: Auth (JWT or Emergent Google) replacing role switcher when moving beyond demo
 - P3: Notifications center, dispute detail flow, clipper strike history page
+
+## June 2026 — Hero Banner Redesign (fork)
+- Replaced "Countdown Takeover" hero with reference-matched split hero (`/app/frontend/src/components/HeroBanner.jsx`, used in Landing.jsx)
+- Left: staggered-reveal headline "Your best moments. Clipped in 24 hours." + Post a Clip (shine sweep) / Browse Live Jobs CTAs + trust line
+- Right: interactive video card — 3D mouse-parallax tilt + cursor glare, live ticking "First cut due in" countdown, auto-cycling viral captions, animated clip scrubber, sliding live-bid toasts, animated scissors "CLIPPING" chip, BEFORE→AFTER strip, orbit ring with glowing lime dot
+- Generated hero image (streamer girl, lime-lit room) via image tool; CSS keyframes added: lime-flicker, clip-snip
+- USER DECISION: TypeScript migration explicitly declined ("Skip it, JS is fine") — JS/.jsx is now the accepted stack, do NOT re-propose
+
+## Backlog (unchanged priority)
+- P1: Real WebSocket bid feed (replace realtimeAdapter mock)
+- P1: Pre-acceptance messaging in Bid Room
+- P2: Grid/list toggle in Clipper Directory
+- P2: Shareable public "delivered clip" page with before/after comparison

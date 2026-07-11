@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp, Gavel } from "lucide-react";
 import Footer from "@/components/Footer";
+import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
 import { DEMO_VIDEOS } from "@/data/demoVideos";
 import { dbAdapter } from "@/services/dbAdapter";
@@ -14,24 +15,6 @@ const LIVE_BIDS = [
   { name: "Sasha I.", amount: 240, job: "Launch Teaser Ad", avatar: "https://i.pravatar.cc/150?img=47" },
   { name: "Rio A.", amount: 62, job: "SaaS Demo Short", avatar: "https://i.pravatar.cc/150?img=15" },
 ];
-
-const HERO_CHIPS = [
-  { emoji: "🎙️", label: "podcasts", cat: "Podcast Clips", tilt: "-4deg", delay: "0s" },
-  { emoji: "🎮", label: "streams", cat: "Stream Highlights", tilt: "3deg", delay: "0.7s" },
-  { emoji: "📱", label: "reels", cat: "Reels", tilt: "-2deg", delay: "1.4s" },
-  { emoji: "💼", label: "founder clips", cat: "Talking-Head", tilt: "5deg", delay: "2.1s" },
-];
-
-const ORBITERS = [
-  { avatar: "https://i.pravatar.cc/150?img=12", bubble: "bidding…", pos: "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2" },
-  { avatar: "https://i.pravatar.cc/150?img=32", bubble: "$47 bid", pos: "top-1/2 right-0 translate-x-1/2 -translate-y-1/2" },
-  { avatar: "https://i.pravatar.cc/150?img=5", bubble: "bidding…", pos: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2" },
-  { avatar: "https://i.pravatar.cc/150?img=68", bubble: "$110 bid", pos: "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2" },
-  { avatar: "https://i.pravatar.cc/150?img=47", bubble: "bidding…", pos: "top-[14%] left-[14%] -translate-x-1/2 -translate-y-1/2" },
-  { avatar: "https://i.pravatar.cc/150?img=15", bubble: "bidding…", pos: "bottom-[14%] right-[14%] translate-x-1/2 translate-y-1/2" },
-];
-
-const pad = (n) => String(n).padStart(2, "0");
 
 const USE_CASES = [
   { icon: Video, title: "Streamers", desc: "Turn 4-hour VODs into daily viral moments while you sleep." },
@@ -49,78 +32,18 @@ const STEPS = [
 export default function Landing() {
   const [bidIdx, setBidIdx] = useState(0);
   const [clippers, setClippers] = useState([]);
-  const [secondsLeft, setSecondsLeft] = useState(23 * 3600 + 59 * 60 + 47);
 
   useEffect(() => {
     const t = setInterval(() => setBidIdx((i) => (i + 1) % LIVE_BIDS.length), 2800);
-    const tick = setInterval(() => setSecondsLeft((s) => (s <= 1 ? 24 * 3600 - 1 : s - 1)), 1000);
     dbAdapter.getClippers().then((c) => setClippers(c.slice(0, 3))).catch(() => {});
-    return () => { clearInterval(t); clearInterval(tick); };
+    return () => clearInterval(t);
   }, []);
 
   const visible = [0, 1, 2].map((o) => LIVE_BIDS[(bidIdx + o) % LIVE_BIDS.length]);
-  const hh = pad(Math.floor(secondsLeft / 3600));
-  const mm = pad(Math.floor((secondsLeft % 3600) / 60));
-  const ss = pad(secondsLeft % 60);
 
   return (
     <div className="bg-[#0A0A0A] text-white">
-      {/* HERO — THE COUNTDOWN TAKEOVER */}
-      <section className="relative grain overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-16 lg:pt-20 lg:pb-20 flex flex-col items-center text-center">
-          <div className="badge-live mb-6"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE MARKETPLACE — 8 OPEN PROJECTS</div>
-          <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight lowercase text-zinc-300 mb-2">
-            the 24-hour clip clock starts <span className="text-white uppercase">NOW.</span>
-          </h1>
-
-          {/* Giant clock + orbiting clippers + coral pulse */}
-          <div className="relative w-full flex items-center justify-center min-h-[380px] sm:min-h-[560px] lg:min-h-[660px] mb-6 select-none" data-testid="hero-countdown-takeover">
-            {/* coral pulse rings */}
-            <div className="absolute left-1/2 top-1/2 w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] lg:w-[560px] lg:h-[560px] rounded-full border-2 border-[#FF4500]/60 pulse-ring pointer-events-none" />
-            <div className="absolute left-1/2 top-1/2 w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] lg:w-[560px] lg:h-[560px] rounded-full border border-[#FF4500]/40 pulse-ring pointer-events-none" style={{ animationDelay: "0.5s" }} />
-
-            {/* orbiting clipper avatars */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[460px] sm:h-[460px] lg:w-[560px] lg:h-[560px] animate-orbit pointer-events-none" aria-hidden="true">
-              {ORBITERS.map((o, i) => (
-                <div key={i} className={`absolute ${o.pos} ${i > 3 ? "hidden sm:block" : ""}`}>
-                  <div className="animate-orbit-reverse flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-mono font-bold bg-[#1A1A1A] border border-white/15 text-[#CCFF00] rounded-full px-2 py-0.5 whitespace-nowrap shadow-lg">{o.bubble}</span>
-                    <img src={o.avatar} alt="" className="w-9 h-9 sm:w-12 sm:h-12 rounded-full border-2 border-[#CCFF00] shadow-[0_0_20px_rgba(204,255,0,0.25)]" />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* the clock itself */}
-            <div className="relative font-mono font-extrabold tracking-tighter leading-none text-[19vw] sm:text-[15vw] lg:text-[10.5rem] whitespace-nowrap" data-testid="hero-giant-clock">
-              <span className="text-white">{hh}</span>
-              <span className="colon-blink text-[#FF4500]">:</span>
-              <span className="text-white">{mm}</span>
-              <span className="colon-blink text-[#FF4500]">:</span>
-              <span className="text-[#CCFF00]">{ss}</span>
-            </div>
-          </div>
-
-          {/* floating category chips */}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-10" data-testid="hero-category-chips">
-            {HERO_CHIPS.map((c) => (
-              <Link key={c.cat} to={`/marketplace?category=${encodeURIComponent(c.cat)}`} data-testid={`hero-chip-${c.label.replace(/\s/g, "-")}`}
-                className="float-bob inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] border border-white/15 px-4 py-2 text-sm font-bold hover:border-[#CCFF00] hover:text-[#CCFF00] transition-colors"
-                style={{ "--tilt": c.tilt, animationDelay: c.delay }}>
-                <span>{c.emoji}</span> {c.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-14 px-8 text-base">Post a Clip <ArrowRight className="w-4 h-4" /></Link>
-            <Link to="/clipper/onboarding" data-testid="hero-become-clipper-btn" className="btn-ghost h-14 px-8 text-base">Become a Clipper</Link>
-          </div>
-          <p className="mt-8 text-xs text-zinc-600 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" /> Payments powered by Solana · 8% success fee only when you're happy
-          </p>
-        </div>
-      </section>
+      <HeroBanner />
 
       {/* LIVE BIDS ARRIVING — signature module */}
       <section className="py-16 border-t border-white/10 bg-[#121212]">
