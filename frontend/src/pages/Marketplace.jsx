@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
 import { CATEGORIES } from "@/data/demoVideos";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, LayoutGrid, List, Shield, Clock } from "lucide-react";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+dayjs.extend(relativeTime);
 
 const BUDGETS = [
   { label: "Any budget", min: 0, max: 9999 },
@@ -17,6 +22,12 @@ export default function Marketplace() {
   const [cat, setCat] = useState("All");
   const [budget, setBudget] = useState(0);
   const [moment, setMoment] = useState("all");
+  const [view, setView] = useState(() => localStorage.getItem("24hc_jobs_view") || "grid");
+
+  const setViewMode = (v) => {
+    setView(v);
+    localStorage.setItem("24hc_jobs_view", v);
+  };
 
   useEffect(() => {
     dbAdapter.getProjects({ status: "open" }).then(setProjects).catch(() => setProjects([]));
@@ -39,7 +50,19 @@ export default function Marketplace() {
             <span className="badge-live mb-3"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE JOB FEED</span>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-3">Live Job Marketplace</h1>
           </div>
-          <p className="text-sm text-zinc-500">{filtered.length} open projects receiving bids</p>
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-zinc-500">{filtered.length} open projects receiving bids</p>
+            <div className="flex items-center gap-1 bg-[#1A1A1A] border border-white/10 rounded-full p-1" data-testid="view-toggle">
+              <button data-testid="view-grid-btn" onClick={() => setViewMode("grid")} aria-label="Grid view"
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${view === "grid" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button data-testid="view-list-btn" onClick={() => setViewMode("list")} aria-label="List view"
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${view === "list" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -77,9 +100,38 @@ export default function Marketplace() {
             <p className="font-display font-bold text-xl mb-2">No jobs match those filters.</p>
             <p className="text-zinc-500 text-sm">Try widening the budget or category.</p>
           </div>
-        ) : (
+        ) : view === "grid" ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((p) => <JobCard key={p.id} project={p} ctaTo={`/clipper/job/${p.id}`} />)}
+          </div>
+        ) : (
+          <div className="space-y-3" data-testid="jobs-list-view">
+            {filtered.map((p, i) => (
+              <motion.div key={p.id} initial={{ y: -14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.04 }}
+                className="card-dark p-3 sm:p-4 flex items-center gap-4 hover:border-white/25 transition-colors" data-testid={`job-row-${p.id}`}>
+                <img src={p.thumbnail} alt={p.title} className="w-24 sm:w-28 aspect-video object-cover rounded-xl shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-display font-bold text-sm sm:text-base truncate">{p.title}</h3>
+                    {p.priority && <span className="badge-urgent text-[9px] px-2 py-0.5">PRIORITY</span>}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-zinc-400 mt-1 flex-wrap">
+                    <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-bold text-zinc-300">{p.category}</span>
+                    <span className="hidden sm:flex items-center gap-1"><Clock className="w-3 h-3" /> {p.output_length} · {p.aspect_ratio}</span>
+                    <span className="hidden md:flex items-center gap-1"><Shield className="w-3 h-3" /> Bond ${p.bond}</span>
+                    <span className="text-zinc-600">{dayjs(p.posted_at).fromNow()}</span>
+                  </div>
+                </div>
+                <span className="badge-live hidden sm:inline-flex shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> {p.bids_count} bids
+                </span>
+                <div className="text-right shrink-0">
+                  <div className="font-mono font-extrabold text-lg sm:text-xl text-[#CCFF00]">${p.budget}</div>
+                  <div className="text-[10px] text-zinc-500 truncate max-w-20">{p.customer_name}</div>
+                </div>
+                <Link to={`/clipper/job/${p.id}`} data-testid={`job-row-cta-${p.id}`} className="btn-lime h-10 px-5 text-xs shrink-0">Bid Now</Link>
+              </motion.div>
+            ))}
           </div>
         )}
       </div>
