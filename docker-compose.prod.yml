@@ -1,0 +1,44 @@
+# Production stack: MongoDB + FastAPI backend + React (static, nginx-served).
+# The frontend nginx also reverse-proxies /api to the backend, so the whole
+# app is one origin. Exposed on host port 8090 (host's own nginx keeps :80/:443).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   -> http://<server-ip>:8090
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: clipping
+      CORS_ORIGINS: "${CORS_ORIGINS:-*}"
+      EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
+    expose:
+      - "8001"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-8090}:80"
+
+volumes:
+  mongo_data:
