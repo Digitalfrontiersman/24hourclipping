@@ -35,6 +35,10 @@ services:
       SEED_DEMO_DATA: "${SEED_DEMO_DATA:-true}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
       EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
+      MEDIA_ROOT: /data/media
+      UPLOAD_MAX_MB: "${UPLOAD_MAX_MB:-1024}"
+    volumes:
+      - media_data:/data/media
     expose:
       - "8001"
 
@@ -52,3 +56,4 @@ services:
 
 volumes:
   mongo_data:
+  media_data:

@@ -26,7 +26,7 @@ export default function CreateProject() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadPct(0);
-    const res = await storageAdapter.upload(file, setUploadPct);
+    const res = await storageAdapter.upload(file, setUploadPct, { kind: "source" });
     setUploaded(res);
     setUploadPct(null);
     notify.success("Footage uploaded", file.name);
@@ -36,7 +36,7 @@ export default function CreateProject() {
     if (!f.title) return notify.urgent("Give your project a title");
     setSaving(true);
     try {
-      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_link: f.source_link || uploaded?.name || "Uploaded footage" });
+      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_key: uploaded?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
       nav(`/customer/checkout/${p.id}`);
     } catch {
       notify.urgent("Could not create project");

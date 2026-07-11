@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from seed import seed_db, bond_for
 import auth
+import storage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -42,6 +43,7 @@ class ProjectCreate(BaseModel):
     description: str = ""
     budget: float
     source_link: str = ""
+    source_key: Optional[str] = None  # uploaded source footage (object key)
     source_length: str = ""
     output_length: str = "30-60s"
     aspect_ratio: str = "9:16"
@@ -69,6 +71,7 @@ class MessageCreate(BaseModel):
 class DeliveryCreate(BaseModel):
     note: str = ""
     url: str = ""
+    key: Optional[str] = None  # uploaded cut (object key)
 
 class FundRequest(BaseModel):
     payment_method: str = "usdc"
@@ -298,6 +301,72 @@ async def demo_login(body: DemoLoginRequest):
 # ========================== END AUTH ==========================
 
 
+# ============================ MEDIA / UPLOADS ============================
+@api_router.post("/uploads")
+async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = Form(None),
+                       file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    ext = ext if len(ext) <= 10 and ext.startswith(".") else ""
+    uid = uuid.uuid4().hex
+    if kind == "delivery":
+        if not contract_id:
+            raise HTTPException(400, "contract_id required for a delivery upload")
+        await _require_contract_party(contract_id, user, allow=("clipper",))
+        key = f"deliveries/{contract_id}/{uid}{ext}"
+    else:
+        if user["role"] not in ("customer", "admin"):
+            raise HTTPException(403, "Only customers upload source footage")
+        key = f"sources/{user['id']}/{uid}{ext}"
+    try:
+        size = await storage.save_upload(file, key)
+    except storage.UploadError as e:
+        raise HTTPException(e.status, e.message)
+    return {"key": key, "name": file.filename, "size": size}
+
+
+@api_router.get("/media/{key:path}")
+async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = None):
+    # The signature is the capability — authorization happened when it was minted.
+    if not storage.verify_media(key, exp, sig):
+        raise HTTPException(403, "Invalid or expired media link")
+    path = storage.safe_path(key)
+    if path is None or not path.exists():
+        raise HTTPException(404, "Not found")
+    return FileResponse(path)
+
+
+@api_router.get("/projects/{project_id}/source-url")
+async def project_source_url(project_id: str, user: dict = Depends(get_current_user)):
+    p = await db.projects.find_one({"id": project_id}, NO_ID)
+    if not p:
+        raise HTTPException(404, "Project not found")
+    if not p.get("source_key"):
+        raise HTTPException(404, "No uploaded source footage")
+    allowed = user["role"] == "admin" or p.get("owner_id") == user["id"]
+    if not allowed:
+        # A clipper who has bid on or holds a contract for this project may fetch it.
+        has_bid = await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"]})
+        has_contract = await db.contracts.find_one({"project_id": project_id, "clipper_id": user["id"]})
+        allowed = bool(has_bid or has_contract)
+    if not allowed:
+        raise HTTPException(403, "Not authorized to access this footage")
+    return {"url": storage.sign_media_url(p["source_key"])}
+# ========================== END MEDIA / UPLOADS ==========================
+
+
+def _sign_versions(version: dict) -> dict:
+    """Replace a delivered version's stored key with a fresh signed playback URL."""
+    if version.get("key"):
+        version["url"] = storage.sign_media_url(version["key"])
+    return version
+
+
+def _sign_contract_media(contract: dict) -> dict:
+    for v in (contract.get("versions") or []):
+        _sign_versions(v)
+    return contract
+
+
 async def attach_clipper(items):
     ids = list({i["clipper_id"] for i in items})
     clippers = await db.clippers.find({"id": {"$in": ids}}, NO_ID).to_list(50)
@@ -437,6 +506,7 @@ async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_c
     pmap = {p["id"]: p for p in projects}
     for c in contracts:
         c["project"] = pmap.get(c["project_id"])
+        _sign_contract_media(c)
     return contracts
 
 @api_router.get("/contracts/{contract_id}")
@@ -444,6 +514,7 @@ async def get_contract(contract_id: str, user: dict = Depends(get_current_user))
     c = await _require_contract_party(contract_id, user)
     c = (await attach_clipper([c]))[0]
     c["project"] = await db.projects.find_one({"id": c["project_id"]}, NO_ID)
+    _sign_contract_media(c)
     return c
 
 @api_router.post("/contracts/{contract_id}/activate")
@@ -461,11 +532,13 @@ async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(g
     c = await _require_contract_party(contract_id, user, allow=("clipper",))
     version = {
         "num": len(c.get("versions", [])) + 1,
-        "url": body.url or "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "key": body.key,
+        "url": None if body.key else (body.url or "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"),
         "thumb": None, "note": body.note or "First cut submitted.", "submitted_at": now_iso(),
     }
     await db.contracts.update_one({"id": contract_id}, {"$push": {"versions": version}, "$set": {"status": "delivered"}})
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "delivered"}})
+    version = _sign_versions(version)
     return version
 
 @api_router.post("/contracts/{contract_id}/revision")
@@ -538,6 +611,7 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
     pmap = {p["id"]: p for p in projects}
     for c in contracts:
         c["project"] = pmap.get(c["project_id"])
+        _sign_contract_media(c)
     bids = await db.bids.find({}, NO_ID).to_list(300)
     clippers = await db.clippers.find({}, NO_ID).to_list(100)
     completed = [c for c in contracts if c["status"] == "completed"]
@@ -672,6 +746,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    storage.ensure_root()
     if os.environ.get("SEED_DEMO_DATA", "true").lower() != "false" and await db.clippers.count_documents({}) == 0:
         await seed_db(db)
         logger.info("Seeded demo data")

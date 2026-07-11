@@ -46,12 +46,12 @@ export default function Landing() {
       <section className="relative grain overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7">
-            <div className="badge-live mb-6"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE MARKETPLACE — 8 OPEN PROJECTS</div>
+            <div className="label-caps text-[#CCFF00] mb-6">The marketplace for 24-hour clips</div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter leading-none mb-6">
               Turn Your Best Moments Into <span className="text-[#CCFF00]">Finished Clips</span> in 24 Hours.
             </h1>
             <p className="text-lg text-zinc-400 max-w-xl mb-8 leading-relaxed">
-              Post your footage. Watch trusted clippers bid live. Choose your favorite and get your first cut before the moment gets old.
+              Post your footage, and vetted clippers compete to edit it. Pick the bid you like and get your first cut back within a day.
             </p>
             <div className="flex flex-wrap gap-4">
               <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-14 px-8 text-base">Post a Clip <ArrowRight className="w-4 h-4" /></Link>
@@ -66,8 +66,7 @@ export default function Landing() {
           <div className="lg:col-span-5">
             <div className="card-dark p-5" data-testid="live-marketplace-preview">
               <div className="flex items-center justify-between mb-4">
-                <span className="label-caps">Live bids arriving</span>
-                <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />LIVE</span>
+                <span className="label-caps">Clippers competing for a brief</span>
               </div>
               <div className="space-y-3 min-h-[240px]">
                 <AnimatePresence mode="popLayout">
@@ -85,8 +84,8 @@ export default function Landing() {
                 </AnimatePresence>
               </div>
               <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                <span className="text-xs text-zinc-500">Avg. first bid</span>
-                <span className="font-mono font-bold text-white">under 4 minutes</span>
+                <span className="text-xs text-zinc-500">First cut delivered</span>
+                <span className="font-mono font-bold text-white">within 24 hours</span>
               </div>
             </div>
           </div>

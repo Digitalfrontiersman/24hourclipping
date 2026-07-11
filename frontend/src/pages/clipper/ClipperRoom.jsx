@@ -22,12 +22,21 @@ export default function ClipperRoom() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPct(0);
-    await storageAdapter.upload(file, setPct);
-    await dbAdapter.deliver(contractId, { note: note || `First cut — ${file.name}` });
+    const res = await storageAdapter.upload(file, setPct, { kind: "delivery", contractId });
+    await dbAdapter.deliver(contractId, { note: note || `First cut — ${file.name}`, key: res.key });
     setPct(null);
     setNote("");
     notify.success("Delivery submitted", "The customer has been notified. Clock stopped.");
     load();
+  };
+
+  const downloadSource = async () => {
+    try {
+      const url = await storageAdapter.projectSourceUrl(c.project_id);
+      window.open(url, "_blank");
+    } catch {
+      notify.urgent("Source footage isn't available to download");
+    }
   };
 
   if (!c) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><div className="card-dark w-full max-w-4xl h-96 mx-4 animate-pulse" /></div>;
@@ -69,7 +78,10 @@ export default function ClipperRoom() {
               </div>
               <div className="flex items-center gap-3 bg-black/40 rounded-xl p-4 mt-4">
                 <FileVideo className="w-5 h-5 text-[#CCFF00]" />
-                <div><p className="text-sm font-bold">{p.source_link}</p><p className="text-xs text-zinc-500">Source footage · {p.source_length}</p></div>
+                <div className="flex-1"><p className="text-sm font-bold">{p.source_link}</p><p className="text-xs text-zinc-500">Source footage · {p.source_length}</p></div>
+                {p.source_key && (
+                  <button onClick={downloadSource} data-testid="download-source-btn" className="btn-ghost h-9 px-4 text-xs shrink-0">Download source</button>
+                )}
               </div>
             </div>
 

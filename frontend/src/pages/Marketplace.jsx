@@ -47,11 +47,11 @@ export default function Marketplace() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>
-            <span className="badge-live mb-3"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE JOB FEED</span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-3">Live Job Marketplace</h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter">Open projects</h1>
+            <p className="text-sm text-zinc-500 mt-2">Browse briefs from creators and place your bid.</p>
           </div>
           <div className="flex items-center gap-4">
-            <p className="text-sm text-zinc-500">{filtered.length} open projects receiving bids</p>
+            <p className="text-sm text-zinc-500">{filtered.length} open for bids</p>
             <div className="flex items-center gap-1 bg-[#1A1A1A] border border-white/10 rounded-full p-1" data-testid="view-toggle">
               <button data-testid="view-grid-btn" onClick={() => setViewMode("grid")} aria-label="Grid view"
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${view === "grid" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
