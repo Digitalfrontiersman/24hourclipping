@@ -1,0 +1,11 @@
+# Minimal, PyPI-installable dependencies to run the core API
+# (everything except the optional AI concierge endpoints).
+# The full pinned set — including the Emergent AI stack — lives in requirements.txt.
+fastapi==0.110.1
+uvicorn==0.25.0
+starlette==0.37.2
+motor==3.3.1
+pymongo==4.6.3
+pydantic==2.13.4
+python-dotenv==1.2.2
+python-multipart==0.0.32

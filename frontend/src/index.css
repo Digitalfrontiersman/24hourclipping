@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #0A0A0A;
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
+.font-display { font-family: 'Manrope', sans-serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+::selection { background: #CCFF00; color: #000; }
+
+@layer base {
+    :root {
+        --background: 0 0% 4%;
+        --foreground: 0 0% 98%;
+        --card: 0 0% 10%;
+        --card-foreground: 0 0% 98%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 72 100% 50%;
+        --primary-foreground: 0 0% 0%;
+        --secondary: 0 0% 14.9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 0 0% 14.9%;
+        --muted-foreground: 0 0% 63.9%;
+        --accent: 0 0% 14.9%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 16 100% 50%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 100% / 0.1;
+        --input: 0 0% 100% / 0.2;
+        --ring: 72 100% 50%;
+        --radius: 1rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+}
+
+@layer components {
+    .btn-lime { @apply bg-[#CCFF00] text-black font-display font-bold rounded-full hover:bg-[#B3E600] transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
+    .btn-white { @apply bg-white text-black font-display font-bold rounded-full hover:bg-zinc-200 transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
+    .btn-ghost { @apply border border-white/20 text-white font-display font-semibold rounded-full hover:border-white/50 hover:bg-white/5 transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
+    .btn-coral { @apply bg-[#FF4500] text-white font-display font-bold rounded-full hover:bg-[#E63E00] transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
+    .card-dark { @apply bg-[#1A1A1A] border border-white/10 rounded-2xl; }
+    .label-caps { @apply text-xs font-bold uppercase tracking-[0.2em] text-zinc-500; }
+    .input-dark { @apply bg-[#121212] border border-white/20 text-white rounded-xl h-12 px-4 w-full focus:border-[#CCFF00] focus:ring-1 focus:ring-[#CCFF00] focus:outline-none placeholder:text-zinc-600 transition-colors; }
+    .badge-live { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border border-[#CCFF00] text-[#CCFF00]; }
+    .badge-urgent { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border border-[#FF4500] text-[#FF4500]; }
+}
+
+.grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.heartbeat { animation: heartbeat 1s ease-in-out infinite; }
+
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.animate-marquee { animation: marquee 30s linear infinite; }
+
+[data-debug-wrapper="true"] { display: contents !important; }

@@ -1,0 +1,183 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { dbAdapter, bondFor } from "@/services/dbAdapter";
+import { storageAdapter } from "@/services/storageAdapter";
+import { notify } from "@/services/notificationAdapter";
+import { CATEGORIES } from "@/data/demoVideos";
+import { Sparkles, PenLine, Upload, Link2, ArrowRight, ArrowLeft, Check } from "lucide-react";
+
+const chip = (active) => `px-4 py-2 rounded-full text-sm font-bold transition-colors ${active ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`;
+
+export default function CreateProject() {
+  const nav = useNavigate();
+  const [step, setStep] = useState(0);
+  const [uploadPct, setUploadPct] = useState(null);
+  const [uploaded, setUploaded] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [f, setF] = useState({
+    title: "", category: "Stream Highlights", source_link: "", moment_mode: "known",
+    goal: "Grow my audience", audience: "", mood: "Hype", style: "Fast cuts, punch-ins",
+    platform: "TikTok", output_length: "30-60s", aspect_ratio: "9:16",
+    captions: "Bold captions", cta: "Follow for more", budget: 100, description: "",
+  });
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadPct(0);
+    const res = await storageAdapter.upload(file, setUploadPct);
+    setUploaded(res);
+    setUploadPct(null);
+    notify.success("Footage uploaded", file.name);
+  };
+
+  const submit = async () => {
+    if (!f.title) return notify.urgent("Give your project a title");
+    setSaving(true);
+    try {
+      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_link: f.source_link || uploaded?.name || "Uploaded footage" });
+      nav(`/customer/checkout/${p.id}`);
+    } catch {
+      notify.urgent("Could not create project");
+      setSaving(false);
+    }
+  };
+
+  if (step === 0)
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center px-4">
+        <div className="max-w-3xl w-full">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-2 text-center">How do you want to start?</h1>
+          <p className="text-zinc-500 text-center mb-10">Two paths. Same 24-hour result.</p>
+          <div className="grid sm:grid-cols-2 gap-6">
+            <Link to="/customer/concierge" data-testid="create-ai-path" className="card-dark p-8 hover:border-[#CCFF00]/50 transition-colors group">
+              <Sparkles className="w-8 h-8 text-[#CCFF00] mb-4" />
+              <h2 className="font-display font-bold text-xl mb-2">Talk It Out With AI</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-4">Have a quick conversation. Our concierge turns it into a complete project brief.</p>
+              <span className="text-[#CCFF00] text-sm font-bold flex items-center gap-1">Start talking <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+            </Link>
+            <button data-testid="create-manual-path" onClick={() => setStep(1)} className="card-dark p-8 hover:border-white/40 transition-colors text-left group">
+              <PenLine className="w-8 h-8 text-white mb-4" />
+              <h2 className="font-display font-bold text-xl mb-2">Build It Manually</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-4">A short, visual form. Three quick steps, no dense fields.</p>
+              <span className="text-white text-sm font-bold flex items-center gap-1">Open the builder <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+        <div className="flex items-center gap-3 mb-8">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? "bg-[#CCFF00]" : "bg-white/10"}`} />
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The footage</h1>
+            <div>
+              <label className="label-caps block mb-2">Project title</label>
+              <input data-testid="project-title-input" className="input-dark" placeholder="e.g. Ranked Finals Clutch Moment" value={f.title} onChange={(e) => set("title", e.target.value)} />
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Category</label>
+              <div className="flex flex-wrap gap-2">{CATEGORIES.map((c) => <button key={c} data-testid={`cat-${c.toLowerCase().replace(/\s/g, "-")}`} className={chip(f.category === c)} onClick={() => set("category", c)}>{c}</button>)}</div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="card-dark p-6 text-center cursor-pointer hover:border-[#CCFF00]/40 transition-colors block" data-testid="upload-footage-label">
+                <input type="file" className="hidden" onChange={handleFile} data-testid="upload-footage-input" />
+                <Upload className="w-6 h-6 mx-auto mb-2 text-[#CCFF00]" />
+                <span className="text-sm font-bold">{uploaded ? uploaded.name : "Upload footage"}</span>
+                {uploadPct !== null && (
+                  <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-[#CCFF00] transition-[width]" style={{ width: `${uploadPct}%` }} /></div>
+                )}
+                {uploaded && <Check className="w-4 h-4 text-[#CCFF00] mx-auto mt-2" />}
+              </label>
+              <div className="card-dark p-6">
+                <div className="flex items-center gap-2 mb-2 text-sm font-bold"><Link2 className="w-4 h-4 text-[#CCFF00]" /> Or paste a link</div>
+                <input data-testid="source-link-input" className="input-dark h-10 text-sm" placeholder="Twitch, YouTube, Drive, Dropbox…" value={f.source_link} onChange={(e) => set("source_link", e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">The moment</label>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <button data-testid="moment-known" onClick={() => set("moment_mode", "known")} className={`card-dark p-4 text-left text-sm font-bold ${f.moment_mode === "known" ? "border-[#CCFF00]" : ""}`}>I Know the Moment<span className="block text-xs text-zinc-500 font-normal mt-1">I'll give timestamps</span></button>
+                <button data-testid="moment-find" onClick={() => set("moment_mode", "find")} className={`card-dark p-4 text-left text-sm font-bold ${f.moment_mode === "find" ? "border-[#CCFF00]" : ""}`}>Find the Best Moment for Me<span className="block text-xs text-zinc-500 font-normal mt-1">Clipper scouts the footage</span></button>
+              </div>
+            </div>
+            <button data-testid="step1-next" className="btn-lime h-12 w-full" onClick={() => setStep(2)}>Continue <ArrowRight className="w-4 h-4" /></button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The vibe</h1>
+            <div>
+              <label className="label-caps block mb-2">Goal</label>
+              <div className="flex flex-wrap gap-2">{["Grow my audience", "Drive sales", "Build authority", "Go viral"].map((g) => <button key={g} className={chip(f.goal === g)} onClick={() => set("goal", g)}>{g}</button>)}</div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Target audience</label>
+              <input data-testid="audience-input" className="input-dark" placeholder="e.g. 18-34 gamers who love ranked play" value={f.audience} onChange={(e) => set("audience", e.target.value)} />
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Mood</label>
+              <div className="flex flex-wrap gap-2">{["Hype", "Insightful", "Premium", "Authentic", "Comedic"].map((m) => <button key={m} className={chip(f.mood === m)} onClick={() => set("mood", m)}>{m}</button>)}</div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Platform</label>
+              <div className="flex flex-wrap gap-2">{["TikTok", "Instagram Reels", "YouTube Shorts", "X / Twitter"].map((p) => <button key={p} className={chip(f.platform === p)} onClick={() => set("platform", p)}>{p}</button>)}</div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label-caps block mb-2">Output length</label>
+                <div className="flex flex-wrap gap-2">{["15-30s", "30-60s", "60-90s"].map((o) => <button key={o} className={chip(f.output_length === o)} onClick={() => set("output_length", o)}>{o}</button>)}</div>
+              </div>
+              <div>
+                <label className="label-caps block mb-2">Aspect ratio</label>
+                <div className="flex flex-wrap gap-2">{["9:16", "1:1", "4:5", "16:9"].map((a) => <button key={a} data-testid={`ar-${a.replace(":", "-")}`} className={chip(f.aspect_ratio === a)} onClick={() => set("aspect_ratio", a)}>{a}</button>)}</div>
+              </div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Captions</label>
+              <div className="flex flex-wrap gap-2">{["Bold captions", "Clean subtitles", "Karaoke style", "No captions"].map((c) => <button key={c} className={chip(f.captions === c)} onClick={() => set("captions", c)}>{c}</button>)}</div>
+            </div>
+            <div className="flex gap-3">
+              <button className="btn-ghost h-12 px-6" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4" /> Back</button>
+              <button data-testid="step2-next" className="btn-lime h-12 flex-1" onClick={() => setStep(3)}>Continue <ArrowRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">Budget & final touches</h1>
+            <div className="card-dark p-6">
+              <label className="label-caps block mb-4">Budget — <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
+              <input data-testid="budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />
+              <div className="flex justify-between text-xs text-zinc-600 mt-2 font-mono"><span>$20</span><span>$500</span></div>
+              <div className="mt-4 text-xs text-zinc-400 bg-black/40 rounded-xl p-3">Clipper's Deadline Bond at this budget: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(f.budget))}</span> — locked behind your deadline.</div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Call to action</label>
+              <input data-testid="cta-input" className="input-dark" value={f.cta} onChange={(e) => set("cta", e.target.value)} />
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Anything else? (references, brand notes)</label>
+              <textarea data-testid="description-input" className="input-dark h-24 py-3" placeholder="Reference clips, brand assets, styles to avoid…" value={f.description} onChange={(e) => set("description", e.target.value)} />
+            </div>
+            <div className="flex gap-3">
+              <button className="btn-ghost h-12 px-6" onClick={() => setStep(2)}><ArrowLeft className="w-4 h-4" /> Back</button>
+              <button data-testid="create-project-submit" className="btn-lime h-12 flex-1" disabled={saving} onClick={submit}>{saving ? "Creating…" : "Review brief & fund"} <ArrowRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
