@@ -38,6 +38,9 @@ services:
       MEDIA_ROOT: /data/media
       UPLOAD_MAX_MB: "${UPLOAD_MAX_MB:-1024}"
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      ZIINA_API_KEY: "${ZIINA_API_KEY:-}"
+      ZIINA_TEST: "${ZIINA_TEST:-true}"
+      ZIINA_CURRENCY: "${ZIINA_CURRENCY:-AED}"
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://clip42.duckdns.org}"
     volumes:
       - media_data:/data/media

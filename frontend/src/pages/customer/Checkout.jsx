@@ -19,17 +19,18 @@ export default function Checkout() {
       if (proj.funded) setFunded(true);
     }).catch(() => {});
 
-    // Returning from Stripe Checkout: confirm the payment, then mark funded.
+    // Returning from the hosted checkout (Stripe or Ziina): confirm, then fund.
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
-    if (sessionId) {
+    const returned = sessionId || params.get("paid");
+    if (returned) {
       setPaying(true);
       dbAdapter.confirmCardCheckout(projectId, sessionId)
         .then(() => { setFunded(true); notify.success("Payment received", "Your project is now live in the marketplace"); })
         .catch(() => notify.urgent("We couldn't confirm that payment"))
         .finally(() => { setPaying(false); window.history.replaceState({}, "", `/customer/checkout/${projectId}`); });
-    } else if (params.get("canceled")) {
-      notify.urgent("Payment canceled");
+    } else if (params.get("canceled") || params.get("failed")) {
+      notify.urgent("Payment was not completed");
       window.history.replaceState({}, "", `/customer/checkout/${projectId}`);
     }
   }, [projectId]);
