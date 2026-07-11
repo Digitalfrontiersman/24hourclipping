@@ -671,8 +671,10 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
     bids = await db.bids.find({}, NO_ID).to_list(300)
     clippers = await db.clippers.find({}, NO_ID).to_list(100)
     completed = [c for c in contracts if c["status"] == "completed"]
+    total_users = await db.users.count_documents({})
     return {
         "stats": {
+            "total_users": total_users,
             "total_projects": len(projects),
             "open_projects": len([p for p in projects if p["status"] == "open"]),
             "live_contracts": len([c for c in contracts if c["status"] == "live"]),
@@ -684,6 +686,39 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
         },
         "projects": projects, "contracts": contracts, "bids": bids, "clippers": clippers,
     }
+
+
+@api_router.get("/admin/users")
+async def admin_users(admin: dict = Depends(require_role("admin")),
+                      q: Optional[str] = None, role: Optional[str] = None):
+    query = {}
+    if role:
+        query["role"] = role
+    if q:
+        query["$or"] = [{"email": {"$regex": q, "$options": "i"}},
+                        {"name": {"$regex": q, "$options": "i"}}]
+    return await db.users.find(query, {"_id": 0, "hashed_password": 0}).sort("created_at", -1).to_list(1000)
+
+
+@api_router.post("/admin/users/{user_id}/suspend")
+async def admin_suspend_user(user_id: str, admin: dict = Depends(require_role("admin"))):
+    target = await db.users.find_one({"id": user_id}, NO_ID)
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target["id"] == admin["id"]:
+        raise HTTPException(400, "You cannot suspend yourself")
+    if target.get("role") == "admin":
+        raise HTTPException(400, "Admin accounts cannot be suspended")
+    await db.users.update_one({"id": user_id}, {"$set": {"disabled": True}})
+    return {"ok": True}
+
+
+@api_router.post("/admin/users/{user_id}/restore")
+async def admin_restore_user(user_id: str, admin: dict = Depends(require_role("admin"))):
+    r = await db.users.update_one({"id": user_id}, {"$set": {"disabled": False}})
+    if not r.matched_count:
+        raise HTTPException(404, "User not found")
+    return {"ok": True}
 
 # ---------- AI Concierge ----------
 CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for Clip24, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.

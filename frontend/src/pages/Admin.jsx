@@ -6,12 +6,30 @@ import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LifeBuoy, UserCheck, Ban, RotateCcw, AlertTriangle, RefreshCw } from "lucide-react";
 
+const ROLE_COLORS = {
+  customer: "bg-[#CCFF00]/15 text-[#CCFF00]",
+  clipper: "bg-sky-400/15 text-sky-300",
+  admin: "bg-[#FF4500]/15 text-[#FF4500]",
+};
+
 export default function Admin() {
   const [data, setData] = useState(null);
+  const [users, setUsers] = useState([]);
   const [suspended, setSuspended] = useState([]);
 
-  const load = () => dbAdapter.adminOverview().then(setData).catch(() => {});
+  const loadUsers = () => dbAdapter.adminUsers().then(setUsers).catch(() => {});
+  const load = () => {
+    dbAdapter.adminOverview().then(setData).catch(() => {});
+    loadUsers();
+  };
   useEffect(() => { load(); }, []);
+
+  const userAction = (u) => {
+    const fn = u.disabled ? dbAdapter.restoreUser : dbAdapter.suspendUser;
+    fn(u.id)
+      .then(() => { notify[u.disabled ? "success" : "urgent"](u.disabled ? `${u.name} restored` : `${u.name} suspended`); loadUsers(); })
+      .catch((e) => notify.urgent(e.response?.data?.detail || "Action failed"));
+  };
 
   if (!data) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><div className="card-dark w-full max-w-5xl h-96 mx-4 animate-pulse" /></div>;
   const { stats, contracts, projects, bids, clippers } = data;
@@ -40,7 +58,7 @@ export default function Admin() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
-          {[["Projects", stats.total_projects], ["Open", stats.open_projects], ["Live", stats.live_contracts, "text-[#CCFF00]"], ["Rescue", stats.rescue_mode, "text-[#FF4500]"], ["Bids", stats.total_bids], ["Clippers", stats.clippers], ["Fees", `$${stats.fees_earned}`, "text-[#CCFF00]"], ["Bonds locked", `$${stats.bonds_locked}`]].map(([l, v, cls]) => (
+          {[["Users", stats.total_users, "text-[#CCFF00]"], ["Projects", stats.total_projects], ["Open", stats.open_projects], ["Live", stats.live_contracts, "text-[#CCFF00]"], ["Rescue", stats.rescue_mode, "text-[#FF4500]"], ["Bids", stats.total_bids], ["Fees", `$${stats.fees_earned}`, "text-[#CCFF00]"], ["Bonds locked", `$${stats.bonds_locked}`]].map(([l, v, cls]) => (
             <div key={l} className="card-dark p-4">
               <div className={`font-mono text-xl font-extrabold ${cls || ""}`}>{v}</div>
               <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{l}</div>
@@ -60,12 +78,34 @@ export default function Admin() {
           </div>
         )}
 
-        <Tabs defaultValue="contracts">
+        <Tabs defaultValue="users">
           <TabsList className="bg-[#1A1A1A] border border-white/10 mb-6 flex-wrap h-auto">
-            {["contracts", "projects", "bids", "clippers", "flags"].map((t) => (
+            {["users", "contracts", "projects", "bids", "clippers", "flags"].map((t) => (
               <TabsTrigger key={t} value={t} data-testid={`admin-tab-${t}`} className="data-[state=active]:bg-[#CCFF00] data-[state=active]:text-black capitalize">{t}</TabsTrigger>
             ))}
           </TabsList>
+
+          <TabsContent value="users">
+            <div className="space-y-2" data-testid="admin-users-list">
+              {users.length === 0 && <p className="text-sm text-zinc-500 py-6 text-center">No users yet.</p>}
+              {users.map((u) => (
+                <div key={u.id} className="card-dark p-4 flex items-center gap-4 flex-wrap" data-testid={`admin-user-${u.id}`}>
+                  <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold uppercase shrink-0">{(u.name || u.email || "?").slice(0, 2)}</div>
+                  <div className="flex-1 min-w-48">
+                    <p className="font-bold text-sm">{u.name} {u.disabled && <span className="text-[#FF4500] text-xs">(SUSPENDED)</span>}</p>
+                    <p className="text-xs text-zinc-500">{u.email} · joined {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"} · via {u.auth_provider || "local"}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-white/10 text-zinc-300"}`}>{u.role}</span>
+                  {u.role !== "admin" && (
+                    <button data-testid={`admin-user-toggle-${u.id}`} className={`h-9 px-4 text-xs font-bold rounded-full transition-colors ${u.disabled ? "bg-[#CCFF00] text-black" : "border border-[#FF4500]/40 text-[#FF4500] hover:bg-[#FF4500]/10"}`}
+                      onClick={() => userAction(u)}>
+                      {u.disabled ? <><RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore</> : <><Ban className="w-3.5 h-3.5 inline mr-1" />Suspend</>}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </TabsContent>
 
           <TabsContent value="contracts">
             <div className="space-y-3">

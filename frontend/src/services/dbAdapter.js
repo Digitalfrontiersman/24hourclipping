@@ -27,6 +27,9 @@ export const dbAdapter = {
   getBrandProfiles: () => api.get("/brand-profiles").then((r) => r.data),
   updateBrandProfile: (id, data) => api.put(`/brand-profiles/${id}`, data).then((r) => r.data),
   adminOverview: () => api.get("/admin/overview").then((r) => r.data),
+  adminUsers: (params) => api.get("/admin/users", { params }).then((r) => r.data),
+  suspendUser: (id) => api.post(`/admin/users/${id}/suspend`).then((r) => r.data),
+  restoreUser: (id) => api.post(`/admin/users/${id}/restore`).then((r) => r.data),
   resetDemo: () => api.post("/demo/reset").then((r) => r.data),
 };
 
