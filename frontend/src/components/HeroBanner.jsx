@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Play, Scissors } from "lucide-react";
 
-const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/aee39c4d-e5ff-44fc-90ef-b2c8fe3365c1/images/0709a19652f1f86584a5d93b2fd9733a8882038631038cfaffe379a115a5f08e.png";
+const HERO_IMG = "/hero_streamer_a.png";
 
 const CAPTIONS = [
   ["THIS PLAY", "WAS INSANE!"],
@@ -44,6 +44,7 @@ export default function HeroBanner() {
   }, []);
 
   const onMove = useCallback((e) => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) return;
     const el = cardRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -96,7 +97,7 @@ export default function HeroBanner() {
 
         {/* RIGHT — interactive video card */}
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="relative flex justify-center" style={{ perspective: "1200px" }}>
+          className="relative flex flex-col items-center" style={{ perspective: "1200px" }}>
 
           {/* orbit ring + moving dot */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[115%] aspect-square pointer-events-none hidden sm:block" aria-hidden="true">
@@ -112,7 +113,7 @@ export default function HeroBanner() {
             onMouseMove={onMove}
             onMouseLeave={onLeave}
             data-testid="hero-video-card"
-            className="relative w-full max-w-[400px] rounded-3xl overflow-hidden border border-white/10 bg-[#121212] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] transition-transform duration-150 will-change-transform"
+            className="relative w-full max-w-[320px] sm:max-w-[380px] lg:max-w-[400px] rounded-3xl overflow-hidden border border-white/10 bg-[#121212] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] transition-transform duration-150 will-change-transform"
             style={{ transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`, transformStyle: "preserve-3d" }}
           >
             {/* video area */}
@@ -120,43 +121,43 @@ export default function HeroBanner() {
               <img src={HERO_IMG} alt="Streamer reacting on camera" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/30" />
               {/* cursor glare */}
-              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(500px circle at ${tilt.gx}% ${tilt.gy}%, rgba(204,255,0,0.12), transparent 55%)` }} />
+              <div className="absolute inset-0 pointer-events-none hidden sm:block" style={{ background: `radial-gradient(500px circle at ${tilt.gx}% ${tilt.gy}%, rgba(204,255,0,0.12), transparent 55%)` }} />
 
               {/* countdown badge */}
-              <div className="absolute top-4 right-4 rounded-2xl bg-black/70 backdrop-blur-md border border-white/15 px-4 py-3" style={{ transform: "translateZ(50px)" }} data-testid="hero-countdown-badge">
-                <div className="flex items-center gap-2 text-[11px] text-zinc-300 mb-1">
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xl sm:rounded-2xl bg-black/70 backdrop-blur-md border border-white/15 px-2.5 py-2 sm:px-4 sm:py-3" style={{ transform: "translateZ(50px)" }} data-testid="hero-countdown-badge">
+                <div className="flex items-center gap-1.5 sm:gap-2 text-[9px] sm:text-[11px] text-zinc-300 mb-0.5 sm:mb-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> First cut due in
                 </div>
-                <div className="font-mono font-extrabold text-2xl tracking-tight leading-none">
+                <div className="font-mono font-extrabold text-lg sm:text-2xl tracking-tight leading-none">
                   {hh}<span className="colon-blink text-[#CCFF00]">:</span>{mm}<span className="colon-blink text-[#CCFF00]">:</span><span className="text-[#CCFF00]">{ss}</span>
                 </div>
               </div>
 
-              {/* clipping-in-progress chip */}
-              <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-md border border-[#FF4500]/60 text-[#FF4500] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ transform: "translateZ(40px)" }}>
+              {/* clipping-in-progress chip (desktop only) */}
+              <div className="absolute top-4 left-4 hidden sm:inline-flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-md border border-[#FF4500]/60 text-[#FF4500] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ transform: "translateZ(40px)" }}>
                 <Scissors className="w-3 h-3 clip-snip" /> Clipping
               </div>
 
               {/* live bid toast */}
-              <div className="absolute left-4 bottom-[38%] right-4 pointer-events-none" style={{ transform: "translateZ(60px)" }}>
+              <div className="absolute left-3 sm:left-4 bottom-[40%] sm:bottom-[38%] right-3 sm:right-4 pointer-events-none" style={{ transform: "translateZ(60px)" }}>
                 <AnimatePresence mode="wait">
                   {toastIdx >= 0 && (
                     <motion.div key={toastIdx} initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                      className="inline-flex items-center gap-2 rounded-full bg-black/75 backdrop-blur-md border border-[#CCFF00]/40 pl-1 pr-3 py-1" data-testid="hero-bid-toast">
-                      <img src={BID_TOASTS[toastIdx].avatar} alt="" className="w-6 h-6 rounded-full border border-[#CCFF00]" />
-                      <span className="text-xs font-bold">{BID_TOASTS[toastIdx].name}</span>
-                      <span className="text-xs text-zinc-400">bid</span>
-                      <span className="font-mono font-extrabold text-sm text-[#CCFF00]">${BID_TOASTS[toastIdx].amount}</span>
+                      className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-black/75 backdrop-blur-md border border-[#CCFF00]/40 pl-1 pr-2.5 sm:pr-3 py-1" data-testid="hero-bid-toast">
+                      <img src={BID_TOASTS[toastIdx].avatar} alt="" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-[#CCFF00]" />
+                      <span className="text-[11px] sm:text-xs font-bold">{BID_TOASTS[toastIdx].name}</span>
+                      <span className="text-[11px] sm:text-xs text-zinc-400">bid</span>
+                      <span className="font-mono font-extrabold text-xs sm:text-sm text-[#CCFF00]">${BID_TOASTS[toastIdx].amount}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
               {/* cycling caption */}
-              <div className="absolute bottom-[22%] left-0 right-0 text-center px-6" style={{ transform: "translateZ(70px)" }} data-testid="hero-viral-caption">
+              <div className="absolute bottom-[20%] sm:bottom-[22%] left-0 right-0 text-center px-4 sm:px-6" style={{ transform: "translateZ(70px)" }} data-testid="hero-viral-caption">
                 <AnimatePresence mode="wait">
                   <motion.div key={capIdx} initial={{ y: 18, opacity: 0, scale: 0.92 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.35 }}
-                    className="font-display font-extrabold text-2xl sm:text-[28px] leading-tight uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                    className="font-display font-extrabold text-xl sm:text-[28px] leading-tight uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
                     <span className="text-white">{CAPTIONS[capIdx][0]}</span><br />
                     <span className="text-[#CCFF00]">{CAPTIONS[capIdx][1]}</span>
                   </motion.div>
@@ -164,24 +165,33 @@ export default function HeroBanner() {
               </div>
 
               {/* scrubber */}
-              <div className="absolute bottom-[13%] left-5 right-5 flex items-center gap-3" style={{ transform: "translateZ(45px)" }}>
-                <span className="w-8 h-8 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0"><Play className="w-3.5 h-3.5" fill="white" /></span>
+              <div className="absolute bottom-4 sm:bottom-5 left-4 sm:left-5 right-4 sm:right-5 flex items-center gap-2 sm:gap-3" style={{ transform: "translateZ(45px)" }}>
+                <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0"><Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="white" /></span>
                 <div className="flex-1 h-1 rounded-full bg-white/20 overflow-hidden">
                   <div className="h-full bg-[#CCFF00] rounded-full transition-[width] duration-100" style={{ width: `${progress}%` }} />
                 </div>
-                <span className="font-mono text-[10px] text-zinc-300 shrink-0">00:{pad(clipSec)} / 00:45</span>
+                <span className="font-mono text-[9px] sm:text-[10px] text-zinc-300 shrink-0">00:{pad(clipSec)} / 00:45</span>
               </div>
+            </div>
+          </div>
 
-              {/* before / after strip */}
-              <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-2" style={{ transform: "translateZ(35px)" }} data-testid="hero-before-after">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Before</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-9 rounded-md overflow-hidden border border-white/20 grayscale opacity-70"><img src={HERO_IMG} alt="" className="w-full h-full object-cover object-top" /></div>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#CCFF00]" />
-                  <div className="w-16 h-9 rounded-md overflow-hidden border border-[#CCFF00]/60 shadow-[0_0_14px_rgba(204,255,0,0.25)]"><img src={HERO_IMG} alt="" className="w-full h-full object-cover object-top" /></div>
-                </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-[#CCFF00]">After</span>
+          {/* before / after row — sits below the card on all breakpoints */}
+          <div className="mt-5 sm:mt-6 w-full max-w-[320px] sm:max-w-[380px] lg:max-w-[400px] flex items-center justify-between gap-3 rounded-2xl bg-white/[0.03] border border-white/10 px-4 py-3" data-testid="hero-before-after">
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Before</span>
+              <span className="text-[11px] sm:text-xs text-zinc-400">45 min VOD</span>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-14 h-9 sm:w-16 sm:h-10 rounded-md overflow-hidden border border-white/20 grayscale opacity-70"><img src={HERO_IMG} alt="" className="w-full h-full object-cover object-top" /></div>
+              <ArrowRight className="w-4 h-4 text-[#CCFF00]" />
+              <div className="w-14 h-9 sm:w-16 sm:h-10 rounded-md overflow-hidden border border-[#CCFF00]/60 shadow-[0_0_14px_rgba(204,255,0,0.25)] relative">
+                <img src={HERO_IMG} alt="" className="w-full h-full object-cover object-top scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#CCFF00]/20 to-transparent" />
               </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#CCFF00]">After</span>
+              <span className="text-[11px] sm:text-xs text-white font-bold">0:45 clip</span>
             </div>
           </div>
         </motion.div>

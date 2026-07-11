@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only regression test of the updated HeroBanner on Landing page ('/'). All 9 requested checks pass at both desktop (1920x900) and mobile (390x844) viewports. New local streamer image /hero_streamer_a.png loads (HTTP 200), no old emergentagent.com URL is used. Countdown ticks every second, captions rotate every ~3s, bid toast rotates through 4 bidders. Mobile card is properly contained at 320px width, Clipping chip is display:none via 'hidden sm:inline-flex', before/after strip is BELOW the card at both breakpoints, no horizontal overflow (scrollWidth=390 vs innerWidth=390). CTA buttons navigate correctly to /customer/create and /marketplace. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "HeroBanner.jsx uses many setInterval timers (4 running concurrently). Consider using a single rAF loop or reduce update frequency of progress (currently every 90ms) to avoid unnecessary re-renders on mobile.",
+    "The before/after row reuses HERO_IMG twice (as both Before and After thumbs) — this is fine for a demo but visually confusing since Before/After look identical except for the lime overlay. Consider a distinct thumbnail for Before (e.g., grayscale VOD-style screenshot).",
+    "matchMedia hover:none check inside onMove disables tilt on touch devices correctly, but the cursor glare div still evaluates gx/gy state on desktop only (has hidden sm:block) — good. No fix needed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "HeroBanner updated in commit under review is fully working. Local image /hero_streamer_a.png (626KB) serves correctly. Note: first-pass mobile bid-toast visibility check can false-negative because AnimatePresence mode='wait' briefly unmounts the element during transitions — poll over ~3s or use locator.wait_for to avoid flakiness. Similarly, when checking mobile 'Clipping chip hidden', use a scoped DOM query for the actual chip element (class contains 'hidden sm:inline-flex') rather than page.locator('text=Clipping') because 'Clipping' appears in the eyebrow copy and marketplace text.",
+  "rca of the issue": "N/A — no bugs found. Original two user-reported issues (poor AI image + cluttered mobile) are resolved: (1) new locally-hosted /hero_streamer_a.png loads with HTTP 200 and replaces the previous emergentagent-hosted image; (2) mobile layout is clean — card 320px wide, Clipping chip hidden below sm breakpoint, before/after row moved out of card into its own row below, no horizontal overflow."
+}
