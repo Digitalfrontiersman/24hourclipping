@@ -1,0 +1,45 @@
+# One-command full stack: MongoDB + FastAPI backend + React frontend.
+#   docker compose up --build
+# Frontend: http://localhost:3000   Backend API: http://localhost:8001/api
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: clipping
+      CORS_ORIGINS: "*"
+      EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
+    ports:
+      - "8001:8001"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:8001
+      WDS_SOCKET_PORT: "0"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:

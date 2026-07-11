@@ -348,7 +348,12 @@ async def get_history(session_id):
 
 @api_router.post("/ai/chat")
 async def ai_chat(body: ChatRequest):
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+    except ImportError:
+        raise HTTPException(503, "AI features are not configured (emergentintegrations not installed).")
+    if not os.environ.get("EMERGENT_LLM_KEY"):
+        raise HTTPException(503, "AI features require EMERGENT_LLM_KEY to be set in backend/.env.")
     history = await get_history(body.session_id)
     context = "\n".join(f"{m['sender']}: {m['text']}" for m in history[-12:])
     prompt = (f"Conversation so far:\n{context}\n\nCustomer: {body.message}" if context else body.message)
@@ -384,7 +389,12 @@ async def ai_history(session_id: str):
 
 @api_router.post("/ai/brief")
 async def ai_brief(body: BriefRequest):
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+    except ImportError:
+        raise HTTPException(503, "AI features are not configured (emergentintegrations not installed).")
+    if not os.environ.get("EMERGENT_LLM_KEY"):
+        raise HTTPException(503, "AI features require EMERGENT_LLM_KEY to be set in backend/.env.")
     history = await get_history(body.session_id)
     if not history:
         raise HTTPException(400, "No conversation found")

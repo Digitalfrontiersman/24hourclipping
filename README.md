@@ -1,44 +1,104 @@
 # 24 HOUR CLIPPING
 
-Turn your best moments into finished clips in 24 hours. A real-time video-clipping marketplace MVP — complete clickable frontend with a light demo backend.
+Turn your best moments into finished clips in 24 hours. A real-time video-clipping
+marketplace — full-stack monorepo with a **FastAPI + MongoDB** backend and a
+**React** frontend.
 
-## How to Run
-Services are supervisor-managed in this environment:
-- Backend (FastAPI): `sudo supervisorctl restart backend` — runs on :8001, all routes under `/api`
-- Frontend (React): `sudo supervisorctl restart frontend` — runs on :3000
-- Local dev elsewhere: `cd backend && pip install -r requirements.txt && uvicorn server:app --port 8001` and `cd frontend && yarn && yarn start`
-- Env: `backend/.env` (MONGO_URL, DB_NAME, EMERGENT_LLM_KEY), `frontend/.env` (REACT_APP_BACKEND_URL)
+## Monorepo layout
 
-## Demo Accounts & Roles
+```
+.
+├── backend/           FastAPI app (REST API under /api), MongoDB via Motor
+│   ├── server.py      All API routes
+│   ├── seed.py        Demo data (auto-seeded on first startup)
+│   ├── requirements-core.txt   Minimal PyPI deps to run the core API
+│   ├── requirements.txt        Full pinned set (incl. optional AI stack)
+│   └── Dockerfile
+├── frontend/          React 19 + CRACO + Tailwind + Radix UI
+│   ├── src/           Pages, components, service adapters
+│   └── Dockerfile
+├── docker-compose.yml One command for Mongo + backend + frontend
+├── package.json       Root dev scripts (concurrently)
+└── Makefile           Convenience targets
+```
+
+## Quick start
+
+### Option A — Docker (recommended, nothing to install)
+
+```bash
+docker compose up --build
+```
+
+- Frontend → http://localhost:3000
+- Backend API → http://localhost:8001/api
+- MongoDB → localhost:27017 (auto-seeded with demo data on first run)
+
+To enable the AI concierge, export `EMERGENT_LLM_KEY=...` before running.
+
+### Option B — Local dev
+
+Prereqs: Python 3.11+, Node 20+, Yarn, and a local MongoDB on `:27017`.
+
+```bash
+# 1. env files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# 2. install deps
+npm run setup            # pip + yarn (or: make setup)
+
+# 3. run both with hot reload
+npm install              # root: installs concurrently
+npm run dev              # backend :8001 + frontend :3000  (or: make dev)
+```
+
+Run them separately if you prefer:
+
+```bash
+cd backend && uvicorn server:app --reload --port 8001
+cd frontend && yarn start
+```
+
+## Environment variables
+
+| File            | Var                     | Purpose                                     |
+|-----------------|-------------------------|---------------------------------------------|
+| `backend/.env`  | `MONGO_URL`             | Mongo connection string                     |
+| `backend/.env`  | `DB_NAME`               | Database name                               |
+| `backend/.env`  | `CORS_ORIGINS`          | Allowed origins (`*` for all)               |
+| `backend/.env`  | `EMERGENT_LLM_KEY`      | Optional — enables `/api/ai/*` concierge    |
+| `frontend/.env` | `REACT_APP_BACKEND_URL` | Backend base URL (app calls `${URL}/api`)   |
+
+Templates live in `*/.env.example`. The AI endpoints degrade gracefully
+(HTTP 503) when the key/package is absent — the rest of the app works fully.
+
+## API surface
+
+All routes are under `/api`. Core resources: `clippers`, `projects`, `bids`,
+`contracts` (activate / deliver / revision / approve / rescue / relaunch),
+`messages`, `brand-profiles`, `admin/overview`, and optional `ai/*`.
+Health check: `GET /api/` returns a status payload.
+
+## Demo accounts & roles
+
 No login required — use the **role switcher** in the navbar:
 - **Customer** (Aria Chen) — post projects, fund, accept bids, review deliveries
-- **Clipper** (Maya Torres) — bid on jobs, deliver cuts. Onboarding invite code: `CLIP24`
-- **Admin** — console at `/admin`, can trigger Rescue Mode and reset demo data
+- **Clipper** (Maya Torres) — bid on jobs, deliver cuts. Invite code: `CLIP24`
+- **Admin** — console at `/admin`; trigger Rescue Mode, reset demo data
 
-## Route Map
-See `replit.md` for the full table. Key journeys:
-- Customer: `/customer/create` → concierge or manual → `/customer/checkout/:id` → `/customer/bids/:id` (live bid room) → CONTRACT LIVE → `/customer/clip-room/:id` → `/customer/review/:id`
-- Clipper: `/clipper/onboarding` → `/clipper` → `/clipper/job/:id` (bid) → `/clipper/room/:id` (deliver)
-- Admin: `/admin` (contracts, rescues, flags, suspend/restore)
+## Key journeys
 
-## Mock Services
-All in `frontend/src/services/` — auth, db, ai, payment, solana, storage, notification, realtime adapters. Swap internals without touching components. Details in `replit.md`.
+- **Customer:** `/customer/create` → checkout → `/customer/bids/:id` (live bid room)
+  → contract live → `/customer/clip-room/:id` → `/customer/review/:id`
+- **Clipper:** `/clipper/onboarding` → `/clipper` → `/clipper/job/:id` (bid)
+  → `/clipper/room/:id` (deliver)
+- **Admin:** `/admin`
 
-## Replacing Demo Videos
-Edit `frontend/src/data/demoVideos.js` — four named slots (streamer-highlight, podcast-insight, founder-clip, product-ad). Seeded marketplace/portfolio media lives in `backend/seed.py` (IMG/VIDS constants). Reset demo data from Admin → "Reset demo data".
+See `replit.md` for the full route table and service-adapter details.
 
-## Future Backend Connection Points
-- Auth: replace `authAdapter` (JWT/OAuth) and gate routes
-- Database: `backend/server.py` endpoints are the contract; swap Mongo demo collections for production models
-- Payments: `paymentAdapter.fund()` → Stripe / Solana Pay; escrow + 8% fee logic already modeled
-- Solana: `solanaAdapter` → real wallet adapter + on-chain bond escrow
-- Storage: `storageAdapter.upload()` → S3/GCS presigned uploads
-- Realtime: `realtimeAdapter` → WebSocket bid feed
-- AI: backend `/api/ai/*` already uses a real LLM (Emergent key); swap key/provider in `backend/.env`
+## Tests
 
-## Connect to GitHub
-Use the "Save to GitHub" feature in Emergent (top-right menu) to push this workspace to a repo, or locally:
-```
-git init && git add -A && git commit -m "24 Hour Clipping MVP"
-git remote add origin <your-repo-url> && git push -u origin main
+```bash
+cd backend && pytest          # or: make test
 ```
