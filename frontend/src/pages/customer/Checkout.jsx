@@ -112,7 +112,7 @@ export default function Checkout() {
               <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base" disabled={paying} onClick={fund}>
                 {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : `Fund Project — $${p.budget}`}
               </button>
-              <p className="text-[10px] text-zinc-600 text-center mt-3">Card checkout is powered by Stripe. Released to the clipper only when you approve.</p>
+              <p className="text-[10px] text-zinc-600 text-center mt-3">Card &amp; Apple Pay secured by Ziina. Released to the clipper only when you approve.</p>
             </>
           ) : (
             <div className="py-6 text-center" data-testid="funded-state">
