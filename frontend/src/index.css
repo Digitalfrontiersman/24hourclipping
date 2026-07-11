@@ -74,4 +74,17 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .animate-marquee { animation: marquee 30s linear infinite; }
 
+@keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-orbit { animation: orbit 40s linear infinite; }
+.animate-orbit-reverse { animation: orbit 40s linear infinite reverse; }
+
+@keyframes pulse-ring { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.7; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
+.pulse-ring { animation: pulse-ring 1s ease-out infinite; }
+
+@keyframes float-bob { 0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); } 50% { transform: translateY(-8px) rotate(var(--tilt, 0deg)); } }
+.float-bob { animation: float-bob 4s ease-in-out infinite; }
+
+@keyframes colon-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
+.colon-blink { animation: colon-blink 1s step-end infinite; }
+
 [data-debug-wrapper="true"] { display: contents !important; }

@@ -15,6 +15,24 @@ const LIVE_BIDS = [
   { name: "Rio A.", amount: 62, job: "SaaS Demo Short", avatar: "https://i.pravatar.cc/150?img=15" },
 ];
 
+const HERO_CHIPS = [
+  { emoji: "🎙️", label: "podcasts", cat: "Podcast Clips", tilt: "-4deg", delay: "0s" },
+  { emoji: "🎮", label: "streams", cat: "Stream Highlights", tilt: "3deg", delay: "0.7s" },
+  { emoji: "📱", label: "reels", cat: "Reels", tilt: "-2deg", delay: "1.4s" },
+  { emoji: "💼", label: "founder clips", cat: "Talking-Head", tilt: "5deg", delay: "2.1s" },
+];
+
+const ORBITERS = [
+  { avatar: "https://i.pravatar.cc/150?img=12", bubble: "bidding…", pos: "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2" },
+  { avatar: "https://i.pravatar.cc/150?img=32", bubble: "$47 bid", pos: "top-1/2 right-0 translate-x-1/2 -translate-y-1/2" },
+  { avatar: "https://i.pravatar.cc/150?img=5", bubble: "bidding…", pos: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2" },
+  { avatar: "https://i.pravatar.cc/150?img=68", bubble: "$110 bid", pos: "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2" },
+  { avatar: "https://i.pravatar.cc/150?img=47", bubble: "bidding…", pos: "top-[14%] left-[14%] -translate-x-1/2 -translate-y-1/2" },
+  { avatar: "https://i.pravatar.cc/150?img=15", bubble: "bidding…", pos: "bottom-[14%] right-[14%] translate-x-1/2 translate-y-1/2" },
+];
+
+const pad = (n) => String(n).padStart(2, "0");
+
 const USE_CASES = [
   { icon: Video, title: "Streamers", desc: "Turn 4-hour VODs into daily viral moments while you sleep." },
   { icon: Mic2, title: "Podcasters", desc: "Every episode becomes a week of shorts, reels and TikToks." },
@@ -31,64 +49,106 @@ const STEPS = [
 export default function Landing() {
   const [bidIdx, setBidIdx] = useState(0);
   const [clippers, setClippers] = useState([]);
+  const [secondsLeft, setSecondsLeft] = useState(23 * 3600 + 59 * 60 + 47);
 
   useEffect(() => {
     const t = setInterval(() => setBidIdx((i) => (i + 1) % LIVE_BIDS.length), 2800);
+    const tick = setInterval(() => setSecondsLeft((s) => (s <= 1 ? 24 * 3600 - 1 : s - 1)), 1000);
     dbAdapter.getClippers().then((c) => setClippers(c.slice(0, 3))).catch(() => {});
-    return () => clearInterval(t);
+    return () => { clearInterval(t); clearInterval(tick); };
   }, []);
 
   const visible = [0, 1, 2].map((o) => LIVE_BIDS[(bidIdx + o) % LIVE_BIDS.length]);
+  const hh = pad(Math.floor(secondsLeft / 3600));
+  const mm = pad(Math.floor((secondsLeft % 3600) / 60));
+  const ss = pad(secondsLeft % 60);
 
   return (
     <div className="bg-[#0A0A0A] text-white">
-      {/* HERO */}
+      {/* HERO — THE COUNTDOWN TAKEOVER */}
       <section className="relative grain overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7">
-            <div className="badge-live mb-6"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE MARKETPLACE — 8 OPEN PROJECTS</div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter leading-none mb-6">
-              Turn Your Best Moments Into <span className="text-[#CCFF00]">Finished Clips</span> in 24 Hours.
-            </h1>
-            <p className="text-lg text-zinc-400 max-w-xl mb-8 leading-relaxed">
-              Post your footage. Watch trusted clippers bid live. Choose your favorite and get your first cut before the moment gets old.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-14 px-8 text-base">Post a Clip <ArrowRight className="w-4 h-4" /></Link>
-              <Link to="/clipper/onboarding" data-testid="hero-become-clipper-btn" className="btn-ghost h-14 px-8 text-base">Become a Clipper</Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-16 lg:pt-20 lg:pb-20 flex flex-col items-center text-center">
+          <div className="badge-live mb-6"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> LIVE MARKETPLACE — 8 OPEN PROJECTS</div>
+          <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight lowercase text-zinc-300 mb-2">
+            the 24-hour clip clock starts <span className="text-white uppercase">NOW.</span>
+          </h1>
+
+          {/* Giant clock + orbiting clippers + coral pulse */}
+          <div className="relative w-full flex items-center justify-center min-h-[380px] sm:min-h-[560px] lg:min-h-[660px] mb-6 select-none" data-testid="hero-countdown-takeover">
+            {/* coral pulse rings */}
+            <div className="absolute left-1/2 top-1/2 w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] lg:w-[560px] lg:h-[560px] rounded-full border-2 border-[#FF4500]/60 pulse-ring pointer-events-none" />
+            <div className="absolute left-1/2 top-1/2 w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] lg:w-[560px] lg:h-[560px] rounded-full border border-[#FF4500]/40 pulse-ring pointer-events-none" style={{ animationDelay: "0.5s" }} />
+
+            {/* orbiting clipper avatars */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[460px] sm:h-[460px] lg:w-[560px] lg:h-[560px] animate-orbit pointer-events-none" aria-hidden="true">
+              {ORBITERS.map((o, i) => (
+                <div key={i} className={`absolute ${o.pos} ${i > 3 ? "hidden sm:block" : ""}`}>
+                  <div className="animate-orbit-reverse flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-mono font-bold bg-[#1A1A1A] border border-white/15 text-[#CCFF00] rounded-full px-2 py-0.5 whitespace-nowrap shadow-lg">{o.bubble}</span>
+                    <img src={o.avatar} alt="" className="w-9 h-9 sm:w-12 sm:h-12 rounded-full border-2 border-[#CCFF00] shadow-[0_0_20px_rgba(204,255,0,0.25)]" />
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="mt-8 text-xs text-zinc-600 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" /> Payments powered by Solana · 8% success fee only when you're happy
-            </p>
+
+            {/* the clock itself */}
+            <div className="relative font-mono font-extrabold tracking-tighter leading-none text-[19vw] sm:text-[15vw] lg:text-[10.5rem] whitespace-nowrap" data-testid="hero-giant-clock">
+              <span className="text-white">{hh}</span>
+              <span className="colon-blink text-[#FF4500]">:</span>
+              <span className="text-white">{mm}</span>
+              <span className="colon-blink text-[#FF4500]">:</span>
+              <span className="text-[#CCFF00]">{ss}</span>
+            </div>
           </div>
 
-          {/* Animated live marketplace preview */}
-          <div className="lg:col-span-5">
-            <div className="card-dark p-5" data-testid="live-marketplace-preview">
-              <div className="flex items-center justify-between mb-4">
-                <span className="label-caps">Live bids arriving</span>
-                <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />LIVE</span>
-              </div>
-              <div className="space-y-3 min-h-[240px]">
-                <AnimatePresence mode="popLayout">
-                  {visible.map((b) => (
-                    <motion.div key={b.name + b.job} layout initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                      className="flex items-center gap-3 bg-black/50 rounded-xl p-3 border border-white/5">
-                      <img src={b.avatar} alt={b.name} className="w-10 h-10 rounded-full" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold">{b.name} <span className="text-zinc-500 font-normal">bid on</span></div>
-                        <div className="text-xs text-zinc-400 truncate">{b.job}</div>
-                      </div>
-                      <div className="font-mono font-extrabold text-[#CCFF00]">${b.amount}</div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                <span className="text-xs text-zinc-500">Avg. first bid</span>
-                <span className="font-mono font-bold text-white">under 4 minutes</span>
-              </div>
-            </div>
+          {/* floating category chips */}
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-10" data-testid="hero-category-chips">
+            {HERO_CHIPS.map((c) => (
+              <Link key={c.cat} to={`/marketplace?category=${encodeURIComponent(c.cat)}`} data-testid={`hero-chip-${c.label.replace(/\s/g, "-")}`}
+                className="float-bob inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] border border-white/15 px-4 py-2 text-sm font-bold hover:border-[#CCFF00] hover:text-[#CCFF00] transition-colors"
+                style={{ "--tilt": c.tilt, animationDelay: c.delay }}>
+                <span>{c.emoji}</span> {c.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-14 px-8 text-base">Post a Clip <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/clipper/onboarding" data-testid="hero-become-clipper-btn" className="btn-ghost h-14 px-8 text-base">Become a Clipper</Link>
+          </div>
+          <p className="mt-8 text-xs text-zinc-600 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" /> Payments powered by Solana · 8% success fee only when you're happy
+          </p>
+        </div>
+      </section>
+
+      {/* LIVE BIDS ARRIVING — signature module */}
+      <section className="py-16 border-t border-white/10 bg-[#121212]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6" data-testid="live-marketplace-preview">
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tighter">
+              LIVE BIDS <span className="text-[#CCFF00]">ARRIVING</span>
+            </h2>
+            <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />LIVE</span>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4 min-h-[110px]">
+            <AnimatePresence mode="popLayout">
+              {visible.map((b) => (
+                <motion.div key={b.name + b.job} layout initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex items-center gap-3 bg-black/50 rounded-xl p-4 border border-white/5">
+                  <img src={b.avatar} alt={b.name} className="w-11 h-11 rounded-full" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold">{b.name} <span className="text-zinc-500 font-normal">bid on</span></div>
+                    <div className="text-xs text-zinc-400 truncate">{b.job}</div>
+                  </div>
+                  <div className="font-mono font-extrabold text-lg text-[#CCFF00]">${b.amount}</div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          <div className="mt-6 pt-5 border-t border-white/10 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-widest">Avg. first bid</span>
+            <span className="font-mono font-bold text-white">under 4 minutes</span>
           </div>
         </div>
       </section>

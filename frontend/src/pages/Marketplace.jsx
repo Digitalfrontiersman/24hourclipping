@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import JobCard from "@/components/JobCard";
@@ -18,8 +18,10 @@ const BUDGETS = [
 ];
 
 export default function Marketplace() {
+  const [searchParams] = useSearchParams();
+  const urlCat = searchParams.get("category");
   const [projects, setProjects] = useState(null);
-  const [cat, setCat] = useState("All");
+  const [cat, setCat] = useState(urlCat && CATEGORIES.includes(urlCat) ? urlCat : "All");
   const [budget, setBudget] = useState(0);
   const [moment, setMoment] = useState("all");
   const [view, setView] = useState(() => localStorage.getItem("24hc_jobs_view") || "grid");
