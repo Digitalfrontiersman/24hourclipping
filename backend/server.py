@@ -62,13 +62,42 @@ async def set_test_mode(enabled: bool):
     await db.settings.update_one({"_id": "app"}, {"$set": {"test_mode": bool(enabled)}}, upsert=True)
 
 
-# ---- Email (Resend) ----
+# ---- Email (SMTP e.g. Gmail app password, or Resend) ----
 def send_email(to: str, subject: str, html: str) -> bool:
-    """Send a transactional email via Resend. No-op if not configured."""
-    key = os.environ.get("RESEND_API_KEY", "").strip()
-    if not key or not to:
+    """Send a transactional email. Prefers SMTP (works to any recipient with no
+    domain — e.g. a Gmail App Password); falls back to Resend. No-op if unset."""
+    if not to:
         return False
     sender = os.environ.get("EMAIL_FROM", "24 Hour Clipping <onboarding@resend.dev>")
+
+    smtp_host = os.environ.get("SMTP_HOST", "").strip()
+    if smtp_host:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.utils import parseaddr
+        try:
+            user = os.environ.get("SMTP_USER", "").strip()
+            pw = os.environ.get("SMTP_PASS", "")
+            port = int(os.environ.get("SMTP_PORT", "587"))
+            msg = MIMEText(html, "html", "utf-8")
+            msg["Subject"] = subject
+            msg["From"] = sender or user
+            msg["To"] = to
+            server = smtplib.SMTP(smtp_host, port, timeout=20)
+            server.starttls()
+            if user:
+                server.login(user, pw)
+            server.sendmail(parseaddr(sender)[1] or user, [to], msg.as_string())
+            server.quit()
+            logger.info("Email sent (SMTP) to %s (%s)", to, subject)
+            return True
+        except Exception as e:
+            logger.error("SMTP email error: %s", e)
+            return False
+
+    key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not key:
+        return False
     import requests
     try:
         r = requests.post("https://api.resend.com/emails",
