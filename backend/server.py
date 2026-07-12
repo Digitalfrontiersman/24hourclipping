@@ -41,6 +41,14 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def client_ip(request) -> str:
+    """Real client IP behind nginx (X-Forwarded-For), for per-user rate limiting."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 # ---- Presentation / test mode: when on, payments are simulated (no on-chain money) ----
 DEFAULT_TEST_MODE = os.environ.get("PAYMENTS_TEST_MODE", "false").lower() == "true"
 
@@ -52,6 +60,49 @@ async def get_test_mode() -> bool:
 
 async def set_test_mode(enabled: bool):
     await db.settings.update_one({"_id": "app"}, {"$set": {"test_mode": bool(enabled)}}, upsert=True)
+
+
+# ---- Email (Resend) ----
+def send_email(to: str, subject: str, html: str) -> bool:
+    """Send a transactional email via Resend. No-op if not configured."""
+    key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not key or not to:
+        return False
+    sender = os.environ.get("EMAIL_FROM", "24 Hour Clipping <onboarding@resend.dev>")
+    import requests
+    try:
+        r = requests.post("https://api.resend.com/emails",
+                          headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                          json={"from": sender, "to": [to], "subject": subject, "html": html}, timeout=15)
+        if r.status_code >= 300:
+            logger.error("Resend email failed %s: %s", r.status_code, r.text[:300])
+            return False
+        logger.info("Email sent to %s (%s)", to, subject)
+        return True
+    except Exception as e:
+        logger.error("Resend email error: %s", e)
+        return False
+
+
+def _acceptance_email_html(name: str, title: str, amount, deadline_iso: str) -> str:
+    base = os.environ.get("PUBLIC_BASE_URL", "https://clip42.duckdns.org").rstrip("/")
+    return f"""
+    <div style="background:#0A0A0A;padding:32px;font-family:Arial,Helvetica,sans-serif;color:#fff">
+      <div style="max-width:520px;margin:0 auto;background:#141414;border:1px solid #262626;border-radius:16px;padding:28px">
+        <div style="font-size:12px;letter-spacing:.18em;color:#CCFF00;font-weight:bold;text-transform:uppercase">You're hired</div>
+        <h1 style="font-size:24px;margin:10px 0 6px">Hey {name}, your bid was accepted!</h1>
+        <p style="color:#a1a1aa;font-size:15px;line-height:1.6">
+          A creator just picked you to clip <b style="color:#fff">"{title}"</b>. Your deal is live and the
+          24-hour clock has started — head to your dashboard to grab the footage and ship your first cut.
+        </p>
+        <div style="background:#0A0A0A;border-radius:12px;padding:16px;margin:18px 0">
+          <div style="color:#71717a;font-size:12px">Payout on approval</div>
+          <div style="color:#CCFF00;font-family:monospace;font-size:22px;font-weight:bold">${amount}</div>
+        </div>
+        <a href="{base}/clipper" style="display:inline-block;background:#CCFF00;color:#000;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:999px">Open your dashboard →</a>
+        <p style="color:#52525b;font-size:12px;margin-top:20px">24 Hour Clipping · deliver before the clock hits zero.</p>
+      </div>
+    </div>"""
 
 
 class ProjectCreate(BaseModel):
@@ -262,7 +313,7 @@ async def ensure_auth_setup():
 
 @api_router.post("/auth/register")
 async def register(body: RegisterRequest, request: Request):
-    if not auth.rate_limit(f"reg:{request.client.host}", 10, 3600):
+    if not auth.rate_limit(f"reg:{client_ip(request)}", 10, 3600):
         raise HTTPException(429, "Too many attempts. Please try again later.")
     role = body.role if body.role in ("customer", "clipper") else "customer"
     email = body.email.lower()
@@ -280,7 +331,7 @@ async def register(body: RegisterRequest, request: Request):
 
 @api_router.post("/auth/login")
 async def login(body: LoginRequest, request: Request):
-    if not auth.rate_limit(f"login:{request.client.host}", 15, 900):
+    if not auth.rate_limit(f"login:{client_ip(request)}", 15, 900):
         raise HTTPException(429, "Too many attempts. Please try again later.")
     user = await db.users.find_one({"email": body.email.lower()})
     if not user or not auth.verify_password(body.password, user.get("hashed_password")):
@@ -764,6 +815,16 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     }
     await db.contracts.insert_one(dict(contract))
     await db.projects.update_one({"id": bid["project_id"]}, {"$set": {"status": "contract_live"}})
+    # Email the accepted clipper (registered users only; never blocks acceptance).
+    try:
+        clip_user = await db.users.find_one({"id": bid["clipper_id"]}, NO_ID)
+        proj = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
+        if clip_user and clip_user.get("email"):
+            title = proj.get("title", "your project")
+            html = _acceptance_email_html(clip_user.get("name") or "there", title, bid["amount"], deadline.isoformat())
+            await asyncio.to_thread(send_email, clip_user["email"], f"You're hired — {title}", html)
+    except Exception as e:
+        logger.error("acceptance email error: %s", e)
     contract.pop("_id", None)
     return contract
 

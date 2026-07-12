@@ -38,6 +38,8 @@ services:
       EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o-mini}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-24 Hour Clipping <onboarding@resend.dev>}"
       MEDIA_ROOT: /data/media
       UPLOAD_MAX_MB: "${UPLOAD_MAX_MB:-1024}"
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
