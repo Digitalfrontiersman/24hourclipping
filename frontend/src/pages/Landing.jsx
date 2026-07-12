@@ -1,19 +1,11 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp } from "lucide-react";
 import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
 import ClipperCard from "@/components/ClipperCard";
 import { DEMO_VIDEOS } from "@/data/demoVideos";
 import { dbAdapter } from "@/services/dbAdapter";
-
-const LIVE_BIDS = [
-  { name: "Maya T.", amount: 78, job: "Ranked Finals Clutch", avatar: "https://i.pravatar.cc/150?img=12" },
-  { name: "Lena O.", amount: 45, job: "IRL Fail Compilation", avatar: "https://i.pravatar.cc/150?img=5" },
-  { name: "Devon R.", amount: 110, job: "Founder Burnout Pod", avatar: "https://i.pravatar.cc/150?img=32" },
-  { name: "Sasha I.", amount: 240, job: "Launch Teaser Ad", avatar: "https://i.pravatar.cc/150?img=47" },
-  { name: "Rio A.", amount: 62, job: "SaaS Demo Short", avatar: "https://i.pravatar.cc/150?img=15" },
-];
 
 const USE_CASES = [
   { icon: Video, title: "Streamers", desc: "Turn 4-hour VODs into daily viral moments while you sleep." },
@@ -29,68 +21,16 @@ const STEPS = [
 ];
 
 export default function Landing() {
-  const [bidIdx, setBidIdx] = useState(0);
   const [clippers, setClippers] = useState([]);
 
   useEffect(() => {
-    const t = setInterval(() => setBidIdx((i) => (i + 1) % LIVE_BIDS.length), 2800);
     dbAdapter.getClippers().then((c) => setClippers(c.slice(0, 3))).catch(() => {});
-    return () => clearInterval(t);
   }, []);
-
-  const visible = [0, 1, 2].map((o) => LIVE_BIDS[(bidIdx + o) % LIVE_BIDS.length]);
 
   return (
     <div className="bg-[#0A0A0A] text-white">
       {/* HERO */}
-      <section className="relative grain overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7">
-            <div className="label-caps text-[#CCFF00] mb-6">The marketplace for 24-hour clips</div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter leading-none mb-6">
-              Turn Your Best Moments Into <span className="text-[#CCFF00]">Finished Clips</span> in 24 Hours.
-            </h1>
-            <p className="text-lg text-zinc-400 max-w-xl mb-8 leading-relaxed">
-              Post your footage, and vetted clippers compete to edit it. Pick the bid you like and get your first cut back within a day.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-14 px-8 text-base">Post a Clip <ArrowRight className="w-4 h-4" /></Link>
-              <Link to="/clipper/onboarding" data-testid="hero-become-clipper-btn" className="btn-ghost h-14 px-8 text-base">Become a Clipper</Link>
-            </div>
-            <p className="mt-8 text-xs text-zinc-600 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" /> Payments powered by Solana · 8% success fee only when you're happy
-            </p>
-          </div>
-
-          {/* Animated live marketplace preview */}
-          <div className="lg:col-span-5">
-            <div className="card-dark p-5" data-testid="live-marketplace-preview">
-              <div className="flex items-center justify-between mb-4">
-                <span className="label-caps">Clippers competing for a brief</span>
-              </div>
-              <div className="space-y-3 min-h-[240px]">
-                <AnimatePresence mode="popLayout">
-                  {visible.map((b) => (
-                    <motion.div key={b.name + b.job} layout initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                      className="flex items-center gap-3 bg-black/50 rounded-xl p-3 border border-white/5">
-                      <img src={b.avatar} alt={b.name} className="w-10 h-10 rounded-full" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold">{b.name} <span className="text-zinc-500 font-normal">bid on</span></div>
-                        <div className="text-xs text-zinc-400 truncate">{b.job}</div>
-                      </div>
-                      <div className="font-mono font-extrabold text-[#CCFF00]">${b.amount}</div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                <span className="text-xs text-zinc-500">First cut delivered</span>
-                <span className="font-mono font-bold text-white">within 24 hours</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Hero />
 
       {/* DEMO VIDEO CAROUSEL */}
       <section className="py-16 border-t border-white/10 overflow-hidden">
@@ -116,7 +56,7 @@ export default function Landing() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="py-20 border-t border-white/10">
+      <section id="how-it-works" className="py-20 border-t border-white/10 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <span className="label-caps">How it works</span>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2 mb-12">Three steps. Zero friction.</h2>

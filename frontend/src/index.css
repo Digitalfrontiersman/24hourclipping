@@ -74,4 +74,20 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .animate-marquee { animation: marquee 30s linear infinite; }
 
+/* ---- Premium hero decorations ---- */
+@keyframes heroGlow { 0%, 100% { opacity: .5; transform: scale(1); } 50% { opacity: .82; transform: scale(1.07); } }
+.hero-glow { animation: heroGlow 7s ease-in-out infinite; }
+@keyframes heroTwinkle { 0%, 100% { opacity: .12; } 50% { opacity: .7; } }
+.hero-twinkle { animation: heroTwinkle 4s ease-in-out infinite; }
+@keyframes heroSpin { to { transform: rotate(360deg); } }
+.hero-spin-slow { animation: heroSpin 48s linear infinite; }
+@keyframes heroDash { to { stroke-dashoffset: -24; } }
+.hero-dash { animation: heroDash 1.6s linear infinite; }
+.hero-underline { position: relative; }
+.hero-underline::after { content: ""; position: absolute; left: 0; bottom: -2px; height: 1px; width: 100%; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform .35s cubic-bezier(.4,0,.2,1); }
+.hero-underline:hover::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow, .hero-twinkle, .hero-spin-slow, .hero-dash { animation: none; }
+}
+
 [data-debug-wrapper="true"] { display: contents !important; }

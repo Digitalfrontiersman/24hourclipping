@@ -21,3 +21,5 @@ stripe==14.4.1
 # Solana USDC payments (escrow, payouts, tips)
 solana==0.36.6
 solders==0.26.0
+# AI concierge (OpenAI)
+openai==1.99.9

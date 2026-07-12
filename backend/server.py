@@ -947,34 +947,40 @@ Fill sensible defaults for anything not discussed. Budget must be a number."""
 async def get_history(session_id):
     return await db.ai_messages.find({"session_id": session_id}, NO_ID).sort("created_at", 1).to_list(100)
 
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+def _openai_client():
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise HTTPException(503, "AI features require OPENAI_API_KEY to be set in backend/.env.")
+    from openai import AsyncOpenAI
+    return AsyncOpenAI(api_key=key)
+
+
 @api_router.post("/ai/chat")
 async def ai_chat(body: ChatRequest, user: dict = Depends(require_role("customer", "admin"))):
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
-    except ImportError:
-        raise HTTPException(503, "AI features are not configured (emergentintegrations not installed).")
-    if not os.environ.get("EMERGENT_LLM_KEY"):
-        raise HTTPException(503, "AI features require EMERGENT_LLM_KEY to be set in backend/.env.")
+    client = _openai_client()
     history = await get_history(body.session_id)
-    context = "\n".join(f"{m['sender']}: {m['text']}" for m in history[-12:])
-    prompt = (f"Conversation so far:\n{context}\n\nCustomer: {body.message}" if context else body.message)
+    messages = [{"role": "system", "content": CONCIERGE_SYSTEM}]
+    for m in history[-12:]:
+        messages.append({"role": "assistant" if m["sender"] == "ai" else "user", "content": m["text"]})
+    messages.append({"role": "user", "content": body.message})
     await db.ai_messages.insert_one({"id": str(uuid.uuid4()), "session_id": body.session_id,
                                      "sender": "user", "text": body.message, "created_at": now_iso()})
-    chat = LlmChat(api_key=os.environ.get("EMERGENT_LLM_KEY"), session_id=body.session_id,
-                   system_message=CONCIERGE_SYSTEM).with_model("openai", "gpt-5.4")
 
     async def gen():
         full = []
         try:
-            async for ev in chat.stream_message(UserMessage(text=prompt)):
-                if isinstance(ev, TextDelta):
-                    full.append(ev.content)
-                    yield f"data: {json.dumps({'delta': ev.content})}\n\n"
-                elif isinstance(ev, StreamDone):
-                    break
+            stream = await client.chat.completions.create(
+                model=OPENAI_MODEL, messages=messages, stream=True, temperature=0.6)
+            async for chunk in stream:
+                delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
+                if delta:
+                    full.append(delta)
+                    yield f"data: {json.dumps({'delta': delta})}\n\n"
         except Exception as e:
             logger.error(f"AI stream error: {e}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': 'The concierge is unavailable right now.'})}\n\n"
         text = "".join(full)
         if text:
             await db.ai_messages.insert_one({"id": str(uuid.uuid4()), "session_id": body.session_id,
@@ -990,20 +996,20 @@ async def ai_history(session_id: str, user: dict = Depends(require_role("custome
 
 @api_router.post("/ai/brief")
 async def ai_brief(body: BriefRequest, user: dict = Depends(require_role("customer", "admin"))):
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-    except ImportError:
-        raise HTTPException(503, "AI features are not configured (emergentintegrations not installed).")
-    if not os.environ.get("EMERGENT_LLM_KEY"):
-        raise HTTPException(503, "AI features require EMERGENT_LLM_KEY to be set in backend/.env.")
+    client = _openai_client()
     history = await get_history(body.session_id)
     if not history:
         raise HTTPException(400, "No conversation found")
     convo = "\n".join(f"{m['sender']}: {m['text']}" for m in history)
-    chat = LlmChat(api_key=os.environ.get("EMERGENT_LLM_KEY"), session_id=f"brief-{body.session_id}",
-                   system_message=BRIEF_SYSTEM).with_model("openai", "gpt-5.4")
-    resp = await chat.send_message(UserMessage(text=f"Conversation:\n{convo}\n\nGenerate the brief JSON."))
-    text = resp.strip()
+    try:
+        resp = await client.chat.completions.create(
+            model=OPENAI_MODEL, temperature=0.2, response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": BRIEF_SYSTEM},
+                      {"role": "user", "content": f"Conversation:\n{convo}\n\nGenerate the brief JSON."}])
+    except Exception as e:
+        logger.error("AI brief error: %s", e)
+        raise HTTPException(502, "Brief generation failed, please try again")
+    text = (resp.choices[0].message.content or "").strip()
     if text.startswith("```"):
         text = text.split("```")[1].lstrip("json").strip()
     try:
