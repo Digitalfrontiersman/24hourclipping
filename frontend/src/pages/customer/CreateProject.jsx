@@ -4,7 +4,8 @@ import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
-import { Sparkles, PenLine, Upload, Link2, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import FileDropzone from "@/components/FileDropzone";
+import { Sparkles, PenLine, Link2, ArrowRight, ArrowLeft, Zap } from "lucide-react";
 
 const chip = (active) => `px-4 py-2 rounded-full text-sm font-bold transition-colors ${active ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`;
 
@@ -22,8 +23,7 @@ export default function CreateProject() {
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadFile = async (file) => {
     if (!file) return;
     setUploadPct(0);
     const res = await storageAdapter.upload(file, setUploadPct, { kind: "source" });
@@ -89,18 +89,20 @@ export default function CreateProject() {
               <div className="flex flex-wrap gap-2">{CATEGORIES.map((c) => <button key={c} data-testid={`cat-${c.toLowerCase().replace(/\s/g, "-")}`} className={chip(f.category === c)} onClick={() => set("category", c)}>{c}</button>)}</div>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
-              <label className="card-dark p-6 text-center cursor-pointer hover:border-[#CCFF00]/40 transition-colors block" data-testid="upload-footage-label">
-                <input type="file" className="hidden" onChange={handleFile} data-testid="upload-footage-input" />
-                <Upload className="w-6 h-6 mx-auto mb-2 text-[#CCFF00]" />
-                <span className="text-sm font-bold">{uploaded ? uploaded.name : "Upload footage"}</span>
-                {uploadPct !== null && (
-                  <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-[#CCFF00] transition-[width]" style={{ width: `${uploadPct}%` }} /></div>
-                )}
-                {uploaded && <Check className="w-4 h-4 text-[#CCFF00] mx-auto mt-2" />}
-              </label>
+              <FileDropzone
+                compact
+                onFile={uploadFile}
+                uploading={uploadPct}
+                doneName={uploaded?.name}
+                title="Upload footage"
+                hint="Drag & drop or click · MP4, MOV"
+                wrapperTestId="upload-footage-label"
+                inputTestId="upload-footage-input"
+              />
               <div className="card-dark p-6">
                 <div className="flex items-center gap-2 mb-2 text-sm font-bold"><Link2 className="w-4 h-4 text-[#CCFF00]" /> Or paste a link</div>
                 <input data-testid="source-link-input" className="input-dark h-10 text-sm" placeholder="Twitch, YouTube, Drive, Dropbox…" value={f.source_link} onChange={(e) => set("source_link", e.target.value)} />
+                <p className="text-xs text-zinc-600 mt-2">No file yet? A link works — the clipper pulls the footage.</p>
               </div>
             </div>
             <div>
@@ -110,13 +112,19 @@ export default function CreateProject() {
                 <button data-testid="moment-find" onClick={() => set("moment_mode", "find")} className={`card-dark p-4 text-left text-sm font-bold ${f.moment_mode === "find" ? "border-[#CCFF00]" : ""}`}>Find the Best Moment for Me<span className="block text-xs text-zinc-500 font-normal mt-1">Clipper scouts the footage</span></button>
               </div>
             </div>
-            <button data-testid="step1-next" className="btn-lime h-12 w-full" onClick={() => setStep(2)}>Continue <ArrowRight className="w-4 h-4" /></button>
+            <button data-testid="step1-next" className="btn-lime h-12 w-full disabled:opacity-40 disabled:cursor-not-allowed" disabled={!f.title.trim()} onClick={() => setStep(2)}>{f.title.trim() ? "Continue" : "Add a title to continue"} <ArrowRight className="w-4 h-4" /></button>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-6">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The vibe</h1>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The vibe</h1>
+                <p className="text-sm text-zinc-500 mt-1">All optional — smart defaults are already set. Tweak anything, or skip.</p>
+              </div>
+              <button data-testid="step2-skip" className="btn-ghost h-10 px-5 text-sm shrink-0" onClick={() => setStep(3)}>Skip — use defaults <ArrowRight className="w-4 h-4" /></button>
+            </div>
             <div>
               <label className="label-caps block mb-2">Goal</label>
               <div className="flex flex-wrap gap-2">{["Grow my audience", "Drive sales", "Build authority", "Go viral"].map((g) => <button key={g} className={chip(f.goal === g)} onClick={() => set("goal", g)}>{g}</button>)}</div>
@@ -157,6 +165,14 @@ export default function CreateProject() {
         {step === 3 && (
           <div className="space-y-6">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">Budget & final touches</h1>
+            <div className="card-dark p-5" data-testid="brief-summary">
+              <div className="flex items-center gap-2 mb-3"><Zap className="w-4 h-4 text-[#CCFF00]" /><span className="label-caps">Your brief</span></div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                {[["Title", f.title || "Untitled"], ["Category", f.category], ["Platform", f.platform], ["Output", f.output_length], ["Ratio", f.aspect_ratio], ["Mood", f.mood], ["Captions", f.captions], ["Footage", uploaded ? "Uploaded" : (f.source_link ? "Linked" : "Add on funding")]].map(([l, v]) => (
+                  <div key={l} className="bg-black/40 rounded-lg p-2.5"><span className="text-zinc-500 block truncate">{l}</span><span className="font-bold truncate block">{v}</span></div>
+                ))}
+              </div>
+            </div>
             <div className="card-dark p-6">
               <label className="label-caps block mb-4">Budget — <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
               <input data-testid="budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />

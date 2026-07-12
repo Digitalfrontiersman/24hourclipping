@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import json
+import asyncio
 import logging
 import uuid
 from pathlib import Path
@@ -19,6 +20,7 @@ import auth
 import storage
 import payments
 import ziina
+import solana_pay as solpay
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -37,6 +39,19 @@ NO_ID = {"_id": 0}
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+# ---- Presentation / test mode: when on, payments are simulated (no on-chain money) ----
+DEFAULT_TEST_MODE = os.environ.get("PAYMENTS_TEST_MODE", "false").lower() == "true"
+
+async def get_test_mode() -> bool:
+    doc = await db.settings.find_one({"_id": "app"})
+    if doc and "test_mode" in doc:
+        return bool(doc["test_mode"])
+    return DEFAULT_TEST_MODE
+
+async def set_test_mode(enabled: bool):
+    await db.settings.update_one({"_id": "app"}, {"$set": {"test_mode": bool(enabled)}}, upsert=True)
 
 
 class ProjectCreate(BaseModel):
@@ -77,6 +92,21 @@ class DeliveryCreate(BaseModel):
 
 class FundRequest(BaseModel):
     payment_method: str = "usdc"
+
+class SolanaFundRequest(BaseModel):
+    signature: str
+    currency: str = "usdc"  # "usdc" | "sol"
+
+class PayoutWalletRequest(BaseModel):
+    wallet: str
+
+class TipRequest(BaseModel):
+    signature: str
+    amount: float
+    currency: str = "usdc"  # "usdc" | "sol"
+
+class TestModeRequest(BaseModel):
+    enabled: bool
 
 class RateRequest(BaseModel):
     rating: int = 5
@@ -129,7 +159,8 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 def public_user(u: dict) -> dict:
     return {"id": u["id"], "email": u.get("email"), "name": u.get("name"),
-            "role": u.get("role"), "credits": u.get("credits", 0), "avatar": u.get("avatar")}
+            "role": u.get("role"), "credits": u.get("credits", 0), "avatar": u.get("avatar"),
+            "payout_wallet": u.get("payout_wallet")}
 
 
 async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)) -> dict:
@@ -501,6 +532,154 @@ async def confirm_card_checkout(project_id: str, body: dict, user: dict = Depend
         return {"ok": True}
     raise HTTPException(503, "Card payments are not configured on this server")
 
+# ============================ SOLANA USDC ============================
+@api_router.get("/solana/config")
+async def solana_config():
+    """Non-secret config the frontend needs to build a USDC transfer."""
+    cfg = solpay.config_public()
+    cfg["test_mode"] = await get_test_mode()
+    return cfg
+
+
+@api_router.post("/projects/{project_id}/fund/test")
+async def fund_test(project_id: str, user: dict = Depends(get_current_user)):
+    """Simulated funding for presentations — only works while test mode is on."""
+    await _require_project_owner(project_id, user)
+    if not await get_test_mode():
+        raise HTTPException(403, "Test mode is off")
+    await db.projects.update_one({"id": project_id}, {"$set": {
+        "funded": True, "status": "open", "payment_method": "test",
+        "tx_hash": "TEST-" + uuid.uuid4().hex[:12]}})
+    return {"ok": True, "test": True}
+
+
+@api_router.get("/projects/{project_id}/solana/deposit-info")
+async def solana_deposit_info(project_id: str, user: dict = Depends(get_current_user)):
+    p = await _require_project_owner(project_id, user)
+    if not solpay.is_configured():
+        raise HTTPException(503, "Solana payments are not configured on this server")
+    budget = float(p["budget"])
+    options = {"usdc": {"amount": budget}}
+    try:
+        price = await asyncio.to_thread(solpay.get_sol_price_usd)
+        options["sol"] = {"amount": round(budget / price, 6), "price": price}
+    except Exception as e:
+        logger.warning("SOL price fetch failed: %s", e)  # USDC still offered
+    return {"treasury": solpay.treasury_pubkey(), "budget": budget, "amount": budget,
+            "usdc_mint": solpay.USDC_MINT_STR, "network": solpay.NETWORK,
+            "decimals": solpay.DECIMALS, "options": options}
+
+
+@api_router.post("/projects/{project_id}/fund/solana")
+async def solana_fund(project_id: str, body: SolanaFundRequest, user: dict = Depends(get_current_user)):
+    p = await _require_project_owner(project_id, user)
+    if not solpay.is_configured():
+        raise HTTPException(503, "Solana payments are not configured on this server")
+    currency = "sol" if body.currency == "sol" else "usdc"
+    sig = body.signature.strip()
+    # Anti-replay: a deposit signature can only fund one project.
+    if await db.projects.find_one({"solana_deposit_sig": sig}):
+        raise HTTPException(409, "This payment has already been used")
+    try:
+        res = await asyncio.to_thread(solpay.verify_deposit, sig, float(p["budget"]), currency)
+    except solpay.PaymentError as e:
+        raise HTTPException(402, f"Payment not verified: {e}")
+    except Exception as e:
+        logger.error("Solana deposit verify error: %s", e)
+        raise HTTPException(502, "Could not verify the Solana payment")
+    await db.projects.update_one({"id": project_id}, {"$set": {
+        "funded": True, "status": "open", "payment_method": f"solana_{currency}",
+        "tx_hash": sig, "solana_deposit_sig": sig,
+        "escrow_amount": res["received"], "escrow_currency": currency}})
+    return {"ok": True, "received": res["received"], "currency": currency, "signature": sig}
+
+
+@api_router.get("/me/payout-wallet")
+async def get_payout_wallet(user: dict = Depends(get_current_user)):
+    return {"wallet": user.get("payout_wallet")}
+
+
+@api_router.post("/me/payout-wallet")
+async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_current_user)):
+    wallet = body.wallet.strip()
+    if not solpay.is_valid_pubkey(wallet):
+        raise HTTPException(400, "That is not a valid Solana wallet address")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"payout_wallet": wallet}})
+    # keep the public clipper profile in sync so customers can see they're payable
+    await db.clippers.update_one({"id": user["id"]}, {"$set": {"payout_wallet": wallet}})
+    return {"ok": True, "wallet": wallet}
+
+
+async def _pay_contract(contract: dict) -> dict:
+    """Send the clipper's payout (in the escrow currency) for a completed contract (idempotent)."""
+    if contract.get("payout_sig"):
+        return {"already_paid": True, "signature": contract["payout_sig"]}
+    clipper = await db.users.find_one({"id": contract["clipper_id"]}, NO_ID)
+    wallet = (clipper or {}).get("payout_wallet")
+    if not wallet:
+        raise HTTPException(409, "Clipper has not set a Solana payout wallet yet")
+    proj = await db.projects.find_one({"id": contract["project_id"]}, NO_ID) or {}
+    currency = proj.get("escrow_currency", "usdc")
+    split = solpay.payout_split(contract["price"])
+    try:
+        pay = await asyncio.to_thread(solpay.send_payout, wallet, split["clipper"], currency)
+    except solpay.PaymentError as e:
+        raise HTTPException(502, f"Payout failed: {e}")
+    except Exception as e:
+        logger.error("Solana payout error: %s", e)
+        raise HTTPException(502, "Payout failed — check treasury balance and try again")
+    await db.contracts.update_one({"id": contract["id"]}, {"$set": {
+        "payout_sig": pay["signature"], "payout_amount": split["clipper"],
+        "payout_currency": pay["currency"], "payout_sent": pay["amount"], "fee_amount": split["fee"],
+        "payout_wallet": wallet, "payout_at": now_iso()}})
+    return {"paid": True, "signature": pay["signature"], "currency": pay["currency"],
+            "sent": pay["amount"], **split}
+
+
+@api_router.post("/contracts/{contract_id}/payout")
+async def contract_payout(contract_id: str, user: dict = Depends(get_current_user)):
+    c = await _require_contract_party(contract_id, user, allow=("customer",))
+    if c.get("status") != "completed":
+        raise HTTPException(409, "Contract must be approved/completed before payout")
+    if not solpay.is_configured():
+        raise HTTPException(503, "Solana payouts are not configured on this server")
+    return await _pay_contract(c)
+
+
+@api_router.post("/contracts/{contract_id}/tip")
+async def contract_tip(contract_id: str, body: TipRequest, user: dict = Depends(get_current_user)):
+    c = await _require_contract_party(contract_id, user, allow=("customer",))
+    currency = "sol" if body.currency == "sol" else "usdc"
+    # Test mode: record the tip without an on-chain transfer.
+    if await get_test_mode():
+        await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
+            "sender": "customer", "text": f"💜 Tipped the clipper {body.amount} {currency.upper()} (test mode)",
+            "tip_amount": float(body.amount), "tip_currency": currency, "created_at": now_iso()})
+        return {"ok": True, "amount": float(body.amount), "currency": currency, "test": True}
+    if not solpay.is_configured():
+        raise HTTPException(503, "Solana payments are not configured on this server")
+    clipper = await db.users.find_one({"id": c["clipper_id"]}, NO_ID)
+    wallet = (clipper or {}).get("payout_wallet")
+    if not wallet:
+        raise HTTPException(409, "Clipper has not set a Solana wallet yet")
+    sig = body.signature.strip()
+    if await db.messages.find_one({"tip_sig": sig}):
+        raise HTTPException(409, "This tip has already been recorded")
+    try:
+        received = await asyncio.to_thread(solpay.verify_tip, sig, wallet, float(body.amount), currency)
+    except solpay.PaymentError as e:
+        raise HTTPException(402, f"Tip not verified: {e}")
+    except Exception as e:
+        logger.error("Solana tip verify error: %s", e)
+        raise HTTPException(502, "Could not verify the tip")
+    unit = currency.upper()
+    await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
+        "sender": "customer", "text": f"💜 Tipped the clipper {received} {unit} (no fee)",
+        "tip_sig": sig, "tip_amount": received, "tip_currency": currency, "created_at": now_iso()})
+    return {"ok": True, "amount": received, "currency": currency, "signature": sig}
+# ========================== END SOLANA USDC ==========================
+
+
 @api_router.get("/projects/{project_id}/bids")
 async def get_bids(project_id: str):
     bids = await db.bids.find({"project_id": project_id}, NO_ID).sort("created_at", -1).to_list(100)
@@ -610,8 +789,25 @@ async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_
     c = await _require_contract_party(contract_id, user, allow=("customer",))
     await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "completed", "rating_given": body.rating}})
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "completed"}})
-    fee = round(c["price"] * 0.08, 2)
-    return {"ok": True, "payout": round(c["price"] - fee, 2), "fee": fee, "bond_returned": c["bond"]}
+    split = solpay.payout_split(c["price"])
+    resp = {"ok": True, "payout": split["clipper"], "fee": split["fee"], "bond_returned": c["bond"]}
+    proj = await db.projects.find_one({"id": c["project_id"]}, NO_ID) or {}
+    # Test mode (or a test-funded project): simulate the payout, no on-chain money.
+    if await get_test_mode() or proj.get("payment_method") == "test":
+        resp["paid"] = True
+        resp["test"] = True
+    # If Solana escrow funded this project, pay the clipper their USDC/SOL now.
+    elif solpay.is_configured() and str(proj.get("payment_method", "")).startswith("solana"):
+        try:
+            fresh = await db.contracts.find_one({"id": contract_id}, NO_ID)
+            pay = await _pay_contract(fresh)
+            resp["payout_signature"] = pay.get("signature")
+            resp["paid"] = True
+        except HTTPException as e:
+            # Don't fail the approval if payout can't complete; surface it for retry.
+            resp["paid"] = False
+            resp["payout_error"] = e.detail
+    return resp
 
 @api_router.post("/contracts/{contract_id}/rescue")
 async def trigger_rescue(contract_id: str, user: dict = Depends(get_current_user)):
@@ -686,6 +882,17 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
         },
         "projects": projects, "contracts": contracts, "bids": bids, "clippers": clippers,
     }
+
+
+@api_router.get("/admin/test-mode")
+async def admin_get_test_mode(admin: dict = Depends(require_role("admin"))):
+    return {"enabled": await get_test_mode()}
+
+
+@api_router.post("/admin/test-mode")
+async def admin_set_test_mode(body: TestModeRequest, admin: dict = Depends(require_role("admin"))):
+    await set_test_mode(body.enabled)
+    return {"ok": True, "enabled": body.enabled}
 
 
 @api_router.get("/admin/users")

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { dbAdapter } from "@/services/dbAdapter";
 import { paymentAdapter } from "@/services/paymentAdapter";
+import { solanaAdapter } from "@/services/solanaAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { Shield, CreditCard, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 
@@ -12,12 +13,14 @@ export default function Checkout() {
   const [method, setMethod] = useState("usdc");
   const [paying, setPaying] = useState(false);
   const [funded, setFunded] = useState(false);
+  const [testMode, setTestMode] = useState(false);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => {
       setP(proj);
       if (proj.funded) setFunded(true);
     }).catch(() => {});
+    dbAdapter.getSolanaConfig().then((c) => setTestMode(!!c.test_mode)).catch(() => {});
 
     // Returning from the hosted checkout (Stripe or Ziina): confirm, then fund.
     const params = new URLSearchParams(window.location.search);
@@ -38,6 +41,14 @@ export default function Checkout() {
   const fund = async () => {
     setPaying(true);
     try {
+      if (testMode) {
+        // Presentation mode: skip the real payment entirely.
+        await dbAdapter.fundTest(projectId);
+        setFunded(true);
+        notify.success("Funded (test mode)", "Payment skipped for the demo — your job is live.");
+        setPaying(false);
+        return;
+      }
       if (method === "card") {
         // Real hosted card checkout (Stripe). Redirect to the hosted page.
         try {
@@ -52,12 +63,35 @@ export default function Checkout() {
           notify.success("Project funded (demo)", "Card payments aren't configured yet — simulated.");
         }
       } else {
-        await paymentAdapter.fund(projectId, method);
-        setFunded(true);
-        notify.success("Project funded", "Your job is now live in the marketplace");
+        // Real Solana escrow: send the budget to the platform treasury in the
+        // chosen currency, then let the backend verify the transfer on-chain.
+        try {
+          const isSol = method === "sol";
+          const info = await dbAdapter.getSolanaDepositInfo(projectId);
+          const opt = isSol ? info.options?.sol : info.options?.usdc;
+          if (!opt) throw new Error(isSol ? "SOL pricing is unavailable right now — try USDC." : "USDC unavailable.");
+          const unit = isSol ? "SOL" : "USDC";
+          notify.success("Confirm in Phantom", `Sending ${opt.amount} ${unit} to escrow…`);
+          const signature = isSol
+            ? await solanaAdapter.sendSol({ toAddress: info.treasury, amountSol: opt.amount })
+            : await solanaAdapter.sendUsdc({ toAddress: info.treasury, amountUsd: opt.amount, mint: info.usdc_mint });
+          await dbAdapter.fundSolana(projectId, signature, isSol ? "sol" : "usdc");
+          setFunded(true);
+          notify.success(`Funded with ${unit}`, "Escrow confirmed on Solana — your job is live.");
+        } catch (err) {
+          if (err.response?.status === 503) {
+            // Solana not configured on the server — fall back to the demo path.
+            await paymentAdapter.fund(projectId, method);
+            setFunded(true);
+            notify.success("Project funded (demo)", "Solana isn't configured yet — simulated.");
+          } else {
+            throw err;
+          }
+        }
       }
-    } catch {
-      notify.urgent("Payment failed");
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || "Payment failed";
+      notify.urgent(typeof msg === "string" ? msg : "Payment failed");
     }
     setPaying(false);
   };
@@ -88,6 +122,11 @@ export default function Checkout() {
         {/* Payment */}
         <div className="card-dark p-6 sm:p-8 sticky top-24">
           <span className="label-caps">Checkout</span>
+          {testMode && (
+            <div className="mt-3 mb-1 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-300 font-bold" data-testid="test-mode-banner">
+              🧪 TEST MODE — payment is simulated. No wallet or real money needed.
+            </div>
+          )}
           <div className="flex justify-between items-center py-4 border-b border-white/10">
             <span className="text-sm text-zinc-400">Public bidding</span>
             <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />OPEN TO ALL CLIPPERS</span>
@@ -99,20 +138,26 @@ export default function Checkout() {
 
           {!funded ? (
             <>
-              <div className="py-4 space-y-3">
-                <button data-testid="pay-usdc" onClick={() => setMethod("usdc")} className={`w-full card-dark p-4 flex items-center gap-3 text-left ${method === "usdc" ? "border-[#CCFF00]" : ""}`}>
-                  <span className="w-9 h-9 rounded-full bg-gradient-to-br from-[#CCFF00] to-emerald-400 flex items-center justify-center text-black font-mono font-extrabold text-xs">$</span>
-                  <div><div className="font-bold text-sm">USDC on Solana</div><div className="text-xs text-zinc-500">Instant, near-zero fees</div></div>
-                </button>
-                <button data-testid="pay-card" onClick={() => setMethod("card")} className={`w-full card-dark p-4 flex items-center gap-3 text-left ${method === "card" ? "border-[#CCFF00]" : ""}`}>
-                  <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><CreditCard className="w-4 h-4" /></span>
-                  <div><div className="font-bold text-sm">Card</div><div className="text-xs text-zinc-500">Visa, Mastercard, Amex</div></div>
-                </button>
-              </div>
-              <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base" disabled={paying} onClick={fund}>
-                {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : `Fund Project — $${p.budget}`}
+              {!testMode && (
+                <div className="py-4 space-y-3">
+                  <button data-testid="pay-usdc" onClick={() => setMethod("usdc")} className={`w-full card-dark p-4 flex items-center gap-3 text-left ${method === "usdc" ? "border-[#CCFF00]" : ""}`}>
+                    <span className="w-9 h-9 rounded-full bg-gradient-to-br from-[#CCFF00] to-emerald-400 flex items-center justify-center text-black font-mono font-extrabold text-xs">$</span>
+                    <div><div className="font-bold text-sm">USDC on Solana</div><div className="text-xs text-zinc-500">Stablecoin — exact ${p.budget}, near-zero fees</div></div>
+                  </button>
+                  <button data-testid="pay-sol" onClick={() => setMethod("sol")} className={`w-full card-dark p-4 flex items-center gap-3 text-left ${method === "sol" ? "border-[#CCFF00]" : ""}`}>
+                    <span className="w-9 h-9 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center text-white font-mono font-extrabold text-xs">◎</span>
+                    <div><div className="font-bold text-sm">SOL (Solana)</div><div className="text-xs text-zinc-500">Pay ${p.budget} worth of SOL at live price</div></div>
+                  </button>
+                  <button data-testid="pay-card" onClick={() => setMethod("card")} className={`w-full card-dark p-4 flex items-center gap-3 text-left ${method === "card" ? "border-[#CCFF00]" : ""}`}>
+                    <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><CreditCard className="w-4 h-4" /></span>
+                    <div><div className="font-bold text-sm">Card</div><div className="text-xs text-zinc-500">Visa, Mastercard, Amex</div></div>
+                  </button>
+                </div>
+              )}
+              <button data-testid="fund-project-btn" className={`btn-lime h-14 w-full text-base ${testMode ? "mt-4" : ""}`} disabled={paying} onClick={fund}>
+                {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : testMode ? `Fund instantly (Test Mode) — $${p.budget}` : `Fund Project — $${p.budget}`}
               </button>
-              <p className="text-[10px] text-zinc-600 text-center mt-3">Card &amp; Apple Pay secured by Ziina. Released to the clipper only when you approve.</p>
+              <p className="text-[10px] text-zinc-600 text-center mt-3">{testMode ? "Test mode is on — no wallet or charge. Released to the clipper when you approve." : "Card & Apple Pay secured by Ziina. Released to the clipper only when you approve."}</p>
             </>
           ) : (
             <div className="py-6 text-center" data-testid="funded-state">

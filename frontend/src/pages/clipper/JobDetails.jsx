@@ -5,6 +5,12 @@ import { notify } from "@/services/notificationAdapter";
 import { Shield, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
+const QUICK_PITCHES = [
+  "Scroll-stopping hook in the first 2s, bold captions, delivered early.",
+  "I specialize in this category — punchy pacing, on-brand, on-time.",
+  "Clean premium edit with beat-synced cuts. Guaranteed on-time.",
+];
+
 export default function JobDetails() {
   const { projectId } = useParams();
   const { user } = useApp();
@@ -72,7 +78,15 @@ export default function JobDetails() {
                   ))}
                 </div>
                 <label className="label-caps block mb-2">One-line pitch</label>
-                <input data-testid="bid-pitch-input" className="input-dark mb-4 text-sm" placeholder="Why you're the one for this clip" value={pitch} onChange={(e) => setPitch(e.target.value)} maxLength={90} />
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {QUICK_PITCHES.map((qp, i) => (
+                    <button key={i} type="button" data-testid={`quick-pitch-${i}`} onClick={() => setPitch(qp)}
+                      className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
+                      {["Punchy hook", "Category pro", "Premium cut"][i]}
+                    </button>
+                  ))}
+                </div>
+                <input data-testid="bid-pitch-input" className="input-dark mb-4 text-sm" placeholder="Tap a suggestion above or write your own" value={pitch} onChange={(e) => setPitch(e.target.value)} maxLength={90} />
                 <label className="label-caps block mb-2">Relevant portfolio example</label>
                 <div className="flex gap-2 mb-5">
                   {me?.portfolio?.map((port, i) => (
@@ -91,8 +105,9 @@ export default function JobDetails() {
               <div className="text-center py-8" data-testid="bid-placed-state">
                 <CheckCircle2 className="w-12 h-12 text-[#CCFF00] mx-auto mb-4" />
                 <p className="font-display font-extrabold text-xl mb-1">Bid placed</p>
-                <p className="text-sm text-zinc-500 mb-6">You're in the room. The customer sees your bid ranked by Best Fit.</p>
-                <button data-testid="back-to-clipper-dash" className="btn-white h-11 w-full" onClick={() => nav("/clipper")}>Back to dashboard</button>
+                <p className="text-sm text-zinc-500 mb-4">You're in the room, ranked by Best Fit. No bond locked yet.</p>
+                <div className="bg-black/40 rounded-xl p-3 text-xs text-zinc-400 mb-6">If the customer picks you, the deal lands on your dashboard and your 24-hour clock starts.</div>
+                <button data-testid="back-to-clipper-dash" className="btn-lime h-11 w-full" onClick={() => nav("/clipper")}>Back to dashboard</button>
               </div>
             )}
           </div>

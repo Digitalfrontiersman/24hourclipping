@@ -16,13 +16,22 @@ export default function Admin() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
   const [suspended, setSuspended] = useState([]);
+  const [testMode, setTestModeState] = useState(false);
 
   const loadUsers = () => dbAdapter.adminUsers().then(setUsers).catch(() => {});
   const load = () => {
     dbAdapter.adminOverview().then(setData).catch(() => {});
+    dbAdapter.getTestMode().then((r) => setTestModeState(!!r.enabled)).catch(() => {});
     loadUsers();
   };
   useEffect(() => { load(); }, []);
+
+  const toggleTestMode = () => {
+    const next = !testMode;
+    dbAdapter.setTestMode(next)
+      .then(() => { setTestModeState(next); notify[next ? "urgent" : "success"](next ? "Test mode ON" : "Test mode OFF", next ? "Payments are now simulated for demos" : "Real payments restored"); })
+      .catch((e) => notify.urgent(e.response?.data?.detail || "Could not change test mode"));
+  };
 
   const userAction = (u) => {
     const fn = u.disabled ? dbAdapter.restoreUser : dbAdapter.suspendUser;
@@ -52,9 +61,15 @@ export default function Admin() {
             <span className="label-caps text-[#FF4500]">Private console</span>
             <h1 className="text-3xl font-extrabold tracking-tighter mt-2">Admin Console</h1>
           </div>
-          <button data-testid="reset-demo-btn" className="btn-ghost h-10 px-5 text-xs" onClick={() => dbAdapter.resetDemo().then(() => { notify.success("Demo data reset"); load(); })}>
-            <RefreshCw className="w-3.5 h-3.5" /> Reset demo data
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button data-testid="test-mode-toggle" onClick={toggleTestMode}
+              className={`h-10 px-5 text-xs rounded-full font-bold border transition-colors ${testMode ? "bg-amber-400/15 border-amber-400/50 text-amber-300" : "border-white/10 text-zinc-400 hover:text-white"}`}>
+              {testMode ? "🧪 Test mode: ON — payments simulated" : "Test mode: OFF"}
+            </button>
+            <button data-testid="reset-demo-btn" className="btn-ghost h-10 px-5 text-xs" onClick={() => dbAdapter.resetDemo().then(() => { notify.success("Demo data reset"); load(); })}>
+              <RefreshCw className="w-3.5 h-3.5" /> Reset demo data
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">

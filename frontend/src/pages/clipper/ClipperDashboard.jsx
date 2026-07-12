@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
-import { Star, Timer, TrendingUp, ArrowRight } from "lucide-react";
+import { Timer, TrendingUp, ArrowRight, Trophy, X, Search } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import SolanaPayoutWallet from "@/components/SolanaPayoutWallet";
+
+const SEEN_DEALS_KEY = "24hc_seen_deals";
 
 export default function ClipperDashboard() {
   const { user } = useApp();
@@ -14,12 +18,25 @@ export default function ClipperDashboard() {
   const [me, setMe] = useState(null);
   const [projects, setProjects] = useState([]);
   const [contracts, setContracts] = useState([]);
+  const [newWins, setNewWins] = useState([]);
 
   useEffect(() => {
     if (!ME) return;
     dbAdapter.getClipper(ME).then(setMe).catch(() => {});
     dbAdapter.getProjects({ status: "open" }).then(setProjects).catch(() => {});
-    dbAdapter.getContracts().then((cs) => setContracts(cs.filter((c) => c.clipper_id === ME))).catch(() => {});
+    dbAdapter.getContracts().then((cs) => {
+      const mine = cs.filter((c) => c.clipper_id === ME);
+      setContracts(mine);
+      // "You won" moment — celebrate contracts that just went live and haven't been seen yet.
+      const live = mine.filter((c) => ["live", "revision"].includes(c.status));
+      let seen = [];
+      try { seen = JSON.parse(localStorage.getItem(SEEN_DEALS_KEY) || "[]"); } catch { seen = []; }
+      const fresh = live.filter((c) => !seen.includes(c.id));
+      if (fresh.length) {
+        setNewWins(fresh);
+        localStorage.setItem(SEEN_DEALS_KEY, JSON.stringify([...new Set([...seen, ...live.map((c) => c.id)])]));
+      }
+    }).catch(() => {});
   }, [ME]);
 
   const active = contracts.filter((c) => ["live", "revision", "delivered"].includes(c.status));
@@ -35,6 +52,31 @@ export default function ClipperDashboard() {
           </div>
           <span className="ml-auto badge-live">{me?.badge?.toUpperCase() || ""}</span>
         </div>
+
+        {/* You won — deal secured celebration */}
+        <AnimatePresence>
+          {newWins.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              className="card-dark border-[#CCFF00] bg-[#CCFF00]/[0.06] p-6 mb-10 relative overflow-hidden" data-testid="deal-secured-banner">
+              <button data-testid="dismiss-deal-banner" onClick={() => setNewWins([])} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+              <div className="flex items-center gap-3 mb-3">
+                <Trophy className="w-7 h-7 text-[#CCFF00]" fill="#CCFF00" />
+                <div>
+                  <p className="font-display font-extrabold text-2xl tracking-tighter text-[#CCFF00]">DEAL SECURED{newWins.length > 1 ? ` ×${newWins.length}` : ""}</p>
+                  <p className="text-sm text-zinc-300">You won {newWins.length > 1 ? "these bids" : "this bid"} — your 24-hour clock is running. Go deliver.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {newWins.map((c) => (
+                  <Link key={c.id} to={`/clipper/room/${c.id}`} data-testid={`won-deal-${c.id}`} className="btn-lime h-10 px-5 text-sm">
+                    Open “{c.project?.title || "your project"}” <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
@@ -52,6 +94,9 @@ export default function ClipperDashboard() {
           ))}
         </div>
 
+        {/* USDC payout wallet */}
+        <SolanaPayoutWallet />
+
         {/* Marketplace progress */}
         <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="marketplace-progress">
           <TrendingUp className="w-6 h-6 text-[#CCFF00]" />
@@ -63,8 +108,8 @@ export default function ClipperDashboard() {
         </div>
 
         {/* Active countdowns */}
-        <h2 className="font-display font-bold text-xl mb-4">Active project countdowns</h2>
-        {active.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No active contracts.</p> : (
+        <h2 className="font-display font-bold text-xl mb-4">Active deals — clock running</h2>
+        {active.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No active deals yet. Win a bid below and it lands here.</p> : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
             {active.map((c) => (
               <Link key={c.id} to={`/clipper/room/${c.id}`} data-testid={`clipper-contract-${c.id}`} className="card-dark p-5 hover:border-[#CCFF00]/40 transition-colors">
@@ -83,10 +128,10 @@ export default function ClipperDashboard() {
         <h2 className="font-display font-bold text-xl mb-4">Pending bids</h2>
         <div className="card-dark p-5 mb-10 flex items-center justify-between flex-wrap gap-3" data-testid="pending-bids">
           <div className="flex items-center gap-3">
-            <Star className="w-5 h-5 text-[#CCFF00]" />
-            <p className="text-sm text-zinc-400">Your bid of <span className="font-mono font-bold text-white">$78</span> on “Ranked Grand Finals Clutch Moment” is pending. Bond not locked until accepted.</p>
+            <Timer className="w-5 h-5 text-[#CCFF00]" />
+            <p className="text-sm text-zinc-400">Bids you place appear here until a creator picks you. No bond is locked until you win — then the deal jumps to the top and your clock starts.</p>
           </div>
-          <StatusBadge status="open" />
+          <Link to="/marketplace" data-testid="pending-bids-cta" className="btn-ghost h-10 px-5 text-sm shrink-0"><Search className="w-4 h-4" /> Find jobs to bid on</Link>
         </div>
 
         {/* Available jobs */}

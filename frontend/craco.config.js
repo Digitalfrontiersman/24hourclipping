@@ -1,5 +1,6 @@
 // craco.config.js
 const path = require("path");
+const webpack = require("webpack");
 require("dotenv").config();
 
 // Check if we're in development/preview mode (not production build)
@@ -102,6 +103,34 @@ let webpackConfig = {
       if (config.enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
       }
+
+      // Browser polyfills required by @solana/web3.js + @solana/spl-token.
+      webpackConfig.resolve = webpackConfig.resolve || {};
+      webpackConfig.resolve.fallback = {
+        ...(webpackConfig.resolve.fallback || {}),
+        buffer: require.resolve("buffer"),
+        process: require.resolve("process/browser.js"),
+        crypto: false,
+        stream: false,
+        path: false,
+        os: false,
+        http: false,
+        https: false,
+        zlib: false,
+        url: false,
+      };
+      // Allow importing ESM modules without a fully-specified extension
+      // (react-router et al. request 'process/browser' without '.js').
+      webpackConfig.module = webpackConfig.module || {};
+      webpackConfig.module.rules = webpackConfig.module.rules || [];
+      webpackConfig.module.rules.push({ test: /\.m?js$/, resolve: { fullySpecified: false } });
+      webpackConfig.plugins.push(
+        new webpack.ProvidePlugin({ Buffer: ["buffer", "Buffer"], process: "process/browser.js" })
+      );
+      webpackConfig.ignoreWarnings = [
+        ...(webpackConfig.ignoreWarnings || []),
+        /Failed to parse source map/,
+      ];
       return webpackConfig;
     },
   },

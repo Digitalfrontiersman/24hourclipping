@@ -42,6 +42,11 @@ services:
       ZIINA_TEST: "${ZIINA_TEST:-true}"
       ZIINA_CURRENCY: "${ZIINA_CURRENCY:-AED}"
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://clip42.duckdns.org}"
+      SOLANA_RPC_URL: "${SOLANA_RPC_URL:-}"
+      SOLANA_NETWORK: "${SOLANA_NETWORK:-mainnet}"
+      SOLANA_TREASURY_SECRET: "${SOLANA_TREASURY_SECRET:-}"
+      SOLANA_USDC_MINT: "${SOLANA_USDC_MINT:-}"
+      PLATFORM_FEE_PCT: "${PLATFORM_FEE_PCT:-8}"
     volumes:
       - media_data:/data/media
     expose:
