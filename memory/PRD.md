@@ -61,6 +61,14 @@ Build a complete, polished, responsive frontend MVP for "24 HOUR CLIPPING" — a
 - Verified via `testing_agent_v3_fork` iteration_2 → 9/9 checks pass at 1920x900 and 390x844, zero horizontal overflow, no console errors.
 
 
+
+## Feb 2026 — Hero Banner v3: Autoplay Video (fork)
+- Replaced static right-side image with the user-uploaded 10-sec loop `/app/frontend/public/hero_loop.mp4` (H.264 fallback) + `/app/frontend/public/hero_loop.webm` (VP9 primary, 716KB) — autoplays muted/loops/plays-inline.
+- Stripped now-redundant overlays inside the card (countdown badge, "Clipping" chip, cycling caption, live bid toast, scrubber) because the uploaded video already contains those visuals baked in. Kept only a small "Live demo" tag + 3D tilt + cursor glare.
+- Left side is 100% static copy exactly as requested.
+- Mobile tightened for above-the-fold fit: `pt-6 pb-8` on mobile vs `pt-24` desktop, H1 `text-3xl` mobile, compact CTAs `h-11`, card `max-w-[560px] aspect-video (16:9)` — full hero + before/after row fits within 666px on 844px iPhone viewport.
+- Verified via testing_agent_v3_fork iteration_3 → 10/10 pass at both viewports, video plays, zero console errors.
+
 ## Backlog (unchanged priority)
 - P1: Real WebSocket bid feed (replace realtimeAdapter mock)
 - P1: Pre-acceptance messaging in Bid Room
