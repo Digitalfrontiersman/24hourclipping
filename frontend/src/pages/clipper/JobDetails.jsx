@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import BidChat from "@/components/BidChat";
 
 const QUICK_PITCHES = [
   "Scroll-stopping hook in the first 2s, bold captions, delivered early.",
@@ -23,6 +24,7 @@ export default function JobDetails() {
   const [portfolioIdx, setPortfolioIdx] = useState(0);
   const [me, setMe] = useState(null);
   const [placed, setPlaced] = useState(false);
+  const [placedBid, setPlacedBid] = useState(null);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(Math.round(proj.budget * 0.9)); }).catch(() => {});
@@ -31,7 +33,8 @@ export default function JobDetails() {
 
   const submit = async () => {
     if (!amount || !pitch.trim()) return notify.urgent("Add a bid price and a one-line pitch");
-    await dbAdapter.createBid(projectId, { amount: Number(amount), pitch, eta_hours: Number(eta) });
+    const bid = await dbAdapter.createBid(projectId, { amount: Number(amount), pitch, eta_hours: Number(eta) });
+    setPlacedBid(bid);
     setPlaced(true);
     notify.success("Bid placed", "You'll be notified the moment the customer responds");
   };
@@ -102,12 +105,17 @@ export default function JobDetails() {
                 <button data-testid="place-bid-btn" className="btn-lime h-13 w-full h-12" onClick={submit}>Place Bid</button>
               </>
             ) : (
-              <div className="text-center py-8" data-testid="bid-placed-state">
-                <CheckCircle2 className="w-12 h-12 text-[#CCFF00] mx-auto mb-4" />
-                <p className="font-display font-extrabold text-xl mb-1">Bid placed</p>
-                <p className="text-sm text-zinc-500 mb-4">You're in the room, ranked by Best Fit. No bond locked yet.</p>
-                <div className="bg-black/40 rounded-xl p-3 text-xs text-zinc-400 mb-6">If the customer picks you, the deal lands on your dashboard and your 24-hour clock starts.</div>
-                <button data-testid="back-to-clipper-dash" className="btn-lime h-11 w-full" onClick={() => nav("/clipper")}>Back to dashboard</button>
+              <div data-testid="bid-placed-state">
+                <div className="text-center pt-2 pb-4">
+                  <CheckCircle2 className="w-11 h-11 text-[#CCFF00] mx-auto mb-3" />
+                  <p className="font-display font-extrabold text-xl mb-1">Bid placed</p>
+                  <p className="text-sm text-zinc-500">You're in the room, ranked by Best Fit. No bond locked yet.</p>
+                </div>
+                <div className="border-t border-white/10 pt-4">
+                  <p className="label-caps mb-2 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-[#CCFF00]" /> Message the creator</p>
+                  {placedBid && <BidChat bidId={placedBid.id} meSender="clipper" otherName={p.customer_name} />}
+                </div>
+                <button data-testid="back-to-clipper-dash" className="btn-ghost h-11 w-full mt-4" onClick={() => nav("/clipper")}>Back to dashboard</button>
               </div>
             )}
           </div>

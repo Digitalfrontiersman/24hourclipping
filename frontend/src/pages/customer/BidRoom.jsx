@@ -5,7 +5,8 @@ import { dbAdapter } from "@/services/dbAdapter";
 import { realtimeAdapter } from "@/services/realtimeAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { Star, Timer, MessageCircle, Check, Loader2, Zap, Play } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import BidChat from "@/components/BidChat";
 
 function fitScore(bid, budget) {
   const c = bid.clipper || {};
@@ -21,6 +22,7 @@ export default function BidRoom() {
   const [selected, setSelected] = useState([]);
   const [confirming, setConfirming] = useState(false);
   const [accepting, setAccepting] = useState(null); // null | "waiting" | "live"
+  const [chatBid, setChatBid] = useState(null);
   const contractRef = useRef(null);
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function BidRoom() {
                         <span className="absolute inset-0 bg-black/40 flex items-center justify-center"><Play className="w-4 h-4" fill="white" /></span>
                       </div>
                     )}
-                    <button data-testid={`message-bid-${b.id}`} className="btn-ghost h-10 px-4 text-xs ml-auto" onClick={() => notify.info("Messaging opens after you accept", "Keep it moving — accept the bid to chat")}><MessageCircle className="w-3.5 h-3.5" /> Message</button>
+                    <button data-testid={`message-bid-${b.id}`} className="btn-ghost h-10 px-4 text-xs ml-auto" onClick={() => setChatBid(b)}><MessageCircle className="w-3.5 h-3.5" /> Message</button>
                     <button data-testid={`accept-bid-${b.id}`} onClick={() => toggle(b.id)}
                       className={`h-10 px-5 text-xs font-bold rounded-full transition-colors active:scale-95 ${selected.includes(b.id) ? "bg-[#CCFF00] text-black" : "bg-white text-black hover:bg-zinc-200"}`}>
                       {selected.includes(b.id) ? <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Selected</span> : "Accept Bid"}
@@ -153,6 +155,18 @@ export default function BidRoom() {
           </div>
         </motion.div>
       )}
+
+      {/* Chat with a bidder (before accepting) */}
+      <Dialog open={!!chatBid} onOpenChange={(o) => !o && setChatBid(null)}>
+        <DialogContent className="bg-[#1A1A1A] border-white/10 text-white">
+          <DialogTitle className="flex items-center gap-2 font-display font-extrabold text-lg">
+            <img src={chatBid?.clipper?.avatar} alt="" className="w-7 h-7 rounded-full" />
+            Chat with {chatBid?.clipper?.name}
+          </DialogTitle>
+          <p className="-mt-1 text-xs text-zinc-500">Align on the brief before you accept — bid ${chatBid?.amount} · ETA {chatBid?.eta_hours}h</p>
+          {chatBid && <BidChat bidId={chatBid.id} meSender="customer" otherName={chatBid.clipper?.name} />}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm modal */}
       <Dialog open={confirming} onOpenChange={setConfirming}>

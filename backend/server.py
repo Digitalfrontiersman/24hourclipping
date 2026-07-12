@@ -704,6 +704,46 @@ async def create_bid(project_id: str, body: BidCreate, user: dict = Depends(requ
     doc.pop("_id", None)
     return (await attach_clipper([doc]))[0]
 
+DEMO_PITCHES = [
+    "Hook locked in the first 1.5 seconds. Let's go.",
+    "This is exactly my lane — check my last three clips.",
+    "I can start right now. First cut well under deadline.",
+    "Punch-ins, sound design, captions on point. Done it 200 times.",
+    "Your audience will not scroll past this. Guaranteed pacing.",
+    "Clean premium edit, beat-synced cuts, delivered early.",
+]
+
+
+@api_router.post("/projects/{project_id}/demo-bids")
+async def demo_bids(project_id: str, count: int = 5, user: dict = Depends(get_current_user)):
+    """Populate a project's bid room with realistic bids from seed clippers.
+    Owner-only; available in test/demo mode (or to admins). Idempotent up to `count`."""
+    p = await _require_project_owner(project_id, user)
+    if not await get_test_mode() and user["role"] != "admin":
+        raise HTTPException(403, "Demo bids are only available in test mode")
+    import random
+    existing = await db.bids.find({"project_id": project_id}, NO_ID).to_list(100)
+    have = {b["clipper_id"] for b in existing}
+    target = max(0, int(count) - len(existing))
+    if target <= 0:
+        return []
+    clippers = await db.clippers.find({"id": {"$nin": list(have)}}, NO_ID).to_list(50)
+    random.shuffle(clippers)
+    created = []
+    for c in clippers[:target]:
+        amount = max(20, round(float(p["budget"]) * (0.75 + random.random() * 0.35)))
+        doc = {"id": str(uuid.uuid4()), "project_id": project_id, "clipper_id": c["id"],
+               "amount": amount, "pitch": random.choice(DEMO_PITCHES),
+               "eta_hours": 6 + random.randint(0, 13), "bond_required": bond_for(amount),
+               "status": "pending", "created_at": now_iso()}
+        await db.bids.insert_one(dict(doc))
+        doc.pop("_id", None)
+        created.append(doc)
+    if created:
+        await db.projects.update_one({"id": project_id}, {"$inc": {"bids_count": len(created)}})
+    return await attach_clipper(created)
+
+
 @api_router.post("/bids/{bid_id}/accept")
 async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     bid = await db.bids.find_one({"id": bid_id}, NO_ID)
@@ -721,6 +761,36 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     await db.projects.update_one({"id": bid["project_id"]}, {"$set": {"status": "pending_acceptance"}})
     contract.pop("_id", None)
     return contract
+
+async def _bid_party(bid_id: str, user: dict):
+    """A bid conversation is between the project owner and the bidding clipper."""
+    bid = await db.bids.find_one({"id": bid_id}, NO_ID)
+    if not bid:
+        raise HTTPException(404, "Bid not found")
+    proj = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
+    is_owner = proj.get("owner_id") == user["id"]
+    is_clipper = bid.get("clipper_id") == user["id"]
+    if user["role"] == "admin" or is_owner or is_clipper:
+        return bid, is_owner
+    raise HTTPException(403, "You are not part of this conversation")
+
+
+@api_router.get("/bids/{bid_id}/messages")
+async def get_bid_messages(bid_id: str, user: dict = Depends(get_current_user)):
+    await _bid_party(bid_id, user)
+    return await db.messages.find({"bid_id": bid_id}, NO_ID).sort("created_at", 1).to_list(300)
+
+
+@api_router.post("/bids/{bid_id}/messages")
+async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
+    bid, is_owner = await _bid_party(bid_id, user)
+    sender = "admin" if user["role"] == "admin" else ("customer" if is_owner else "clipper")
+    doc = {"id": str(uuid.uuid4()), "bid_id": bid_id, "project_id": bid["project_id"],
+           "sender": sender, "sender_name": user.get("name"), "text": body.text, "created_at": now_iso()}
+    await db.messages.insert_one(dict(doc))
+    doc.pop("_id", None)
+    return doc
+
 
 @api_router.get("/contracts")
 async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_current_user)):
