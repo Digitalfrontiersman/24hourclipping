@@ -1227,6 +1227,13 @@ async def startup():
         await seed_db(db)
         logger.info("Seeded demo data")
     await ensure_auth_setup()
+    # Network School showcase (hardcoded real-traction data) — always present, idempotent.
+    try:
+        from seed_ns import seed_ns
+        await seed_ns(db)
+        logger.info("NS showcase seeded")
+    except Exception as e:
+        logger.error("NS seed error: %s", e)
 
 
 @app.on_event("shutdown")

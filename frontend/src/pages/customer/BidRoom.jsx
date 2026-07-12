@@ -23,6 +23,7 @@ export default function BidRoom() {
   const [confirming, setConfirming] = useState(false);
   const [accepting, setAccepting] = useState(null); // null | "waiting" | "live"
   const [chatBid, setChatBid] = useState(null);
+  const [submission, setSubmission] = useState(null);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then(setProject).catch(() => {});
@@ -114,8 +115,14 @@ export default function BidRoom() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
-                    {b.clipper?.portfolio?.[0] && (
-                      <div className="relative w-24 aspect-video rounded-lg overflow-hidden shrink-0 group cursor-pointer">
+                    {b.clipper?.portfolio?.[0]?.video_url?.endsWith(".mp4") ? (
+                      <button data-testid={`submission-bid-${b.id}`} onClick={() => setSubmission({ url: b.clipper.portfolio[0].video_url, name: b.clipper.name })}
+                        className="relative w-24 aspect-video rounded-lg overflow-hidden shrink-0 border border-[#CCFF00]/50" title="View submission">
+                        <img src={b.clipper.portfolio[0].thumb} alt="" className="w-full h-full object-cover" />
+                        <span className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center"><Play className="w-4 h-4" fill="white" /><span className="text-[8px] font-bold text-[#CCFF00] mt-0.5">SUBMISSION</span></span>
+                      </button>
+                    ) : b.clipper?.portfolio?.[0] && (
+                      <div className="relative w-24 aspect-video rounded-lg overflow-hidden shrink-0">
                         <img src={b.clipper.portfolio[0].thumb} alt="" className="w-full h-full object-cover" />
                         <span className="absolute inset-0 bg-black/40 flex items-center justify-center"><Play className="w-4 h-4" fill="white" /></span>
                       </div>
@@ -162,6 +169,14 @@ export default function BidRoom() {
           </DialogTitle>
           <p className="-mt-1 text-xs text-zinc-500">Align on the brief before you accept — bid ${chatBid?.amount} · ETA {chatBid?.eta_hours}h</p>
           {chatBid && <BidChat bidId={chatBid.id} meSender="customer" otherName={chatBid.clipper?.name} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Submission viewer */}
+      <Dialog open={!!submission} onOpenChange={(o) => !o && setSubmission(null)}>
+        <DialogContent className="bg-[#0A0A0A] border-white/10 text-white max-w-sm">
+          <DialogTitle className="font-display font-extrabold text-lg flex items-center gap-2"><span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />SUBMISSION</span> {submission?.name}</DialogTitle>
+          {submission && <video src={submission.url} className="w-full rounded-xl bg-black max-h-[70vh]" controls autoPlay />}
         </DialogContent>
       </Dialog>
 

@@ -217,3 +217,9 @@ async def seed_db(db):
         "cta": "Follow @NovaStreams", "avoid": "Slow intros, watermark clutter, cringe zooms",
         "logo": None, "reference_clips": [VIDS[2]],
     })
+    # Re-apply the Network School showcase after a reset so it's always present.
+    try:
+        from seed_ns import seed_ns
+        await seed_ns(db)
+    except Exception:
+        pass

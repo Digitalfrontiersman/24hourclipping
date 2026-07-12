@@ -92,3 +92,7 @@ credentials.json
 
 # local deploy helpers (no secrets; password via env)
 .deploy_*.py
+
+# large showcase media (deployed to server, not git)
+frontend/public/showcase/clip1.mp4
+frontend/public/showcase/clip2.mp4

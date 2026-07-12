@@ -32,6 +32,31 @@ export default function Landing() {
       {/* HERO */}
       <Hero />
 
+      {/* REAL CLIP SHOWCASE — Network School traction */}
+      <section className="relative border-t border-white/10 bg-[#080808] py-20 grain overflow-hidden">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <span className="label-caps text-[#CCFF00]">Real traction · Network School</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-5xl tracking-tighter mt-3">Real clips. Real creators.</h2>
+            <p className="text-zinc-400 mt-3 max-w-xl mx-auto leading-relaxed">Actual short-form clips delivered on 24 Hour Clipping by <span className="text-white font-bold">Network School</span> members — raw footage in, scroll-stopping cut out.</p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-6">
+            {["/showcase/clip1.mp4", "/showcase/clip2.mp4"].map((clip) => (
+              <div key={clip} className="relative w-[260px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
+                <video src={clip} className="w-full aspect-[9/16] object-cover bg-black" autoPlay muted loop playsInline controls preload="metadata" />
+                <div className="p-4 flex items-center justify-between">
+                  <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />DELIVERED</span>
+                  <span className="text-xs font-bold text-zinc-400">Network School</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <Link to="/marketplace" data-testid="showcase-see-job" className="btn-lime h-12 px-8">See the live Network School job <ArrowRight className="w-4 h-4" /></Link>
+          </div>
+        </div>
+      </section>
+
       {/* DEMO VIDEO CAROUSEL */}
       <section className="py-16 border-t border-white/10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
