@@ -90,4 +90,12 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
   .hero-glow, .hero-twinkle, .hero-spin-slow, .hero-dash { animation: none; }
 }
 
+/* ---- HeroBanner (video hero from frontend branch) ---- */
+@keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-orbit { animation: orbit 40s linear infinite; }
+.animate-orbit-reverse { animation: orbit 40s linear infinite reverse; }
+@keyframes lime-flicker { 0%, 100% { text-shadow: 0 0 24px rgba(204,255,0,0.45); } 50% { text-shadow: 0 0 44px rgba(204,255,0,0.8); } }
+.lime-flicker { animation: lime-flicker 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-orbit, .animate-orbit-reverse, .lime-flicker { animation: none; } }
+
 [data-debug-wrapper="true"] { display: contents !important; }

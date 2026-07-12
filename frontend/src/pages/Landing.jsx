@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp } from "lucide-react";
 import Footer from "@/components/Footer";
-import Hero from "@/components/Hero";
+import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
 import { DEMO_VIDEOS } from "@/data/demoVideos";
 import { dbAdapter } from "@/services/dbAdapter";
@@ -30,7 +30,7 @@ export default function Landing() {
   return (
     <div className="bg-[#0A0A0A] text-white">
       {/* HERO */}
-      <Hero />
+      <HeroBanner />
 
       {/* REAL CLIP SHOWCASE — Network School traction */}
       <section className="relative border-t border-white/10 bg-[#080808] py-20 grain overflow-hidden">

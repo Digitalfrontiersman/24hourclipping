@@ -14,9 +14,6 @@ export default function Navbar() {
   const loc = useLocation();
   const [open, setOpen] = useState(false);
 
-  // The landing page ("/") ships its own premium hero nav — hide the global one there.
-  if (loc.pathname === "/") return null;
-
   const links = [
     { to: "/marketplace", label: "Live Jobs" },
     { to: "/clippers", label: "Clippers" },
