@@ -124,6 +124,7 @@ class ProjectCreate(BaseModel):
     style: str = ""
     cta: str = ""
     thumbnail: Optional[str] = None
+    thumbnail_key: Optional[str] = None  # uploaded thumbnail image (object key)
     customer_name: str = "Demo Customer"
 
 class BidCreate(BaseModel):
@@ -504,6 +505,12 @@ async def get_project(project_id: str):
 @api_router.post("/projects")
 async def create_project(body: ProjectCreate, user: dict = Depends(require_role("customer", "admin"))):
     doc = body.model_dump()
+    # Uploaded thumbnail -> a long-lived signed URL usable in <img> anywhere.
+    if body.thumbnail_key:
+        thumb = storage.sign_media_url(body.thumbnail_key, expires_in=365 * 24 * 3600)
+    else:
+        thumb = body.thumbnail or "https://images.pexels.com/photos/14540970/pexels-photo-14540970.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    doc.pop("thumbnail_key", None)
     doc.update({
         "id": str(uuid.uuid4()),
         "owner_id": user["id"],
@@ -514,7 +521,7 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_role(
         "bids_count": 0,
         "posted_at": now_iso(),
         "timestamp_provided": body.moment_mode == "known",
-        "thumbnail": body.thumbnail or "https://images.pexels.com/photos/14540970/pexels-photo-14540970.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "thumbnail": thumb,
     })
     await db.projects.insert_one(dict(doc))
     doc.pop("_id", None)
@@ -766,7 +773,7 @@ DEMO_PITCHES = [
 
 
 @api_router.post("/projects/{project_id}/demo-bids")
-async def demo_bids(project_id: str, count: int = 5, user: dict = Depends(get_current_user)):
+async def demo_bids(project_id: str, count: int = 2, user: dict = Depends(get_current_user)):
     """Populate a project's bid room with realistic bids from seed clippers.
     Owner-only; available in test/demo mode (or to admins). Idempotent up to `count`."""
     p = await _require_project_owner(project_id, user)

@@ -5,7 +5,7 @@ import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
 import FileDropzone from "@/components/FileDropzone";
-import { Sparkles, PenLine, Link2, ArrowRight, ArrowLeft, Zap } from "lucide-react";
+import { Sparkles, PenLine, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon } from "lucide-react";
 
 const chip = (active) => `px-4 py-2 rounded-full text-sm font-bold transition-colors ${active ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`;
 
@@ -14,6 +14,8 @@ export default function CreateProject() {
   const [step, setStep] = useState(0);
   const [uploadPct, setUploadPct] = useState(null);
   const [uploaded, setUploaded] = useState(null);
+  const [thumbPct, setThumbPct] = useState(null);
+  const [thumb, setThumb] = useState(null); // { key, name, preview }
   const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
     title: "", category: "Stream Highlights", source_link: "", moment_mode: "known",
@@ -32,11 +34,25 @@ export default function CreateProject() {
     notify.success("Footage uploaded", file.name);
   };
 
+  const uploadThumb = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return notify.urgent("Thumbnail must be an image (JPG or PNG)");
+    setThumbPct(0);
+    try {
+      const res = await storageAdapter.upload(file, setThumbPct, { kind: "source" });
+      setThumb({ ...res, preview: URL.createObjectURL(file) });
+      notify.success("Thumbnail set", file.name);
+    } catch {
+      notify.urgent("Thumbnail upload failed");
+    }
+    setThumbPct(null);
+  };
+
   const submit = async () => {
     if (!f.title) return notify.urgent("Give your project a title");
     setSaving(true);
     try {
-      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_key: uploaded?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
+      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_key: uploaded?.key, thumbnail_key: thumb?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
       nav(`/customer/checkout/${p.id}`);
     } catch {
       notify.urgent("Could not create project");
@@ -104,6 +120,19 @@ export default function CreateProject() {
                 <input data-testid="source-link-input" className="input-dark h-10 text-sm" placeholder="Twitch, YouTube, Drive, Dropbox…" value={f.source_link} onChange={(e) => set("source_link", e.target.value)} />
                 <p className="text-xs text-zinc-600 mt-2">No file yet? A link works — the clipper pulls the footage.</p>
               </div>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Thumbnail <span className="normal-case tracking-normal text-zinc-600">— optional cover shown in the marketplace &amp; bid room</span></label>
+              <label data-testid="upload-thumbnail-label" className="card-dark p-4 flex items-center gap-4 cursor-pointer hover:border-[#CCFF00]/40 transition-colors">
+                <div className="w-20 h-20 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center shrink-0">
+                  {thumb?.preview ? <img src={thumb.preview} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-zinc-600" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">{thumb ? "Thumbnail set — click to change" : "Upload a thumbnail image"}</p>
+                  <p className="text-xs text-zinc-500">{thumbPct !== null ? `Uploading… ${thumbPct}%` : "JPG or PNG · gives your job a custom cover"}</p>
+                </div>
+                <input data-testid="upload-thumbnail-input" type="file" accept="image/*" className="hidden" onChange={(e) => uploadThumb(e.target.files?.[0])} />
+              </label>
             </div>
             <div>
               <label className="label-caps block mb-2">The moment</label>
