@@ -1,6 +1,5 @@
-// AI ADAPTER — streams from the demo backend (Emergent LLM key).
-// Swap the base URL / auth here to connect a production AI service.
-import { API } from "./api";
+// AI ADAPTER — streams from the backend OpenAI concierge.
+import { API, getToken } from "./api";
 import { api } from "./api";
 
 export const aiAdapter = {
@@ -8,11 +7,20 @@ export const aiAdapter = {
   generateBrief: (sessionId) => api.post("/ai/brief", { session_id: sessionId }).then((r) => r.data),
 
   async streamChat(sessionId, message, onDelta) {
+    const token = getToken();
     const res = await fetch(`${API}/ai/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ session_id: sessionId, message }),
     });
+    if (!res.ok || !res.body) {
+      let detail = `The concierge is unavailable (${res.status}).`;
+      try { const j = await res.json(); if (j.detail) detail = j.detail; } catch { /* non-JSON */ }
+      throw new Error(detail);
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
