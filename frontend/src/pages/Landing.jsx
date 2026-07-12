@@ -178,6 +178,33 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* WHICH SIDE ARE YOU ON */}
+      <section className="relative border-t border-white/10 bg-[#080808] py-20 sm:py-24 grain overflow-hidden">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
+          <h2 className="text-center font-display font-extrabold text-3xl sm:text-5xl tracking-tighter uppercase mb-12">Which side are you on?</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Link to="/customer/create" data-testid="side-need-clip" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-[#CCFF00]/60 transition-colors">
+              <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[#CCFF00]/10 blur-3xl group-hover:bg-[#CCFF00]/25 transition-colors" />
+              <div className="relative">
+                <span className="label-caps text-[#CCFF00]">For creators</span>
+                <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I need a clip</h3>
+                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Post your footage and vetted clippers compete to edit it — your first cut back in 24 hours.</p>
+              </div>
+              <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-[#CCFF00] px-7 py-3.5 font-bold text-black">Post a project <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+            </Link>
+            <Link to="/clipper/onboarding" data-testid="side-make-clips" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-white/50 transition-colors">
+              <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/5 blur-3xl group-hover:bg-white/15 transition-colors" />
+              <div className="relative">
+                <span className="label-caps">For clippers</span>
+                <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I make clips</h3>
+                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Bid on live jobs, ship scroll-stopping edits, and get paid — 92% yours, on Solana.</p>
+              </div>
+              <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-white px-7 py-3.5 font-bold text-black group-hover:bg-zinc-200 transition-colors">Apply as a clipper <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+            </Link>
+          </div>
+        </div>
+      </section>
       <Footer />
     </div>
   );
