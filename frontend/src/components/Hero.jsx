@@ -21,30 +21,26 @@ const PARTICLES = [
 ];
 
 // Public sample clips (Google gtv bucket) — real looping video in the cards.
-const GTV = "https://storage.googleapis.com/gtv-videos-bucket/sample/";
+// Vertical thumbnails styled as short-form clips (reliable Unsplash CDN).
+const IMG = "https://images.unsplash.com/";
+const IQ = "?w=380&h=680&fit=crop&q=72";
 const CARDS = [
-  { creator: "Maya Torres", handle: "@mayaclips", caption: "Ranked finals clutch", genre: "Gaming", grad: "from-violet-600 to-indigo-950", vid: "ForBiggerBlazes", av: 12, views: "1.2M", pct: 82 },
-  { creator: "Devon Reeves", handle: "@devcuts", caption: "Founder burnout, unfiltered", genre: "Podcast", grad: "from-amber-500 to-red-950", vid: "ForBiggerEscapes", av: 32, views: "840K", pct: 64 },
-  { creator: "Lena Okafor", handle: "@lenareels", caption: "IRL fail compilation", genre: "IRL", grad: "from-emerald-500 to-teal-950", vid: "ForBiggerFun", av: 5, views: "2.4M", pct: 96 },
-  { creator: "Jonah Park", handle: "@jonahtalks", caption: "The 3am launch story", genre: "Founder", grad: "from-sky-500 to-blue-950", vid: "ForBiggerJoyrides", av: 68, views: "512K", pct: 47 },
-  { creator: "Sasha Ivanov", handle: "@sashaedits", caption: "Launch teaser — 6s hook", genre: "Ad", grad: "from-fuchsia-600 to-purple-950", vid: "ForBiggerMeltdowns", av: 47, views: "3.1M", pct: 73 },
-  { creator: "Rio Almeida", handle: "@rioshorts", caption: "SaaS demo in 15 seconds", genre: "Shorts", grad: "from-lime-500 to-green-950", vid: "BigBuckBunny", av: 15, views: "690K", pct: 88 },
-  { creator: "Aria Chen", handle: "@ariastreams", caption: "Speedrun world record", genre: "Gaming", grad: "from-rose-500 to-pink-950", vid: "Sintel", av: 16, views: "1.8M", pct: 55 },
+  { creator: "Maya Torres", handle: "@mayaclips", caption: "Ranked finals clutch", genre: "Gaming", grad: "from-violet-600 to-indigo-950", img: IMG + "photo-1542751371-adc38448a05e" + IQ, av: 12, views: "1.2M", pct: 82 },
+  { creator: "Devon Reeves", handle: "@devcuts", caption: "Founder burnout, unfiltered", genre: "Podcast", grad: "from-amber-500 to-red-950", img: IMG + "photo-1516280440614-37939bbacd81" + IQ, av: 32, views: "840K", pct: 64 },
+  { creator: "Lena Okafor", handle: "@lenareels", caption: "IRL fail compilation", genre: "IRL", grad: "from-emerald-500 to-teal-950", img: IMG + "photo-1487412720507-e7ab37603c6f" + IQ, av: 5, views: "2.4M", pct: 96 },
+  { creator: "Jonah Park", handle: "@jonahtalks", caption: "The 3am launch story", genre: "Founder", grad: "from-sky-500 to-blue-950", img: IMG + "photo-1560253023-3ec5d502959f" + IQ, av: 68, views: "512K", pct: 47 },
+  { creator: "Sasha Ivanov", handle: "@sashaedits", caption: "Launch teaser — 6s hook", genre: "Ad", grad: "from-fuchsia-600 to-purple-950", img: IMG + "photo-1585829365295-ab7cd400c167" + IQ, av: 47, views: "3.1M", pct: 73 },
+  { creator: "Rio Almeida", handle: "@rioshorts", caption: "Neon city timelapse", genre: "Shorts", grad: "from-lime-500 to-green-950", img: IMG + "photo-1598550476439-6847785fcea6" + IQ, av: 15, views: "690K", pct: 88 },
+  { creator: "Aria Chen", handle: "@ariastreams", caption: "Set the vibe", genre: "Music", grad: "from-rose-500 to-pink-950", img: IMG + "photo-1470225620780-dba8ba36b745" + IQ, av: 16, views: "1.8M", pct: 55 },
 ];
 
-function VideoCard({ c, focus, playing }) {
-  const poster = `${GTV}images/${c.vid}.jpg`;
+function VideoCard({ c, focus }) {
   return (
     <div className={`relative h-[336px] w-[196px] overflow-hidden rounded-[22px] border ${focus ? "border-[#D8FF2E]/40" : "border-white/10"} bg-white/[0.04] backdrop-blur-xl`}
          style={{ boxShadow: focus ? `0 24px 70px -18px rgba(0,0,0,0.9), 0 0 46px -8px ${LIME}66` : "0 20px 50px -22px rgba(0,0,0,0.9)" }}>
-      {/* real video (centre + neighbours) / poster frame (further out) */}
+      {/* content thumbnail */}
       <div className={`absolute inset-0 bg-gradient-to-br ${c.grad}`} />
-      {playing ? (
-        <video className="absolute inset-0 h-full w-full object-cover" src={`${GTV}${c.vid}.mp4`} poster={poster}
-               autoPlay muted loop playsInline preload="metadata" />
-      ) : (
-        <img className="absolute inset-0 h-full w-full object-cover" src={poster} alt="" loading="lazy" />
-      )}
+      <img className="absolute inset-0 h-full w-full object-cover" src={c.img} alt="" loading="lazy" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/30" />
       {/* top row */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
@@ -126,7 +122,7 @@ function VideoCarousel({ reduce }) {
               animate={reduce ? {} : { y: [0, slot === 0 ? -8 : -4, 0] }}
               transition={{ duration: 5 + mag, repeat: Infinity, ease: "easeInOut" }}
             >
-              <VideoCard c={c} focus={slot === 0} playing={mag <= 1} />
+              <VideoCard c={c} focus={slot === 0} />
             </motion.div>
           </motion.div>
         );
