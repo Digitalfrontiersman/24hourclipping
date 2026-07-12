@@ -751,14 +751,19 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(404, "Bid not found")
     await _require_project_owner(bid["project_id"], user)
     await db.bids.update_one({"id": bid_id}, {"$set": {"status": "accepted"}})
+    # Accepting = the deal is on: the contract goes live and the 24h clock starts,
+    # so the clipper immediately sees it on their dashboard and can deliver.
+    # (A project can accept several clippers — each gets its own live contract.)
+    started = datetime.now(timezone.utc)
+    deadline = started + timedelta(hours=24)
     contract = {
         "id": str(uuid.uuid4()), "project_id": bid["project_id"], "clipper_id": bid["clipper_id"],
-        "price": bid["amount"], "bond": bid["bond_required"], "status": "awaiting_clipper",
-        "started_at": None, "deadline_at": None, "versions": [], "payment_method": "usdc",
-        "tx_hash": "5KJp" + uuid.uuid4().hex[:20] + "SoL", "rating_given": None,
+        "price": bid["amount"], "bond": bid["bond_required"], "status": "live",
+        "started_at": started.isoformat(), "deadline_at": deadline.isoformat(),
+        "versions": [], "payment_method": "escrow", "rating_given": None,
     }
     await db.contracts.insert_one(dict(contract))
-    await db.projects.update_one({"id": bid["project_id"]}, {"$set": {"status": "pending_acceptance"}})
+    await db.projects.update_one({"id": bid["project_id"]}, {"$set": {"status": "contract_live"}})
     contract.pop("_id", None)
     return contract
 

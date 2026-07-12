@@ -23,7 +23,6 @@ export default function BidRoom() {
   const [confirming, setConfirming] = useState(false);
   const [accepting, setAccepting] = useState(null); // null | "waiting" | "live"
   const [chatBid, setChatBid] = useState(null);
-  const contractRef = useRef(null);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then(setProject).catch(() => {});
@@ -50,14 +49,12 @@ export default function BidRoom() {
     setConfirming(false);
     setAccepting("waiting");
     try {
-      let contract = null;
-      for (const b of selectedBids) contract = await dbAdapter.acceptBid(b.id);
-      contractRef.current = contract;
-      setTimeout(async () => {
-        await dbAdapter.activateContract(contract.id);
+      // Accept every selected clipper — each becomes a live contract instantly.
+      for (const b of selectedBids) await dbAdapter.acceptBid(b.id);
+      setTimeout(() => {
         setAccepting("live");
-        setTimeout(() => nav(`/customer/clip-room/${contract.id}`), 2200);
-      }, 2500);
+        setTimeout(() => nav("/customer"), 2200);
+      }, 1400);
     } catch {
       notify.urgent("Could not accept bid");
       setAccepting(null);
