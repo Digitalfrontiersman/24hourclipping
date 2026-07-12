@@ -22,7 +22,9 @@ export default function Marketplace() {
   const { user } = useApp();
   // Owners (and admins) open a job into its bid room (see bids + submissions);
   // everyone else opens the clipper job page to bid.
-  const jobLink = (p) => (user && (p.owner_id === user.id || user.role === "admin")) ? `/customer/bids/${p.id}` : `/clipper/job/${p.id}`;
+  const ownsJob = (p) => user && (p.owner_id === user.id || user.role === "admin");
+  const jobLink = (p) => ownsJob(p) ? `/customer/bids/${p.id}` : `/clipper/job/${p.id}`;
+  const jobLabel = (p) => ownsJob(p) ? "Open Job" : "Bid Now";
   const [projects, setProjects] = useState(null);
   const [cat, setCat] = useState("All");
   const [budget, setBudget] = useState(0);
@@ -107,7 +109,7 @@ export default function Marketplace() {
           </div>
         ) : view === "grid" ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((p) => <JobCard key={p.id} project={p} ctaTo={jobLink(p)} />)}
+            {filtered.map((p) => <JobCard key={p.id} project={p} ctaTo={jobLink(p)} ctaLabel={jobLabel(p)} />)}
           </div>
         ) : (
           <div className="space-y-3" data-testid="jobs-list-view">
@@ -134,7 +136,7 @@ export default function Marketplace() {
                   <div className="font-mono font-extrabold text-lg sm:text-xl text-[#CCFF00]">${p.budget}</div>
                   <div className="text-[10px] text-zinc-500 truncate max-w-20">{p.customer_name}</div>
                 </div>
-                <Link to={jobLink(p)} data-testid={`job-row-cta-${p.id}`} className="btn-lime h-10 px-5 text-xs shrink-0">{user && (p.owner_id === user.id || user.role === "admin") ? "Open Job" : "Bid Now"}</Link>
+                <Link to={jobLink(p)} data-testid={`job-row-cta-${p.id}`} className="btn-lime h-10 px-5 text-xs shrink-0">{jobLabel(p)}</Link>
               </motion.div>
             ))}
           </div>

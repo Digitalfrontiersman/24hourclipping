@@ -6,7 +6,7 @@ dayjs.extend(relativeTime);
 
 export default function JobCard({ project, ctaTo, ctaLabel = "Bid Now" }) {
   return (
-    <div data-testid={`job-card-${project.id}`} className="card-dark overflow-hidden flex flex-col h-full group hover:border-white/25 transition-colors">
+    <Link to={ctaTo} data-testid={`job-card-${project.id}`} className="card-dark overflow-hidden flex flex-col h-full group hover:border-[#CCFF00]/40 transition-colors">
       <div className="relative aspect-video overflow-hidden">
         <img src={project.thumbnail} alt={project.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -25,7 +25,7 @@ export default function JobCard({ project, ctaTo, ctaLabel = "Bid Now" }) {
         </div>
       </div>
       <div className="p-5 flex flex-col flex-1">
-        <h3 className="font-display font-bold text-white leading-snug mb-3">{project.title}</h3>
+        <h3 className="font-display font-bold text-white leading-snug mb-3 group-hover:text-[#CCFF00] transition-colors">{project.title}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-zinc-400 mb-4">
           <span className="flex items-center gap-1.5"><Film className="w-3.5 h-3.5" /> Source {project.source_length}</span>
           <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Output {project.output_length}</span>
@@ -35,9 +35,9 @@ export default function JobCard({ project, ctaTo, ctaLabel = "Bid Now" }) {
           <span className="flex items-center gap-1.5"><MessagesSquare className="w-3.5 h-3.5" /> {dayjs(project.posted_at).fromNow()}</span>
         </div>
         <div className="mt-auto">
-          <Link to={ctaTo} data-testid={`job-card-cta-${project.id}`} className="btn-lime w-full h-11 text-sm">{ctaLabel}</Link>
+          <span data-testid={`job-card-cta-${project.id}`} className="btn-lime w-full h-11 text-sm">{ctaLabel}</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
