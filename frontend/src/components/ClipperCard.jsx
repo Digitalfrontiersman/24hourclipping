@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
-import { Star, BadgeCheck, Timer } from "lucide-react";
+import { Star, BadgeCheck, Timer, Play } from "lucide-react";
 
 export default function ClipperCard({ clipper }) {
   return (
     <Link to={`/clippers/${clipper.id}`} data-testid={`clipper-card-${clipper.id}`}
       className="card-dark p-6 flex flex-col gap-4 hover:border-[#CCFF00]/40 transition-colors group">
       <div className="flex items-center gap-4">
-        <img src={clipper.avatar} alt={clipper.name} className="w-14 h-14 rounded-full object-cover border-2 border-white/10" />
+        <img src={clipper.avatar} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-white/10" />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <h3 className="font-display font-bold text-white truncate">{clipper.name}</h3>
@@ -30,9 +30,17 @@ export default function ClipperCard({ clipper }) {
           <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Jobs</div>
         </div>
       </div>
-      <div className="flex gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5">
         {clipper.portfolio.slice(0, 3).map((p, i) => (
-          <img key={i} src={p.thumb} alt={p.title} className="w-1/3 aspect-video object-cover rounded-lg opacity-80 group-hover:opacity-100 transition-opacity" />
+          <div key={i} className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black/40">
+            <img src={p.thumb} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:opacity-100 group-hover:scale-105 transition duration-300" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="w-7 h-7 rounded-full bg-black/35 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                <Play className="w-3 h-3 text-white" fill="white" />
+              </span>
+            </span>
+          </div>
         ))}
       </div>
       <div className="flex items-center justify-between text-xs">
