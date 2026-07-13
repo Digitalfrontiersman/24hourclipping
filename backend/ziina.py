@@ -30,7 +30,7 @@ def create_payment_intent(project: dict) -> dict:
     payload = {
         "amount": amount,
         "currency_code": ZIINA_CURRENCY,
-        "message": f"Clip24 project: {project.get('title', 'Project')}",
+        "message": f"24 Hour Clipping project: {project.get('title', 'Project')}",
         "success_url": f"{PUBLIC_BASE_URL}/customer/checkout/{pid}?paid=ziina",
         "cancel_url": f"{PUBLIC_BASE_URL}/customer/checkout/{pid}?canceled=1",
         "failure_url": f"{PUBLIC_BASE_URL}/customer/checkout/{pid}?failed=1",

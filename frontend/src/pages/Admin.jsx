@@ -177,7 +177,7 @@ export default function Admin() {
                 <div key={cl.id} className="card-dark p-4 flex items-center gap-4 flex-wrap" data-testid={`admin-clipper-${cl.id}`}>
                   <img src={cl.avatar} alt="" className="w-10 h-10 rounded-full" />
                   <div className="flex-1 min-w-40"><p className="font-bold text-sm">{cl.name} {suspended.includes(cl.id) && <span className="text-[#FF4500] text-xs">(SUSPENDED)</span>}</p><p className="text-xs text-zinc-500">{cl.specialty} · {cl.on_time_pct}% on-time · {cl.completed_jobs} jobs</p></div>
-                  <button className="btn-ghost h-9 px-4 text-xs" onClick={() => notify.success(`Invite sent`, "New clipper invite generated: CLIP24-X9F2")}><UserCheck className="w-3.5 h-3.5" /> Invite similar</button>
+                  <button className="btn-ghost h-9 px-4 text-xs" onClick={() => notify.success(`Invite sent`, "New clipper invite generated: 24HR-X9F2")}><UserCheck className="w-3.5 h-3.5" /> Invite similar</button>
                   <button data-testid={`admin-suspend-${cl.id}`} className={`h-9 px-4 text-xs font-bold rounded-full transition-colors ${suspended.includes(cl.id) ? "bg-[#CCFF00] text-black" : "border border-[#FF4500]/40 text-[#FF4500] hover:bg-[#FF4500]/10"}`}
                     onClick={() => toggleSuspend(cl.id, cl.name)}>
                     {suspended.includes(cl.id) ? <><RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore</> : <><Ban className="w-3.5 h-3.5 inline mr-1" />Suspend</>}

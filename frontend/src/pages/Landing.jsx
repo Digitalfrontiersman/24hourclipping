@@ -60,7 +60,7 @@ export default function Landing() {
       {/* DEMO VIDEO CAROUSEL */}
       <section className="py-16 border-t border-white/10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
-          <span className="label-caps">Made on Clip24</span>
+          <span className="label-caps">Made on 24 Hour Clipping</span>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2">Clips that stopped the scroll.</h2>
         </div>
         <div className="flex gap-6 animate-marquee w-max px-4" data-testid="demo-video-carousel">

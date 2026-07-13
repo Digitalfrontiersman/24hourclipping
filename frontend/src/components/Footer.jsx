@@ -8,7 +8,7 @@ export default function Footer() {
         <div>
           <div className="flex items-center gap-2 font-display font-extrabold tracking-tighter mb-2">
             <span className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-black" fill="black" /></span>
-            Clip<span className="text-[#CCFF00]">24</span>
+            24HR<span className="text-[#CCFF00]">CLIPPING</span>
           </div>
           <p className="text-sm text-zinc-500">Friction is fiction. First cuts in 24 hours.</p>
         </div>

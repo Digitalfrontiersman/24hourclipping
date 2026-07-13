@@ -59,7 +59,7 @@ export default function Login() {
       <div className="w-full max-w-md card-dark p-8">
         <Link to="/" className="flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter mb-8">
           <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
-          <span>Clip<span className="text-[#CCFF00]">24</span></span>
+          <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
         </Link>
 
         <h1 className="text-2xl font-extrabold tracking-tighter mb-1">Log in</h1>

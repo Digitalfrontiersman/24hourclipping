@@ -1,7 +1,7 @@
 /* Minimal service worker — enables PWA install + basic offline shell.
    Network-first for navigations (so users always get the latest SPA), with a
    cached fallback when offline. Cache-first for hashed static assets. */
-const CACHE = "clip24-v1";
+const CACHE = "24hourclipping-v2";
 const SHELL = ["/", "/index.html", "/manifest.json", "/favicon.svg"];
 
 self.addEventListener("install", (e) => {

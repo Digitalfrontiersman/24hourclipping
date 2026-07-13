@@ -32,7 +32,7 @@ def create_checkout_session(project: dict) -> str:
         line_items=[{
             "price_data": {
                 "currency": "usd",
-                "product_data": {"name": f"Clip24 project: {project.get('title', 'Project')}"},
+                "product_data": {"name": f"24 Hour Clipping project: {project.get('title', 'Project')}"},
                 "unit_amount": int(round(float(project["budget"]) * 100)),
             },
             "quantity": 1,
