@@ -143,7 +143,7 @@ function EditProfile({ clipper, onClose, onSaved }) {
     setPreview(URL.createObjectURL(file));
     setUploading(true);
     try {
-      const res = await storageAdapter.upload(file, () => {}, { kind: "source" });
+      const res = await storageAdapter.upload(file, () => {}, { kind: "avatar" });
       if (res.key) setAvatarKey(res.key);
       else toast.error("Upload failed — try again");
     } catch {

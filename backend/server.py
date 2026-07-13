@@ -532,6 +532,11 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
             raise HTTPException(400, "contract_id required for a delivery upload")
         await _require_contract_party(contract_id, user, allow=("clipper",))
         key = f"deliveries/{contract_id}/{uid}{ext}"
+    elif kind == "avatar":
+        # Profile pictures — any authenticated user may set their own.
+        if not (file.content_type or "").startswith("image/"):
+            raise HTTPException(415, "Avatar must be an image")
+        key = f"avatars/{user['id']}/{uid}{ext}"
     else:
         if not ({"customer", "admin"} & set(user_roles(user))):
             raise HTTPException(403, "Only customers upload source footage")
