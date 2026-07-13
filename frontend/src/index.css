@@ -7,12 +7,16 @@
 body {
     margin: 0;
     font-family: 'IBM Plex Sans', sans-serif;
-    background: #0A0A0A;
+    background-color: #090909;
+    background-image: radial-gradient(1100px 520px at 50% -6%, rgba(255,255,255,0.045), transparent 62%);
+    background-attachment: fixed;
     color: #fff;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
+h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; letter-spacing: -0.02em; }
 .font-display { font-family: 'Manrope', sans-serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
@@ -48,13 +52,13 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
 }
 
 @layer components {
-    .btn-lime { @apply bg-[#CCFF00] text-black font-display font-bold rounded-full hover:bg-[#B3E600] transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
-    .btn-white { @apply bg-white text-black font-display font-bold rounded-full hover:bg-zinc-200 transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
-    .btn-ghost { @apply border border-white/20 text-white font-display font-semibold rounded-full hover:border-white/50 hover:bg-white/5 transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
-    .btn-coral { @apply bg-[#FF4500] text-white font-display font-bold rounded-full hover:bg-[#E63E00] transition-colors active:scale-95 inline-flex items-center justify-center gap-2; }
-    .card-dark { @apply bg-[#1A1A1A] border border-white/10 rounded-2xl; }
-    .label-caps { @apply text-xs font-bold uppercase tracking-[0.2em] text-zinc-500; }
-    .input-dark { @apply bg-[#121212] border border-white/20 text-white rounded-xl h-12 px-4 w-full focus:border-[#CCFF00] focus:ring-1 focus:ring-[#CCFF00] focus:outline-none placeholder:text-zinc-600 transition-colors; }
+    .btn-lime { @apply bg-[#CCFF00] text-black font-display font-bold rounded-full transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center gap-2 hover:bg-[#d6ff33] hover:-translate-y-px; box-shadow: 0 10px 30px -12px rgba(204,255,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35); }
+    .btn-white { @apply bg-white text-black font-display font-bold rounded-full transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center gap-2 hover:bg-zinc-100 hover:-translate-y-px; box-shadow: 0 10px 30px -14px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.6); }
+    .btn-ghost { @apply border border-white/15 text-white font-display font-semibold rounded-full hover:border-white/35 hover:bg-white/[0.06] transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center gap-2; }
+    .btn-coral { @apply bg-[#FF4500] text-white font-display font-bold rounded-full hover:bg-[#E63E00] transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center gap-2 hover:-translate-y-px; }
+    .card-dark { @apply rounded-2xl border border-white/[0.07]; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.008)) , #141414; box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.045), 0 14px 34px -22px rgba(0,0,0,0.9); }
+    .label-caps { @apply text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500; }
+    .input-dark { @apply bg-[#0F0F0F] border border-white/10 text-white rounded-xl h-12 px-4 w-full focus:border-[#CCFF00]/70 focus:ring-1 focus:ring-[#CCFF00]/40 focus:outline-none placeholder:text-zinc-600 transition-colors; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); }
     .badge-live { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border border-white/15 bg-white/[0.04] text-zinc-300; }
     .badge-urgent { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border border-[#FF4500]/30 bg-[#FF4500]/[0.08] text-[#FF4500]; }
 }
@@ -99,3 +103,22 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; }
 @media (prefers-reduced-motion: reduce) { .animate-orbit, .animate-orbit-reverse, .lime-flicker { animation: none; } }
 
 [data-debug-wrapper="true"] { display: contents !important; }
+
+/* ---- Premium finishing touches ---- */
+html { scroll-behavior: smooth; }
+
+/* refined thin scrollbar */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.14) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); background-clip: padding-box; }
+
+/* crisp, legible numerals in stats/prices */
+.font-mono { font-variant-numeric: tabular-nums; }
+
+/* subtle, consistent focus ring for keyboard users */
+:focus-visible { outline: 2px solid rgba(204,255,0,0.55); outline-offset: 2px; border-radius: 6px; }
+a, button { -webkit-tap-highlight-color: transparent; }
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
