@@ -586,10 +586,17 @@ def _sign_contract_media(contract: dict) -> dict:
     return contract
 
 
+def _sign_clipper(c):
+    """If the clipper uploaded an avatar, serve it via a fresh signed media URL."""
+    if c and c.get("avatar_key"):
+        c["avatar"] = storage.sign_media_url(c["avatar_key"])
+    return c
+
+
 async def attach_clipper(items):
     ids = list({i["clipper_id"] for i in items})
     clippers = await db.clippers.find({"id": {"$in": ids}}, NO_ID).to_list(50)
-    cmap = {c["id"]: c for c in clippers}
+    cmap = {c["id"]: _sign_clipper(c) for c in clippers}
     for i in items:
         i["clipper"] = cmap.get(i["clipper_id"])
     return items
@@ -606,14 +613,15 @@ async def reset_demo(user: dict = Depends(require_role("admin"))):
 
 @api_router.get("/clippers")
 async def get_clippers():
-    return await db.clippers.find({}, NO_ID).to_list(100)
+    clippers = await db.clippers.find({}, NO_ID).to_list(100)
+    return [_sign_clipper(c) for c in clippers]
 
 @api_router.get("/clippers/{clipper_id}")
 async def get_clipper(clipper_id: str):
     c = await db.clippers.find_one({"id": clipper_id}, NO_ID)
     if not c:
         raise HTTPException(404, "Clipper not found")
-    return c
+    return _sign_clipper(c)
 
 @api_router.get("/projects")
 async def get_projects(status: Optional[str] = None, category: Optional[str] = None,
@@ -800,6 +808,42 @@ async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_
     # keep the public clipper profile in sync so customers can see they're payable
     await db.clippers.update_one({"id": user["id"]}, {"$set": {"payout_wallet": wallet}})
     return {"ok": True, "wallet": wallet}
+
+
+class ClipperProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    specialty: Optional[str] = None
+    price_range: Optional[str] = None
+    tools: Optional[List[str]] = None
+    bio: Optional[str] = None
+    avatar_key: Optional[str] = None   # from POST /uploads (kind=source)
+    avatar_url: Optional[str] = None   # external URL alternative
+
+
+@api_router.put("/me/clipper-profile")
+async def update_clipper_profile(body: ClipperProfileUpdate, user: dict = Depends(require_role("clipper", "admin"))):
+    await _ensure_clipper_profile(user)
+    updates = {}
+    if body.name and body.name.strip():
+        updates["name"] = body.name.strip()[:60]
+        await db.users.update_one({"id": user["id"]}, {"$set": {"name": updates["name"]}})
+    if body.specialty is not None:
+        updates["specialty"] = body.specialty.strip()[:60] or "New Clipper"
+    if body.price_range is not None:
+        updates["price_range"] = body.price_range.strip()[:40]
+    if body.tools is not None:
+        updates["tools"] = [t.strip() for t in body.tools if t.strip()][:12]
+    if body.bio is not None:
+        updates["bio"] = body.bio.strip()[:600]
+    if body.avatar_key:
+        updates["avatar_key"] = body.avatar_key            # signed on read
+    elif body.avatar_url:
+        updates["avatar"] = body.avatar_url.strip()
+        updates["avatar_key"] = None
+    if updates:
+        await db.clippers.update_one({"id": user["id"]}, {"$set": updates})
+    c = await db.clippers.find_one({"id": user["id"]}, NO_ID)
+    return _sign_clipper(c)
 
 
 async def _pay_contract(contract: dict) -> dict:

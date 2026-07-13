@@ -5,6 +5,7 @@ import { api } from "./api";
 export const dbAdapter = {
   getClippers: () => api.get("/clippers").then((r) => r.data),
   getClipper: (id) => api.get(`/clippers/${id}`).then((r) => r.data),
+  updateClipperProfile: (data) => api.put("/me/clipper-profile", data).then((r) => r.data),
   getProjects: (params) => api.get("/projects", { params }).then((r) => r.data),
   getProject: (id) => api.get(`/projects/${id}`).then((r) => r.data),
   createProject: (data) => api.post("/projects", data).then((r) => r.data),
