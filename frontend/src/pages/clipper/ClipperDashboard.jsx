@@ -76,7 +76,7 @@ export default function ClipperDashboard() {
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-4 mb-10 flex-wrap">
-          {me && <img src={me.avatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#CCFF00]/50" />}
+          {me && <img src={me.avatar} alt="" className="w-14 h-14 rounded-full border-2 border-white/10" />}
           <div>
             <span className="label-caps">Clipper dashboard</span>
             <h1 className="text-3xl font-extrabold tracking-tighter">{me?.name || "…"}</h1>
@@ -91,16 +91,16 @@ export default function ClipperDashboard() {
 
         {/* Accountability: bond on the line */}
         {bondAtRisk > 0 && (
-          <div className="card-dark border-[#CCFF00]/40 bg-[#CCFF00]/[0.04] p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="bond-at-risk">
-            <ShieldAlert className="w-8 h-8 text-[#CCFF00] shrink-0" />
+          <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="bond-at-risk">
+            <ShieldAlert className="w-8 h-8 text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-56">
               <p className="font-display font-extrabold text-xl tracking-tighter">${bondAtRisk} bond on the line</p>
-              <p className="text-sm text-zinc-400">Deliver before the clock hits zero or it's forfeited to the creator. On-time keeps your bond <span className="text-[#CCFF00] font-semibold">and</span> your streak.</p>
+              <p className="text-sm text-zinc-400">Deliver before the clock hits zero or it's forfeited to the creator. On-time keeps your bond <span className="text-white font-semibold">and</span> your streak.</p>
             </div>
             {soonest && (
               <div className="text-right">
                 <div className="label-caps mb-1">Soonest deadline</div>
-                <div className="font-mono text-2xl font-extrabold text-[#CCFF00]"><Countdown deadline={soonest} /></div>
+                <div className="font-mono text-2xl font-extrabold text-white"><Countdown deadline={soonest} /></div>
               </div>
             )}
           </div>
@@ -111,12 +111,12 @@ export default function ClipperDashboard() {
           {newWins.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: -16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              className="card-dark border-[#CCFF00] bg-[#CCFF00]/[0.06] p-6 mb-10 relative overflow-hidden" data-testid="deal-secured-banner">
+              className="card-dark p-6 mb-10 relative overflow-hidden" data-testid="deal-secured-banner">
               <button data-testid="dismiss-deal-banner" onClick={() => setNewWins([])} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
               <div className="flex items-center gap-3 mb-3">
-                <Trophy className="w-7 h-7 text-[#CCFF00]" fill="#CCFF00" />
+                <Trophy className="w-6 h-6 text-zinc-300" />
                 <div>
-                  <p className="font-display font-extrabold text-2xl tracking-tighter text-[#CCFF00]">DEAL SECURED{newWins.length > 1 ? ` ×${newWins.length}` : ""}</p>
+                  <p className="font-display font-extrabold text-2xl tracking-tighter text-white">Deal secured{newWins.length > 1 ? ` ×${newWins.length}` : ""}</p>
                   <p className="text-sm text-zinc-300">You won {newWins.length > 1 ? "these bids" : "this bid"} — your 24-hour clock is running. Go deliver.</p>
                 </div>
               </div>
@@ -134,9 +134,9 @@ export default function ClipperDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           {[
-            ["Earnings", `$${me?.earnings ?? "—"}`, "text-[#CCFF00]"],
+            ["Earnings", `$${me?.earnings ?? "—"}`, ""],
             ["Bond balance", `$${me?.bond_balance ?? "—"}`, ""],
-            ["On-time", `${me?.on_time_pct ?? "—"}%`, "text-[#CCFF00]"],
+            ["On-time", `${me?.on_time_pct ?? "—"}%`, ""],
             ["Rating", me?.rating ?? "—", ""],
             ["Jobs done", me?.completed_jobs ?? "—", ""],
           ].map(([l, v, cls]) => (
@@ -152,7 +152,7 @@ export default function ClipperDashboard() {
 
         {/* Reputation progress — real, from completed jobs */}
         <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="reputation-progress">
-          <TrendingUp className="w-6 h-6 text-[#CCFF00]" />
+          <TrendingUp className="w-6 h-6 text-zinc-400" />
           <div className="flex-1 min-w-56">
             <div className="flex justify-between text-xs mb-2">
               <span className="font-bold">{rep.cur.name}{rep.next ? ` → ${rep.next.name}` : " — top tier"}</span>
@@ -170,8 +170,8 @@ export default function ClipperDashboard() {
         {active.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No active deals yet. Win a bid below and it lands here.</p> : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
             {active.map((c) => (
-              <Link key={c.id} to={`/clipper/room/${c.id}`} data-testid={`clipper-contract-${c.id}`} className="card-dark p-5 hover:border-[#CCFF00]/40 transition-colors">
-                <div className="flex items-center justify-between mb-3"><StatusBadge status={c.status} /><span className="font-mono font-bold text-[#CCFF00]">${c.price}</span></div>
+              <Link key={c.id} to={`/clipper/room/${c.id}`} data-testid={`clipper-contract-${c.id}`} className="card-dark p-5 hover:border-white/20 transition-colors">
+                <div className="flex items-center justify-between mb-3"><StatusBadge status={c.status} /><span className="font-mono font-bold text-white">${c.price}</span></div>
                 <h3 className="font-display font-bold mb-2">{c.project?.title}</h3>
                 {c.status === "live" || c.status === "revision" ? (
                   <div className="font-mono text-2xl font-extrabold"><Countdown deadline={c.deadline_at} /></div>
@@ -186,7 +186,7 @@ export default function ClipperDashboard() {
         <h2 className="font-display font-bold text-xl mb-4">Pending bids</h2>
         <div className="card-dark p-5 mb-10 flex items-center justify-between flex-wrap gap-3" data-testid="pending-bids">
           <div className="flex items-center gap-3">
-            <Timer className="w-5 h-5 text-[#CCFF00]" />
+            <Timer className="w-5 h-5 text-zinc-400" />
             <p className="text-sm text-zinc-400">Bids you place appear here until a creator picks you. No bond is locked until you win — then the deal jumps to the top and your clock starts.</p>
           </div>
           <Link to="/marketplace" data-testid="pending-bids-cta" className="btn-ghost h-10 px-5 text-sm shrink-0"><Search className="w-4 h-4" /> Find jobs to bid on</Link>
@@ -195,7 +195,7 @@ export default function ClipperDashboard() {
         {/* Available jobs */}
         <div className="flex items-end justify-between mb-4 flex-wrap gap-3">
           <h2 className="font-display font-bold text-xl">Available live jobs</h2>
-          <Link to="/marketplace" data-testid="view-all-jobs-btn" className="text-sm text-[#CCFF00] font-bold flex items-center gap-1 hover:underline">Full marketplace <ArrowRight className="w-4 h-4" /></Link>
+          <Link to="/marketplace" data-testid="view-all-jobs-btn" className="text-sm text-zinc-300 font-bold flex items-center gap-1 hover:text-white transition-colors">Full marketplace <ArrowRight className="w-4 h-4" /></Link>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.slice(0, 3).map((p) => <JobCard key={p.id} project={p} ctaTo={`/clipper/job/${p.id}`} />)}

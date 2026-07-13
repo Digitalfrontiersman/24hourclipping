@@ -52,7 +52,7 @@ export default function CustomerDashboard() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          {[["Receiving bids", bidding.length, ""], ["Contracts live", live.length, "text-[#CCFF00]"], ["Awaiting review", delivered.length, "text-[#FF4500]"], ["Credits", `$${user.credits}`, ""]].map(([l, v, cls]) => (
+          {[["Receiving bids", bidding.length, ""], ["Contracts live", live.length, ""], ["Awaiting review", delivered.length, ""], ["Credits", `$${user.credits}`, ""]].map(([l, v, cls]) => (
             <div key={l} className="card-dark p-5">
               <div className={`font-mono text-3xl font-extrabold ${cls}`}>{v}</div>
               <div className="text-xs text-zinc-500 uppercase tracking-widest mt-1">{l}</div>
@@ -81,7 +81,7 @@ export default function CustomerDashboard() {
         {live.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No live contracts right now.</p> : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
             {live.map((c) => (
-              <Link key={c.id} to={`/customer/clip-room/${c.id}`} data-testid={`live-contract-${c.id}`} className="card-dark overflow-hidden group hover:border-[#CCFF00]/40 transition-colors">
+              <Link key={c.id} to={`/customer/clip-room/${c.id}`} data-testid={`live-contract-${c.id}`} className="card-dark overflow-hidden group hover:border-white/20 transition-colors">
                 <div className="relative aspect-video">
                   <img src={c.project?.thumbnail} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
@@ -128,7 +128,7 @@ export default function CustomerDashboard() {
                 <p className="text-xs text-zinc-500">${p.budget} budget · {p.bids_count} bids</p>
               </div>
               <StatusBadge status="open" />
-              <Link to={`/customer/bids/${p.id}`} data-testid={`view-bids-btn-${p.id}`} className="btn-lime h-10 px-5 text-sm">View Live Bids</Link>
+              <Link to={`/customer/bids/${p.id}`} data-testid={`view-bids-btn-${p.id}`} className="btn-white h-10 px-5 text-sm">View Live Bids</Link>
             </div>
           ))}
         </div>
@@ -141,12 +141,12 @@ export default function CustomerDashboard() {
               completed.map((c) => (
                 <div key={c.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <span className="text-sm text-zinc-300 truncate mr-3">{c.project?.title}</span>
-                  <span className="font-mono text-sm text-[#CCFF00]">${c.price}</span>
+                  <span className="font-mono text-sm text-white">${c.price}</span>
                 </div>
               ))}
           </div>
           <div className="card-dark p-6">
-            <div className="flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-[#CCFF00]" /><h3 className="font-display font-bold">Saved Brand Profile</h3></div>
+            <div className="flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-zinc-400" /><h3 className="font-display font-bold">Saved Brand Profile</h3></div>
             {brand ? (
               <>
                 <p className="font-bold text-sm">{brand.name}</p>
@@ -156,10 +156,10 @@ export default function CustomerDashboard() {
             ) : <p className="text-sm text-zinc-600">No brand profile yet.</p>}
           </div>
           <div className="card-dark p-6">
-            <div className="flex items-center gap-2 mb-3"><Wallet className="w-4 h-4 text-[#CCFF00]" /><h3 className="font-display font-bold">Credits & spending</h3></div>
+            <div className="flex items-center gap-2 mb-3"><Wallet className="w-4 h-4 text-zinc-400" /><h3 className="font-display font-bold">Credits & spending</h3></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Available credits</span><span className="font-mono font-bold">${user.credits}</span></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Total spent</span><span className="font-mono font-bold">${spent}</span></div>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Bond credits earned</span><span className="font-mono font-bold text-[#CCFF00]">${bondCredits}</span></div>
+            <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Bond credits earned</span><span className="font-mono font-bold text-white">${bondCredits}</span></div>
           </div>
         </div>
       </div>
