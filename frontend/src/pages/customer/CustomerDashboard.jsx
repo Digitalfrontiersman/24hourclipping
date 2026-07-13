@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { dbAdapter } from "@/services/dbAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import Footer from "@/components/Footer";
-import { Plus, Sparkles, Wallet, ArrowRight, LifeBuoy } from "lucide-react";
+import { Plus, Sparkles, Wallet, ArrowRight, LifeBuoy, Scissors } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
 export default function CustomerDashboard() {
   const [projects, setProjects] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [brand, setBrand] = useState(null);
-  const { user } = useApp();
+  const { user, roles, switchRole } = useApp();
+  const nav = useNavigate();
 
   useEffect(() => {
     dbAdapter.getProjects({ mine: true }).then(setProjects).catch(() => {});
@@ -25,6 +26,13 @@ export default function CustomerDashboard() {
   const completed = contracts.filter((c) => c.status === "completed");
   const rescue = contracts.filter((c) => c.status === "rescue");
   const spent = completed.reduce((s, c) => s + c.price, 0);
+  // Bond credited back when a clipper missed a deadline (Rescue Mode).
+  const bondCredits = rescue.reduce((s, c) => s + (Number(c.bond) || 0), 0);
+  const alsoClipper = (roles || []).includes("clipper");
+
+  const toClipper = async () => {
+    try { await switchRole("clipper"); nav("/clipper"); } catch { /* noop */ }
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -34,7 +42,12 @@ export default function CustomerDashboard() {
             <span className="label-caps">Customer dashboard</span>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2">Welcome back, {user.name.split(" ")[0]}.</h1>
           </div>
-          <Link to="/customer/create" data-testid="dashboard-post-clip-btn" className="btn-lime h-12 px-7"><Plus className="w-4 h-4" /> Post a Clip</Link>
+          <div className="flex items-center gap-3">
+            {alsoClipper && (
+              <button data-testid="switch-to-clipper" onClick={toClipper} className="btn-ghost h-12 px-5"><Scissors className="w-4 h-4" /> Clipper dashboard</button>
+            )}
+            <Link to="/customer/create" data-testid="dashboard-post-clip-btn" className="btn-lime h-12 px-7"><Plus className="w-4 h-4" /> Post a Clip</Link>
+          </div>
         </div>
 
         {/* Stats */}
@@ -146,7 +159,7 @@ export default function CustomerDashboard() {
             <div className="flex items-center gap-2 mb-3"><Wallet className="w-4 h-4 text-[#CCFF00]" /><h3 className="font-display font-bold">Credits & spending</h3></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Available credits</span><span className="font-mono font-bold">${user.credits}</span></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Total spent</span><span className="font-mono font-bold">${spent}</span></div>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Bond credits earned</span><span className="font-mono font-bold text-[#CCFF00]">$13</span></div>
+            <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Bond credits earned</span><span className="font-mono font-bold text-[#CCFF00]">${bondCredits}</span></div>
           </div>
         </div>
       </div>

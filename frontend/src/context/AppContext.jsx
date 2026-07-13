@@ -49,14 +49,28 @@ export const AppProvider = ({ children }) => {
     setUser(null);
   }, []);
 
-  // Keep the demo role-switcher UX: switching role = a demo login as that role.
-  const switchRole = useCallback((role) => loginDemo(role), [loginDemo]);
+  // Real role switch: flip the active dashboard mode for a multi-role account
+  // (re-issues the JWT server-side; no re-login).
+  const switchRole = useCallback(async (role) => {
+    const u = await authAdapter.switchRole(role);
+    setUser(u);
+    return u;
+  }, []);
+
+  const completeOnboarding = useCallback(async (payload) => {
+    const u = await authAdapter.completeOnboarding(payload);
+    setUser(u);
+    return u;
+  }, []);
 
   return (
     <AppContext.Provider
       value={{
         user,
         role: user?.role || null,
+        roles: user?.roles || [],
+        activeRole: user?.role || null,
+        onboarded: user?.onboarded ?? false,
         loading,
         isAuthed: !!user,
         login,
@@ -65,6 +79,7 @@ export const AppProvider = ({ children }) => {
         loginDemo,
         logout,
         switchRole,
+        completeOnboarding,
       }}
     >
       {children}

@@ -3,9 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Zap, Loader2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
-
-const ROLE_HOME = { customer: "/customer", clipper: "/clipper" };
 
 export default function Register() {
   const { register, google } = useApp();
@@ -13,7 +12,6 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("customer");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
@@ -24,9 +22,9 @@ export default function Register() {
     }
     setBusy(true);
     try {
-      const user = await register({ name, email, password, role });
+      const user = await register({ name, email, password });
       toast.success(`Welcome, ${user.name.split(" ")[0]}!`);
-      nav(ROLE_HOME[user.role] || "/", { replace: true });
+      nav(homeFor(user), { replace: true }); // → onboarding
     } catch (err) {
       toast.error(err.response?.data?.detail || "Sign up failed");
     } finally {
@@ -36,20 +34,13 @@ export default function Register() {
 
   const onGoogle = async (credential) => {
     try {
-      const user = await google({ credential, role });
+      const user = await google({ credential });
       toast.success(`Welcome, ${user.name}!`);
-      nav(ROLE_HOME[user.role] || "/", { replace: true });
+      nav(homeFor(user), { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.detail || "Google sign-in failed");
     }
   };
-
-  const roleBtn = (r, label) => (
-    <button type="button" onClick={() => setRole(r)}
-      className={`flex-1 h-11 rounded-xl text-sm font-bold border transition-colors ${role === r ? "bg-[#CCFF00] text-black border-[#CCFF00]" : "border-white/15 text-zinc-300 hover:border-white/30"}`}>
-      {label}
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center px-4 py-10">
@@ -60,12 +51,7 @@ export default function Register() {
         </Link>
 
         <h1 className="text-2xl font-extrabold tracking-tighter mb-1">Create your account</h1>
-        <p className="text-sm text-zinc-500 mb-6">Join as a customer posting clips, or a clipper delivering them.</p>
-
-        <div className="flex gap-2 mb-4">
-          {roleBtn("customer", "I need clips")}
-          {roleBtn("clipper", "I make clips")}
-        </div>
+        <p className="text-sm text-zinc-500 mb-6">One account. We'll set you up as a creator, a clipper, or both in a few quick steps.</p>
 
         <form onSubmit={submit} className="space-y-3">
           <input data-testid="register-name" className="input-dark" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />

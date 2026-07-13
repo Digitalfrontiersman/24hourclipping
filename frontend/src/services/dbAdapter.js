@@ -1,5 +1,5 @@
-// MOCK DATABASE ADAPTER — thin wrapper around the demo FastAPI backend.
-// Replace endpoints here to connect the production database without touching components.
+// DATA ADAPTER — thin HTTP wrapper around the real FastAPI backend (Mongo).
+// Centralizes endpoint paths so components never build URLs themselves.
 import { api } from "./api";
 
 export const dbAdapter = {

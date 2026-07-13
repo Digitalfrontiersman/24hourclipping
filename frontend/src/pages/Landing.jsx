@@ -193,7 +193,7 @@ export default function Landing() {
               </div>
               <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-[#CCFF00] px-7 py-3.5 font-bold text-black">Post a project <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>
-            <Link to="/clipper/onboarding" data-testid="side-make-clips" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-white/50 transition-colors">
+            <Link to="/register" data-testid="side-make-clips" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-white/50 transition-colors">
               <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/5 blur-3xl group-hover:bg-white/15 transition-colors" />
               <div className="relative">
                 <span className="label-caps">For clippers</span>

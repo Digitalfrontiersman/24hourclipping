@@ -6,14 +6,34 @@ import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
-import { Timer, TrendingUp, ArrowRight, Trophy, X, Search } from "lucide-react";
+import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useNavigate } from "react-router-dom";
 import SolanaPayoutWallet from "@/components/SolanaPayoutWallet";
 
 const SEEN_DEALS_KEY = "24hc_seen_deals";
 
+// Reputation tiers derived from real completed-job counts.
+const TIERS = [
+  { name: "New Clipper", min: 0 },
+  { name: "Rising", min: 5 },
+  { name: "Pro", min: 25 },
+  { name: "Elite", min: 100 },
+];
+function reputation(jobs = 0) {
+  let cur = TIERS[0], nextT = null;
+  for (let i = 0; i < TIERS.length; i++) {
+    if (jobs >= TIERS[i].min) { cur = TIERS[i]; nextT = TIERS[i + 1] || null; }
+  }
+  if (!nextT) return { cur, next: null, pct: 100, remaining: 0 };
+  const span = nextT.min - cur.min;
+  const pct = Math.max(0, Math.min(100, Math.round(((jobs - cur.min) / span) * 100)));
+  return { cur, next: nextT, pct, remaining: nextT.min - jobs };
+}
+
 export default function ClipperDashboard() {
-  const { user } = useApp();
+  const { user, roles, switchRole } = useApp();
+  const nav = useNavigate();
   const ME = user?.id;
   const [me, setMe] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -41,6 +61,17 @@ export default function ClipperDashboard() {
 
   const active = contracts.filter((c) => ["live", "revision", "delivered"].includes(c.status));
 
+  // Accountability: bond staked on running deals and the soonest deadline.
+  const running = contracts.filter((c) => ["live", "revision"].includes(c.status));
+  const bondAtRisk = running.reduce((sum, c) => sum + (Number(c.bond) || 0), 0);
+  const soonest = running.map((c) => c.deadline_at).filter(Boolean).sort()[0];
+  const rep = reputation(me?.completed_jobs || 0);
+  const alsoCreator = (roles || []).includes("customer");
+
+  const toCreator = async () => {
+    try { await switchRole("customer"); nav("/customer"); } catch { /* noop */ }
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -50,8 +81,30 @@ export default function ClipperDashboard() {
             <span className="label-caps">Clipper dashboard</span>
             <h1 className="text-3xl font-extrabold tracking-tighter">{me?.name || "…"}</h1>
           </div>
-          <span className="ml-auto badge-live">{me?.badge?.toUpperCase() || ""}</span>
+          <span className="ml-auto badge-live">{rep.cur.name.toUpperCase()}</span>
+          {alsoCreator && (
+            <button data-testid="switch-to-creator" onClick={toCreator} className="btn-ghost h-9 px-4 text-sm">
+              <Film className="w-4 h-4" /> Creator dashboard
+            </button>
+          )}
         </div>
+
+        {/* Accountability: bond on the line */}
+        {bondAtRisk > 0 && (
+          <div className="card-dark border-[#CCFF00]/40 bg-[#CCFF00]/[0.04] p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="bond-at-risk">
+            <ShieldAlert className="w-8 h-8 text-[#CCFF00] shrink-0" />
+            <div className="flex-1 min-w-56">
+              <p className="font-display font-extrabold text-xl tracking-tighter">${bondAtRisk} bond on the line</p>
+              <p className="text-sm text-zinc-400">Deliver before the clock hits zero or it's forfeited to the creator. On-time keeps your bond <span className="text-[#CCFF00] font-semibold">and</span> your streak.</p>
+            </div>
+            {soonest && (
+              <div className="text-right">
+                <div className="label-caps mb-1">Soonest deadline</div>
+                <div className="font-mono text-2xl font-extrabold text-[#CCFF00]"><Countdown deadline={soonest} /></div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* You won — deal secured celebration */}
         <AnimatePresence>
@@ -97,14 +150,19 @@ export default function ClipperDashboard() {
         {/* USDC payout wallet */}
         <SolanaPayoutWallet />
 
-        {/* Marketplace progress */}
-        <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="marketplace-progress">
+        {/* Reputation progress — real, from completed jobs */}
+        <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="reputation-progress">
           <TrendingUp className="w-6 h-6 text-[#CCFF00]" />
           <div className="flex-1 min-w-56">
-            <div className="flex justify-between text-xs mb-2"><span className="font-bold">Founding Clipper → Elite tier</span><span className="text-zinc-500">214 / 250 jobs</span></div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-[#CCFF00] rounded-full" style={{ width: "85%" }} /></div>
+            <div className="flex justify-between text-xs mb-2">
+              <span className="font-bold">{rep.cur.name}{rep.next ? ` → ${rep.next.name}` : " — top tier"}</span>
+              <span className="text-zinc-500">{rep.next ? `${me?.completed_jobs ?? 0} / ${rep.next.min} jobs` : `${me?.completed_jobs ?? 0} jobs`}</span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-[#CCFF00] rounded-full transition-[width]" style={{ width: `${rep.pct}%` }} /></div>
           </div>
-          <span className="text-xs text-zinc-500">36 jobs to Elite: lower bonds, priority placement</span>
+          <span className="text-xs text-zinc-500">
+            {rep.next ? `${rep.remaining} more on-time to ${rep.next.name}: lower bonds, priority placement` : "Elite: lowest bonds, priority placement"}
+          </span>
         </div>
 
         {/* Active countdowns */}

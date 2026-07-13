@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppProvider } from "@/context/AppContext";
 import Navbar from "@/components/Navbar";
@@ -15,7 +15,7 @@ import Checkout from "@/pages/customer/Checkout";
 import BidRoom from "@/pages/customer/BidRoom";
 import ClipRoom from "@/pages/customer/ClipRoom";
 import DeliveryReview from "@/pages/customer/DeliveryReview";
-import ClipperOnboarding from "@/pages/clipper/ClipperOnboarding";
+import Onboarding from "@/pages/Onboarding";
 import ClipperDashboard from "@/pages/clipper/ClipperDashboard";
 import JobDetails from "@/pages/clipper/JobDetails";
 import ClipperRoom from "@/pages/clipper/ClipperRoom";
@@ -43,6 +43,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
+            {/* Onboarding (any authed user; runs before dashboards) */}
+            <Route path="/onboarding" element={<ProtectedRoute skipOnboarding><Onboarding /></ProtectedRoute>} />
+
             {/* Customer */}
             <Route path="/customer" element={<Customer><CustomerDashboard /></Customer>} />
             <Route path="/customer/create" element={<Customer><CreateProject /></Customer>} />
@@ -54,7 +57,7 @@ function App() {
             <Route path="/customer/review/:contractId" element={<Customer><DeliveryReview /></Customer>} />
 
             {/* Clipper */}
-            <Route path="/clipper/onboarding" element={<Clipper><ClipperOnboarding /></Clipper>} />
+            <Route path="/clipper/onboarding" element={<Navigate to="/onboarding" replace />} />
             <Route path="/clipper" element={<Clipper><ClipperDashboard /></Clipper>} />
             <Route path="/clipper/job/:projectId" element={<Clipper><JobDetails /></Clipper>} />
             <Route path="/clipper/room/:contractId" element={<Clipper><ClipperRoom /></Clipper>} />

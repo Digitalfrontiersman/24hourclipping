@@ -215,7 +215,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=200)
     name: str = Field(min_length=1, max_length=80)
-    role: str = "customer"
+    role: Optional[str] = None  # optional hint; real roles are chosen in onboarding
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -223,24 +223,54 @@ class LoginRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str
-    role: str = "customer"
+    role: Optional[str] = None  # optional hint; real roles are chosen in onboarding
 
 class DemoLoginRequest(BaseModel):
     role: str = "customer"
 
+class SwitchRoleRequest(BaseModel):
+    role: str  # the capability to make the active mode ("customer" | "clipper" | "admin")
+
+class OnboardingRequest(BaseModel):
+    roles: List[str] = []            # subset of {"customer", "clipper"}
+    active_role: Optional[str] = None  # which dashboard to land in (defaults to first role)
+    # Creator brand basics (all optional) — seeds a brand profile.
+    brand_name: str = ""
+    niche: str = ""
+    content_type: str = ""
+    platforms: str = ""
+    audience: str = ""
+    # Clipper basics (all optional).
+    specialties: List[str] = []
+    tools: List[str] = []
+    samples: List[str] = []
+    payout_wallet: str = ""
+
 
 DEMO_USERS = {
-    "customer": {"id": "demo-customer", "email": "customer@demo.24hrclipping.com", "name": "Aria Chen", "role": "customer", "credits": 150},
-    "clipper":  {"id": "clipper-1",     "email": "clipper@demo.24hrclipping.com",  "name": "Maya Torres", "role": "clipper", "credits": 0},
-    "admin":    {"id": "demo-admin",    "email": "admin@demo.24hrclipping.com",    "name": "Demo Admin",  "role": "admin",  "credits": 0},
+    "customer": {"id": "demo-customer", "email": "customer@demo.24hrclipping.com", "name": "Aria Chen", "role": "customer", "roles": ["customer"], "onboarded": True, "credits": 150},
+    "clipper":  {"id": "clipper-1",     "email": "clipper@demo.24hrclipping.com",  "name": "Maya Torres", "role": "clipper", "roles": ["clipper"], "onboarded": True, "credits": 0},
+    "admin":    {"id": "demo-admin",    "email": "admin@demo.24hrclipping.com",    "name": "Demo Admin",  "role": "admin",  "roles": ["customer", "clipper", "admin"], "onboarded": True, "credits": 0},
 }
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def user_roles(u: dict) -> list:
+    """Capabilities the account holds. Back-compat: only when the `roles` key is
+    ABSENT (a pre-multi-role doc) do we derive it from the legacy single `role`.
+    An explicit empty list means "registered but not yet onboarded" — no
+    capabilities — and must NOT fall back."""
+    roles = u.get("roles")
+    if roles is None:
+        return [u["role"]] if u.get("role") else []
+    return roles
+
+
 def public_user(u: dict) -> dict:
     return {"id": u["id"], "email": u.get("email"), "name": u.get("name"),
-            "role": u.get("role"), "credits": u.get("credits", 0), "avatar": u.get("avatar"),
+            "role": u.get("role"), "roles": user_roles(u), "onboarded": bool(u.get("onboarded", True)),
+            "credits": u.get("credits", 0), "avatar": u.get("avatar"),
             "payout_wallet": u.get("payout_wallet")}
 
 
@@ -268,10 +298,15 @@ async def get_current_user_optional(creds: Optional[HTTPAuthorizationCredentials
 
 
 def require_role(*roles):
+    """Capability-based gate: the account must hold at least one of `roles`
+    (admin always passes). Active mode (`role`) no longer gates access — a
+    "both" account can hit customer and clipper endpoints regardless of the
+    dashboard it's currently viewing."""
     async def dep(user: dict = Depends(get_current_user)) -> dict:
-        if user.get("role") not in roles:
-            raise HTTPException(403, "Insufficient permissions")
-        return user
+        held = set(user_roles(user))
+        if "admin" in held or held & set(roles):
+            return user
+        raise HTTPException(403, "Insufficient permissions")
     return dep
 
 
@@ -279,7 +314,7 @@ async def _require_project_owner(project_id: str, user: dict) -> dict:
     p = await db.projects.find_one({"id": project_id}, NO_ID)
     if not p:
         raise HTTPException(404, "Project not found")
-    if user["role"] != "admin" and p.get("owner_id") != user["id"]:
+    if "admin" not in user_roles(user) and p.get("owner_id") != user["id"]:
         raise HTTPException(403, "You do not own this project")
     return p
 
@@ -288,7 +323,7 @@ async def _require_contract_party(contract_id: str, user: dict, allow=("customer
     c = await db.contracts.find_one({"id": contract_id}, NO_ID)
     if not c:
         raise HTTPException(404, "Contract not found")
-    if user["role"] == "admin":
+    if "admin" in user_roles(user):
         return c
     proj = await db.projects.find_one({"id": c["project_id"]}, NO_ID) or {}
     is_customer = proj.get("owner_id") == user["id"]
@@ -304,7 +339,7 @@ async def _issue(user: dict) -> dict:
 
 
 async def _ensure_clipper_profile(user: dict):
-    if user.get("role") != "clipper" or await db.clippers.find_one({"id": user["id"]}):
+    if "clipper" not in user_roles(user) or await db.clippers.find_one({"id": user["id"]}):
         return
     await db.clippers.insert_one({
         "id": user["id"], "name": user["name"],
@@ -324,18 +359,25 @@ async def ensure_auth_setup():
             {"$setOnInsert": {**u, "auth_provider": "demo", "hashed_password": None,
                               "disabled": False, "created_at": now_iso()}},
             upsert=True)
+    # Backfill: any pre-multi-role user gets roles=[legacy role] and is treated
+    # as already onboarded so existing accounts are never locked out or forced
+    # back through the wizard.
+    async for u in db.users.find({"roles": {"$exists": False}}, {"id": 1, "role": 1}):
+        await db.users.update_one(
+            {"id": u["id"]},
+            {"$set": {"roles": [u["role"]] if u.get("role") else [], "onboarded": True}})
     admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     admin_pw = os.environ.get("ADMIN_PASSWORD", "")
     if admin_email and admin_pw:
+        admin_fields = {"hashed_password": auth.hash_password(admin_pw), "role": "admin",
+                        "roles": ["customer", "clipper", "admin"], "onboarded": True, "disabled": False}
         existing = await db.users.find_one({"email": admin_email})
         if existing:
-            await db.users.update_one({"email": admin_email},
-                                      {"$set": {"hashed_password": auth.hash_password(admin_pw), "role": "admin", "disabled": False}})
+            await db.users.update_one({"email": admin_email}, {"$set": admin_fields})
         else:
             await db.users.insert_one({"id": str(uuid.uuid4()), "email": admin_email, "name": "Administrator",
-                                       "role": "admin", "credits": 0, "auth_provider": "local",
-                                       "hashed_password": auth.hash_password(admin_pw), "disabled": False,
-                                       "created_at": now_iso()})
+                                       "credits": 0, "auth_provider": "local", "created_at": now_iso(),
+                                       **admin_fields})
         logger.info("Admin account ensured for %s", admin_email)
     else:
         logger.warning("ADMIN_EMAIL / ADMIN_PASSWORD not set — no real admin account provisioned.")
@@ -345,17 +387,20 @@ async def ensure_auth_setup():
 async def register(body: RegisterRequest, request: Request):
     if not auth.rate_limit(f"reg:{client_ip(request)}", 10, 3600):
         raise HTTPException(429, "Too many attempts. Please try again later.")
-    role = body.role if body.role in ("customer", "clipper") else "customer"
+    # Real capabilities are chosen in onboarding; `body.role` is only a UI hint
+    # for the default dashboard. New accounts start with no capabilities and are
+    # routed through the wizard.
+    hint = body.role if body.role in ("customer", "clipper") else "customer"
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(409, "An account with this email already exists")
     user = {
-        "id": str(uuid.uuid4()), "email": email, "name": body.name.strip(), "role": role,
+        "id": str(uuid.uuid4()), "email": email, "name": body.name.strip(), "role": hint,
+        "roles": [], "onboarded": False,
         "hashed_password": auth.hash_password(body.password), "auth_provider": "local",
-        "credits": 150 if role == "customer" else 0, "disabled": False, "created_at": now_iso(),
+        "credits": 0, "disabled": False, "created_at": now_iso(),
     }
     await db.users.insert_one(dict(user))
-    await _ensure_clipper_profile(user)
     return await _issue(user)
 
 
@@ -376,6 +421,66 @@ async def me(user: dict = Depends(get_current_user)):
     return public_user(user)
 
 
+@api_router.post("/auth/switch-role")
+async def switch_role(body: SwitchRoleRequest, user: dict = Depends(get_current_user)):
+    """Flip the active dashboard mode for a multi-role account. Re-issues a JWT
+    whose active `role` is the requested capability. No re-login, no password."""
+    if body.role not in user_roles(user):
+        raise HTTPException(403, "You don't have that role")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"role": body.role}})
+    user["role"] = body.role
+    return await _issue(user)
+
+
+@api_router.post("/auth/onboarding")
+async def complete_onboarding(body: OnboardingRequest, user: dict = Depends(get_current_user)):
+    """Finish signup: set the account's capabilities, seed a brand profile and/or
+    clipper profile, grant customer credits once, and mark onboarded."""
+    roles = [r for r in ("customer", "clipper") if r in body.roles]
+    if not roles:
+        raise HTTPException(400, "Pick at least one role")
+    # Preserve any existing capabilities (e.g. admin) and add the new ones.
+    prev = set(user_roles(user))
+    merged = list(prev | set(roles))
+    active = body.active_role if body.active_role in merged else roles[0]
+
+    update = {"roles": merged, "onboarded": True, "role": active}
+    # Grant the customer starter credits only the first time customer is added.
+    if "customer" in roles and "customer" not in prev and not user.get("credits"):
+        update["credits"] = 150
+    if body.payout_wallet.strip():
+        update["payout_wallet"] = body.payout_wallet.strip()
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    user.update(update)
+
+    # Seed a brand profile from the creator answers (id is deterministic per user).
+    if "customer" in roles and (body.brand_name or body.niche or body.content_type):
+        pid = f"brand-{user['id']}"
+        if not await db.brand_profiles.find_one({"id": pid}):
+            await db.brand_profiles.insert_one({
+                "id": pid, "owner": user["id"],
+                "name": body.brand_name or user.get("name", ""),
+                "description": body.niche, "audience": body.audience,
+                "caption_style": "", "pacing": "", "cta": "", "avoid": "",
+                "fonts": "", "content_type": body.content_type, "platforms": body.platforms,
+            })
+
+    # Ensure the clipper profile exists, then apply any specialties/tools/samples.
+    if "clipper" in roles:
+        await _ensure_clipper_profile(user)
+        clip_update = {}
+        if body.specialties:
+            clip_update["specialty"] = ", ".join(body.specialties[:3])
+        if body.tools:
+            clip_update["tools"] = body.tools
+        if body.samples:
+            clip_update["portfolio"] = [{"url": s} for s in body.samples]
+        if clip_update:
+            await db.clippers.update_one({"id": user["id"]}, {"$set": clip_update})
+
+    return await _issue(user)
+
+
 @api_router.post("/auth/google")
 async def google_auth(body: GoogleAuthRequest):
     try:
@@ -387,15 +492,15 @@ async def google_auth(body: GoogleAuthRequest):
     email = info["email"].lower()
     user = await db.users.find_one({"email": email})
     if not user:
-        role = body.role if body.role in ("customer", "clipper") else "customer"
+        hint = body.role if body.role in ("customer", "clipper") else "customer"
         user = {
             "id": str(uuid.uuid4()), "email": email,
-            "name": info.get("name") or email.split("@")[0], "role": role,
+            "name": info.get("name") or email.split("@")[0], "role": hint,
+            "roles": [], "onboarded": False,
             "hashed_password": None, "auth_provider": "google", "avatar": info.get("picture"),
-            "credits": 150 if role == "customer" else 0, "disabled": False, "created_at": now_iso(),
+            "credits": 0, "disabled": False, "created_at": now_iso(),
         }
         await db.users.insert_one(dict(user))
-        await _ensure_clipper_profile(user)
     if user.get("disabled"):
         raise HTTPException(403, "Account disabled")
     return await _issue(user)
@@ -428,7 +533,7 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
         await _require_contract_party(contract_id, user, allow=("clipper",))
         key = f"deliveries/{contract_id}/{uid}{ext}"
     else:
-        if user["role"] not in ("customer", "admin"):
+        if not ({"customer", "admin"} & set(user_roles(user))):
             raise HTTPException(403, "Only customers upload source footage")
         key = f"sources/{user['id']}/{uid}{ext}"
     try:
@@ -456,7 +561,7 @@ async def project_source_url(project_id: str, user: dict = Depends(get_current_u
         raise HTTPException(404, "Project not found")
     if not p.get("source_key"):
         raise HTTPException(404, "No uploaded source footage")
-    allowed = user["role"] == "admin" or p.get("owner_id") == user["id"]
+    allowed = "admin" in user_roles(user) or p.get("owner_id") == user["id"]
     if not allowed:
         # A clipper who has bid on or holds a contract for this project may fetch it.
         has_bid = await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"]})
@@ -806,7 +911,7 @@ async def demo_bids(project_id: str, count: int = 2, user: dict = Depends(get_cu
     """Populate a project's bid room with realistic bids from seed clippers.
     Owner-only; available in test/demo mode (or to admins). Idempotent up to `count`."""
     p = await _require_project_owner(project_id, user)
-    if not await get_test_mode() and user["role"] != "admin":
+    if not await get_test_mode() and "admin" not in user_roles(user):
         raise HTTPException(403, "Demo bids are only available in test mode")
     import random
     existing = await db.bids.find({"project_id": project_id}, NO_ID).to_list(100)
@@ -1013,14 +1118,14 @@ async def post_message(contract_id: str, body: MessageCreate, user: dict = Depen
 
 @api_router.get("/brand-profiles")
 async def get_brand_profiles(user: dict = Depends(get_current_user)):
-    if user["role"] == "admin":
+    if "admin" in user_roles(user):
         return await db.brand_profiles.find({}, NO_ID).to_list(50)
     return await db.brand_profiles.find({"owner": user["id"]}, NO_ID).to_list(20)
 
 @api_router.put("/brand-profiles/{profile_id}")
 async def update_brand_profile(profile_id: str, body: BrandProfileUpdate, user: dict = Depends(get_current_user)):
     existing = await db.brand_profiles.find_one({"id": profile_id}, NO_ID)
-    if existing and user["role"] != "admin" and existing.get("owner") != user["id"]:
+    if existing and "admin" not in user_roles(user) and existing.get("owner") != user["id"]:
         raise HTTPException(403, "You do not own this brand profile")
     update = body.model_dump()
     update["owner"] = existing.get("owner", user["id"]) if existing else user["id"]

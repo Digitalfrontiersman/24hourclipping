@@ -1,0 +1,16 @@
+{
+  "short_name": "Clip24",
+  "name": "24 Hour Clipping",
+  "description": "Turn your best moments into finished clips in 24 hours.",
+  "icons": [
+    { "src": "favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" },
+    { "src": "hero_streamer_a.png", "type": "image/png", "sizes": "512x512", "purpose": "any" }
+  ],
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0A0A0A",
+  "background_color": "#0A0A0A"
+}

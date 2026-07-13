@@ -3,9 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Zap, Loader2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
-
-const ROLE_HOME = { customer: "/customer", clipper: "/clipper", admin: "/admin" };
 
 export default function Login() {
   const { login, google, loginDemo } = useApp();
@@ -16,7 +15,8 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   const go = (user) => {
-    const dest = loc.state?.from || ROLE_HOME[user.role] || "/";
+    // Unonboarded users always go through the wizard first.
+    const dest = !user.onboarded ? "/onboarding" : (loc.state?.from || homeFor(user));
     nav(dest, { replace: true });
   };
 

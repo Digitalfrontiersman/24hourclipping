@@ -22,6 +22,18 @@ export const authAdapter = {
     setToken(data.access_token);
     return data.user;
   },
+  // Flip the active dashboard mode for a multi-role account (no re-login).
+  async switchRole(role) {
+    const { data } = await api.post("/auth/switch-role", { role });
+    setToken(data.access_token);
+    return data.user;
+  },
+  // Finish signup: set capabilities + seed profiles. `payload` = OnboardingRequest.
+  async completeOnboarding(payload) {
+    const { data } = await api.post("/auth/onboarding", payload);
+    setToken(data.access_token);
+    return data.user;
+  },
   async me() {
     const { data } = await api.get("/auth/me");
     return data;

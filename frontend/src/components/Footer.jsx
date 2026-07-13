@@ -15,7 +15,7 @@ export default function Footer() {
         <div className="flex gap-8 text-sm text-zinc-400">
           <Link to="/marketplace" className="hover:text-white transition-colors">Live Jobs</Link>
           <Link to="/clippers" className="hover:text-white transition-colors">Clippers</Link>
-          <Link to="/clipper/onboarding" className="hover:text-white transition-colors">Become a Clipper</Link>
+          <Link to="/register" className="hover:text-white transition-colors">Become a Clipper</Link>
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-600 border border-white/10 rounded-full px-4 py-2" data-testid="solana-badge">
           <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" />

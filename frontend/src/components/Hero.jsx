@@ -172,7 +172,7 @@ export default function Hero() {
         </div>
         <div className="flex items-center gap-3">
           <Link to="/login" className="hidden text-sm font-semibold text-zinc-300 transition-colors hover:text-white sm:inline-flex">Sign in</Link>
-          <Link to="/clipper/onboarding" data-testid="nav-become-clipper"
+          <Link to="/register" data-testid="nav-become-clipper"
                 className="group inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-5 text-sm font-bold text-black transition-all hover:bg-zinc-200 active:scale-95">
             Become a clipper <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Link>

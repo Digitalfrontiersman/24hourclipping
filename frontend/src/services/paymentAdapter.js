@@ -1,5 +1,6 @@
-// MOCK PAYMENT ADAPTER — simulates USDC-on-Solana and card payments.
-// Replace with Stripe / Solana Pay integration later. No real funds move.
+// PAYMENT ADAPTER — drives the backend funding endpoints. Real Solana/Stripe/
+// Ziina flows run when the server is configured; otherwise the backend's test
+// mode simulates the transfer (no real funds move).
 import { dbAdapter } from "./dbAdapter";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,40 +1,37 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
+import { ROLE_HOME, ROLE_NOUN } from "@/lib/roles";
 import { toast } from "sonner";
-import { Zap, ChevronDown, Menu, X, LogOut, User } from "lucide-react";
+import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield } from "lucide-react";
 import { useState } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-const ROLE_HOME = { customer: "/customer", clipper: "/clipper", admin: "/admin" };
-const ROLE_LABEL = { customer: "Customer", clipper: "Clipper", admin: "Admin" };
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Navbar() {
-  const { role, user, isAuthed, switchRole, logout } = useApp();
+  const { user, roles, activeRole, isAuthed, onboarded, switchRole, logout } = useApp();
   const nav = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState(false);
 
+  const dashboardHref = isAuthed ? (onboarded ? ROLE_HOME[activeRole] : "/onboarding") : "/login";
   const links = [
     { to: "/marketplace", label: "Live Jobs" },
     { to: "/clippers", label: "Clippers" },
-    { to: isAuthed ? ROLE_HOME[role] : "/login", label: "Dashboard" },
+    { to: dashboardHref, label: "Dashboard" },
   ];
 
-  // Demo role-switch: customer/clipper log in as the seeded demo account.
-  // Admin is locked down — fall back to the login screen if demo admin is off.
+  // Real mode switch for multi-role accounts — flips the active dashboard, no re-login.
+  const otherRoles = (roles || []).filter((r) => r !== activeRole && r !== "admin");
+
   const switchTo = async (r) => {
     try {
       await switchRole(r);
       nav(ROLE_HOME[r]);
     } catch (err) {
-      if (r === "admin") {
-        toast.message("Admin requires sign-in");
-        nav("/login");
-      } else {
-        toast.error(err.response?.data?.detail || "Could not switch role");
-      }
+      toast.error(err.response?.data?.detail || "Could not switch");
     }
   };
+
+  const profileHref = activeRole === "clipper" ? `/clippers/${user?.id}` : "/customer/brand";
 
   const doLogout = () => {
     logout();
@@ -61,21 +58,44 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {isAuthed ? (
             <DropdownMenu>
-              <DropdownMenuTrigger data-testid="role-switcher" className="btn-ghost h-9 px-4 text-sm">
+              <DropdownMenuTrigger data-testid="account-menu" className="btn-ghost h-9 px-4 text-sm">
                 <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse" />
-                {user?.name?.split(" ")[0] || ROLE_LABEL[role]} <ChevronDown className="w-3.5 h-3.5" />
+                {user?.name?.split(" ")[0] || "Account"} <ChevronDown className="w-3.5 h-3.5" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#1A1A1A] border-white/10 text-white">
-                <DropdownMenuItem className="text-xs text-zinc-500 focus:bg-transparent" disabled>
-                  <User className="w-3.5 h-3.5" /> {user?.email}
-                </DropdownMenuItem>
+              <DropdownMenuContent className="bg-[#1A1A1A] border-white/10 text-white w-60">
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="text-sm">{user?.name}</span>
+                  <span className="text-xs text-zinc-500 font-normal flex items-center gap-1"><User className="w-3 h-3" /> {user?.email}</span>
+                  {onboarded && <span className="text-[10px] mt-1 text-[#CCFF00] font-bold uppercase tracking-wide">Viewing as {ROLE_NOUN[activeRole]}</span>}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                {Object.keys(ROLE_LABEL).map((r) => (
-                  <DropdownMenuItem key={r} data-testid={`role-option-${r}`} className="cursor-pointer focus:bg-white/10 focus:text-white"
+
+                <DropdownMenuItem data-testid="menu-dashboard" className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(dashboardHref)}>
+                  <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                </DropdownMenuItem>
+                {onboarded && (
+                  <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(profileHref)}>
+                    <User className="w-3.5 h-3.5" /> Profile
+                  </DropdownMenuItem>
+                )}
+
+                {otherRoles.length > 0 && <DropdownMenuSeparator className="bg-white/10" />}
+                {otherRoles.map((r) => (
+                  <DropdownMenuItem key={r} data-testid={`switch-to-${r}`} className="cursor-pointer focus:bg-white/10 focus:text-white"
                     onClick={() => switchTo(r)}>
-                    Switch to {ROLE_LABEL[r]} {role === r ? "✓" : ""}
+                    <Repeat className="w-3.5 h-3.5" /> Switch to {ROLE_NOUN[r]}
                   </DropdownMenuItem>
                 ))}
+
+                {roles?.includes("admin") && (
+                  <>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav("/admin")}>
+                      <Shield className="w-3.5 h-3.5" /> Admin
+                    </DropdownMenuItem>
+                  </>
+                )}
+
                 <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem data-testid="logout-btn" className="cursor-pointer focus:bg-white/10 focus:text-white text-red-400" onClick={doLogout}>
                   <LogOut className="w-3.5 h-3.5" /> Log out
@@ -99,6 +119,11 @@ export default function Navbar() {
             <Link key={l.label} to={l.to} onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-zinc-300 hover:bg-white/5">
               {l.label}
             </Link>
+          ))}
+          {isAuthed && otherRoles.map((r) => (
+            <button key={r} onClick={() => { setOpen(false); switchTo(r); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-[#CCFF00] hover:bg-white/5">
+              Switch to {ROLE_NOUN[r]}
+            </button>
           ))}
         </div>
       )}
