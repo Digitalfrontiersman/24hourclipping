@@ -45,7 +45,7 @@ export default function Landing() {
               <div key={clip} className="relative w-[260px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
                 <video src={clip} className="w-full aspect-[9/16] object-cover bg-black" autoPlay muted loop playsInline controls preload="metadata" />
                 <div className="p-4 flex items-center justify-between">
-                  <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />DELIVERED</span>
+                  <span className="badge-live">DELIVERED</span>
                   <span className="text-xs font-bold text-zinc-400">Network School</span>
                 </div>
               </div>

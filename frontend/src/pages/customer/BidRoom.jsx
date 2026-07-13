@@ -73,7 +73,7 @@ export default function BidRoom() {
             <img src={project.thumbnail} alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
             <div className="absolute bottom-4 left-4 right-4">
-              <span className="badge-live mb-2"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />BIDDING LIVE</span>
+              <span className="badge-live mb-2">BIDDING LIVE</span>
               <h1 className="font-display font-extrabold text-xl tracking-tight">{project.title}</h1>
             </div>
           </div>
@@ -175,7 +175,7 @@ export default function BidRoom() {
       {/* Submission viewer */}
       <Dialog open={!!submission} onOpenChange={(o) => !o && setSubmission(null)}>
         <DialogContent className="bg-[#0A0A0A] border-white/10 text-white max-w-sm">
-          <DialogTitle className="font-display font-extrabold text-lg flex items-center gap-2"><span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />SUBMISSION</span> {submission?.name}</DialogTitle>
+          <DialogTitle className="font-display font-extrabold text-lg flex items-center gap-2"><span className="badge-live">SUBMISSION</span> {submission?.name}</DialogTitle>
           {submission && <video src={submission.url} className="w-full rounded-xl bg-black max-h-[70vh]" controls autoPlay />}
         </DialogContent>
       </Dialog>

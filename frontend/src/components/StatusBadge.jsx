@@ -16,8 +16,6 @@ export default function StatusBadge({ status }) {
   const [label, cls] = MAP[status] || [status?.toUpperCase(), "border border-zinc-500 text-zinc-400"];
   return (
     <span data-testid={`status-badge-${status}`} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold tracking-widest ${cls}`}>
-      {(status === "live" || status === "contract_live" || status === "open") && <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />}
-      {status === "rescue" && <span className="w-1.5 h-1.5 rounded-full bg-[#FF4500] animate-pulse" />}
       {label}
     </span>
   );

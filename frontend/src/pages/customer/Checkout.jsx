@@ -129,7 +129,7 @@ export default function Checkout() {
           )}
           <div className="flex justify-between items-center py-4 border-b border-white/10">
             <span className="text-sm text-zinc-400">Public bidding</span>
-            <span className="badge-live"><span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />OPEN TO ALL CLIPPERS</span>
+            <span className="badge-live">OPEN TO ALL CLIPPERS</span>
           </div>
           <div className="flex justify-between items-center py-4 border-b border-white/10">
             <span className="text-sm text-zinc-400">Budget (held in escrow)</span>

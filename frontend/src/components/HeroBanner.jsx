@@ -112,7 +112,7 @@ export default function HeroBanner() {
               <div className="absolute inset-0 pointer-events-none hidden lg:block" style={{ background: `radial-gradient(500px circle at ${tilt.gx}% ${tilt.gy}%, rgba(204,255,0,0.10), transparent 55%)` }} />
               {/* tiny LIVE tag — bottom-left, unobtrusive */}
               <div className="absolute top-3 left-3 sm:top-4 sm:left-4 inline-flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-md border border-[#CCFF00]/60 text-[#CCFF00] px-2.5 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ transform: "translateZ(40px)" }} data-testid="hero-live-tag">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> Live demo
+                Live demo
               </div>
             </div>
           </div>

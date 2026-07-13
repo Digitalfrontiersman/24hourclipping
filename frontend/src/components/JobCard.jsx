@@ -20,7 +20,7 @@ export default function JobCard({ project, ctaTo, ctaLabel = "Bid Now" }) {
             <div className="text-xs text-zinc-400">{project.customer_name}</div>
           </div>
           <span className="badge-live bg-black/70">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> {project.bids_count} bids
+            {project.bids_count} bids
           </span>
         </div>
       </div>

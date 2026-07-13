@@ -130,7 +130,7 @@ export default function Marketplace() {
                   </div>
                 </div>
                 <span className="badge-live hidden sm:inline-flex shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> {p.bids_count} bids
+                  {p.bids_count} bids
                 </span>
                 <div className="text-right shrink-0">
                   <div className="font-mono font-extrabold text-lg sm:text-xl text-[#CCFF00]">${p.budget}</div>

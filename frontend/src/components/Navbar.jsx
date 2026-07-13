@@ -59,8 +59,7 @@ export default function Navbar() {
           {isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger data-testid="account-menu" className="btn-ghost h-9 px-4 text-sm">
-                <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse" />
-                {user?.name?.split(" ")[0] || "Account"} <ChevronDown className="w-3.5 h-3.5" />
+                                {user?.name?.split(" ")[0] || "Account"} <ChevronDown className="w-3.5 h-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-[#1A1A1A] border-white/10 text-white w-60">
                 <DropdownMenuLabel className="flex flex-col gap-0.5">
