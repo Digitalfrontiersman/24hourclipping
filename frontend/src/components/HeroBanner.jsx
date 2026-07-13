@@ -38,8 +38,8 @@ export default function HeroBanner() {
   const onLeave = useCallback(() => setTilt({ rx: 0, ry: 0, gx: 50, gy: 50 }), []);
 
   return (
-    <section className="relative grain overflow-hidden" data-testid="hero-banner">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-8 sm:pt-14 sm:pb-16 lg:pt-24 lg:pb-24 grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-8 items-center">
+    <section className="relative grain overflow-hidden min-h-[calc(100svh-4rem)] flex items-center" data-testid="hero-banner">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12 grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-8 items-center">
 
         {/* LEFT — static copy */}
         <motion.div initial="hidden" animate="show" className="relative z-10">
