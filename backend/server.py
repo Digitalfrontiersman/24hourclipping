@@ -380,6 +380,7 @@ class BrandProfileUpdate(BaseModel):
     cta: str = ""
     avoid: str = ""
     fonts: str = ""
+    colors: List[str] = Field(default_factory=list)
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -1945,11 +1946,13 @@ async def update_brand_profile(profile_id: str, body: BrandProfileUpdate,
         existing.cta = body.cta
         existing.avoid = body.avoid
         existing.fonts = body.fonts
+        existing.colors = [c for c in body.colors if c][:8]
         bp = existing
     else:
         bp = BrandProfile(owner_id=as_uuid(user["id"]), name=body.name, description=body.description,
                           audience=body.audience, caption_style=body.caption_style, pacing=body.pacing,
-                          cta=body.cta, avoid=body.avoid, fonts=body.fonts)
+                          cta=body.cta, avoid=body.avoid, fonts=body.fonts,
+                          colors=[c for c in body.colors if c][:8])
         session.add(bp)
     await session.commit()
     return brand_public(bp)
