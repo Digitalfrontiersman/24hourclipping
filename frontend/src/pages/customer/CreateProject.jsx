@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
 import FileDropzone from "@/components/FileDropzone";
-import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon } from "lucide-react";
+import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon, Check } from "lucide-react";
 
-const chip = (active) => `px-4 py-2 rounded-full text-sm font-bold transition-colors ${active ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`;
+const chip = (active) => `px-4 py-2 rounded-full text-sm font-semibold transition-all ${active ? "bg-[#CCFF00] text-black shadow-[0_4px_16px_-6px_rgba(204,255,0,0.5)]" : "bg-white/[0.04] text-zinc-400 border border-white/10 hover:text-white hover:border-white/25"}`;
+
+const STEPS = [{ n: 1, label: "Footage" }, { n: 2, label: "The vibe" }, { n: 3, label: "Budget" }];
 
 export default function CreateProject() {
   const nav = useNavigate();
@@ -67,16 +69,35 @@ export default function CreateProject() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-        <div className="flex items-center gap-3 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? "bg-[#CCFF00]" : "bg-white/10"}`} />
-          ))}
+        {/* Stepper */}
+        <div className="mb-10">
+          <div className="label-caps text-[#CCFF00]/80 mb-3">Post a clip</div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {STEPS.map((s, i) => (
+              <Fragment key={s.n}>
+                <button type="button" onClick={() => step > s.n && setStep(s.n)}
+                  className={`flex items-center gap-2.5 shrink-0 ${step > s.n ? "cursor-pointer" : "cursor-default"}`}>
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+                    step > s.n ? "bg-[#CCFF00] text-black border-transparent"
+                      : step === s.n ? "bg-[#CCFF00]/10 text-[#CCFF00] border-[#CCFF00]/40"
+                      : "bg-white/5 text-zinc-600 border-white/10"}`}>
+                    {step > s.n ? <Check className="w-4 h-4" /> : s.n}
+                  </span>
+                  <span className={`text-sm font-semibold hidden sm:block ${step >= s.n ? "text-white" : "text-zinc-600"}`}>{s.label}</span>
+                </button>
+                {i < STEPS.length - 1 && <div className={`h-px flex-1 transition-colors ${step > s.n ? "bg-[#CCFF00]/40" : "bg-white/10"}`} />}
+              </Fragment>
+            ))}
+          </div>
         </div>
 
         {step === 1 && (
           <div className="space-y-6">
             <div className="flex items-end justify-between gap-3 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The footage</h1>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The footage</h1>
+                <p className="text-sm text-zinc-500 mt-1.5">Name the clip and add your source. Only the title is required.</p>
+              </div>
               <Link to="/customer/concierge" data-testid="create-ai-path" className="text-sm font-semibold text-[#CCFF00] hover:underline flex items-center gap-1 shrink-0">
                 or talk it out with AI <Sparkles className="w-3.5 h-3.5" />
               </Link>
@@ -188,7 +209,10 @@ export default function CreateProject() {
 
         {step === 3 && (
           <div className="space-y-6">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">Budget & final touches</h1>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">Budget & final touches</h1>
+              <p className="text-sm text-zinc-500 mt-1.5">Set what you'll pay. Clippers bid at or under it - released only when you approve.</p>
+            </div>
             <div className="card-dark p-5" data-testid="brief-summary">
               <div className="flex items-center gap-2 mb-3"><Zap className="w-4 h-4 text-[#CCFF00]" /><span className="label-caps">Your brief</span></div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
