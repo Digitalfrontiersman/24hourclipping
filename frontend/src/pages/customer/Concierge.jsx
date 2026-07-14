@@ -125,7 +125,7 @@ export default function Concierge() {
 
           {brief && (
             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="card-dark border-[#CCFF00]/40 p-6" data-testid="generated-brief">
-              <div className="label-caps text-[#CCFF00] mb-3">Your one-page project brief</div>
+              <div className="label-caps mb-3">Your one-page project brief</div>
               <input className="input-dark mb-3 font-display font-bold" data-testid="brief-title-input" value={brief.title} onChange={(e) => setBrief({ ...brief, title: e.target.value })} />
               <textarea className="input-dark h-20 py-3 mb-3 text-sm" value={brief.description} onChange={(e) => setBrief({ ...brief, description: e.target.value })} />
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs mb-4">

@@ -78,7 +78,7 @@ export default function Login() {
         <div className="pointer-events-none absolute -bottom-32 -left-24 h-[30rem] w-[30rem] rounded-full bg-[#CCFF00]/[0.05] blur-[130px]" aria-hidden="true" />
 
         <div className="relative z-10">
-          <span className="label-caps text-[#CCFF00]">The 24-hour clipping marketplace</span>
+          <span className="label-caps">The 24-hour clipping marketplace</span>
         </div>
 
         <div className="relative z-10">

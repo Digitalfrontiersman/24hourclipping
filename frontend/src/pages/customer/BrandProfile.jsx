@@ -61,7 +61,7 @@ export default function BrandProfile() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
       <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
-        <span className="label-caps text-[#CCFF00]/80">Brand memory</span>
+        <span className="label-caps">Brand memory</span>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-2">Brand Profile</h1>
         <p className="text-zinc-500 mb-8 max-w-xl">Save it once. Every future brief auto-fills with your voice, pacing, and style - so posting a clip takes seconds, not minutes.</p>
 

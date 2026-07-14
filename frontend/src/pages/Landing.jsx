@@ -135,8 +135,8 @@ export default function Landing() {
           <div className="relative card-dark p-8 overflow-hidden shadow-[0_0_0_1px_rgba(204,255,0,0.14),0_30px_80px_-30px_rgba(204,255,0,0.18)]">
             <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-[#CCFF00]/[0.06] blur-[90px]" aria-hidden="true" />
             <div className="relative z-10 flex items-center justify-between mb-8">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CCFF00]/30 bg-[#CCFF00]/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#CCFF00]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> Contract Live
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" /> Contract Live
               </span>
               <span className="text-xs text-zinc-600 font-mono">#CLIP-2481</span>
             </div>
@@ -216,7 +216,7 @@ export default function Landing() {
             <Link to="/customer/create" data-testid="side-need-clip" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-[#CCFF00]/60 transition-colors">
               <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[#CCFF00]/10 blur-3xl group-hover:bg-[#CCFF00]/25 transition-colors" />
               <div className="relative">
-                <span className="label-caps text-[#CCFF00]">For creators</span>
+                <span className="label-caps">For creators</span>
                 <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I need a clip</h3>
                 <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Post your footage and vetted clippers compete to edit it - your first cut back in 24 hours.</p>
               </div>

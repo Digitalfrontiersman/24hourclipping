@@ -17,7 +17,7 @@ export default function HeroBanner() {
       className="relative grain overflow-hidden min-h-[calc(100svh-4rem)] flex items-center justify-center"
       data-testid="hero-banner"
     >
-      {/* ambient light — one soft lime bloom + a faint coral, nothing else */}
+      {/* ambient light - one soft lime bloom + a faint coral, nothing else */}
       <div
         className="pointer-events-none absolute left-1/2 top-[-18%] h-[42rem] w-[42rem] -translate-x-1/2 rounded-full bg-[#CCFF00]/[0.09] blur-[160px] hero-glow"
         aria-hidden="true"
@@ -52,10 +52,10 @@ export default function HeroBanner() {
           className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-zinc-400 sm:text-lg"
         >
           Post the moment, pick a vetted clipper, and get a finished, ready-to-post
-          cut back before it gets old — or your money back.
+          cut back before it gets old - or your money back.
         </motion.p>
 
-        {/* CTAs — stack full-width on mobile, inline on larger */}
+        {/* CTAs - stack full-width on mobile, inline on larger */}
         <motion.div
           variants={fadeUp}
           custom={2}

@@ -32,7 +32,7 @@ export default function ClipperCard({ clipper }) {
         )}
       </div>
 
-      {/* Cover — one clean piece of work, not a cramped grid */}
+      {/* Cover - one clean piece of work, not a cramped grid */}
       {cover && (
         <div className="relative aspect-video rounded-xl overflow-hidden bg-black/40">
           <img
@@ -48,7 +48,7 @@ export default function ClipperCard({ clipper }) {
         </div>
       )}
 
-      {/* Stats — one light line, no boxes */}
+      {/* Stats - one light line, no boxes */}
       <div className="flex items-center gap-2 text-sm text-zinc-400">
         <span className="flex items-center gap-1 text-white font-semibold">
           <Star className="w-3.5 h-3.5 text-[#CCFF00]" fill="#CCFF00" />

@@ -32,7 +32,7 @@ export default function Docs() {
         {/* Sidebar */}
         <aside className="hidden lg:block w-56 shrink-0">
           <div className="sticky top-24">
-            <div className="flex items-center gap-2 label-caps text-[#CCFF00]/80 mb-4"><BookOpen className="w-3.5 h-3.5" /> Documentation</div>
+            <div className="flex items-center gap-2 label-caps mb-4"><BookOpen className="w-3.5 h-3.5" /> Documentation</div>
             <nav className="space-y-1">
               {NAV.map((n) => (
                 <a key={n.id} href={`#${n.id}`} className="block px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors">
@@ -48,7 +48,7 @@ export default function Docs() {
 
         {/* Content */}
         <main className="min-w-0 flex-1 max-w-2xl">
-          <div className="label-caps text-[#CCFF00]/80 mb-2">Docs</div>
+          <div className="label-caps mb-2">Docs</div>
           <h1 className="font-display font-extrabold tracking-tight text-3xl sm:text-4xl mb-3">How 24 Hour Clipping works</h1>
           <p className="text-zinc-400 text-base sm:text-lg leading-relaxed mb-12">
             The marketplace for short-form clips, on the clock. Two sides, one 24-hour deadline, zero friction.

@@ -73,7 +73,7 @@ export default function CreateProject() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
         {/* Mode toggle: Express (fast) vs Full brief (wizard) */}
         <div className="mb-8">
-          <div className="label-caps text-[#CCFF00]/80 mb-3">Post a clip</div>
+          <div className="label-caps mb-3">Post a clip</div>
           <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
             <button type="button" data-testid="mode-express" onClick={() => setMode("express")}
               className={`flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-bold transition-colors ${mode === "express" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
