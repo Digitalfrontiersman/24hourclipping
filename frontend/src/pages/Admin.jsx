@@ -4,11 +4,10 @@ import { notify } from "@/services/notificationAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
-  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
-import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus } from "lucide-react";
+
+const ALL_ROLES = ["customer", "clipper", "admin"];
 
 const ROLE_COLORS = {
   customer: "bg-[#CCFF00]/15 text-[#CCFF00]",
@@ -19,23 +18,13 @@ const ROLE_COLORS = {
 export default function Admin() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
-  const [testMode, setTestModeState] = useState(false);
-  const [purging, setPurging] = useState(false);
 
   const loadUsers = () => dbAdapter.adminUsers().then(setUsers).catch(() => {});
   const load = () => {
     dbAdapter.adminOverview().then(setData).catch(() => {});
-    dbAdapter.getTestMode().then((r) => setTestModeState(!!r.enabled)).catch(() => {});
     loadUsers();
   };
   useEffect(() => { load(); }, []);
-
-  const toggleTestMode = () => {
-    const next = !testMode;
-    dbAdapter.setTestMode(next)
-      .then(() => { setTestModeState(next); notify[next ? "urgent" : "success"](next ? "Test mode ON" : "Test mode OFF", next ? "Payments are now simulated for demos" : "Real payments restored"); })
-      .catch((e) => notify.urgent(e.response?.data?.detail || "Could not change test mode"));
-  };
 
   const userAction = (u) => {
     const fn = u.disabled ? dbAdapter.restoreUser : dbAdapter.suspendUser;
@@ -44,17 +33,12 @@ export default function Admin() {
       .catch((e) => notify.urgent(e.response?.data?.detail || "Action failed"));
   };
 
-  const purgeDemo = () => {
-    setPurging(true);
-    dbAdapter.purgeDemo()
-      .then((r) => {
-        const d = r?.deleted || {};
-        const parts = Object.entries(d).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`);
-        notify.success("Demo data purged", parts.length ? `Removed ${parts.join(", ")}` : "Seeded data removed");
-        load();
-      })
-      .catch((e) => notify.urgent(e.response?.data?.detail || "Purge failed"))
-      .finally(() => setPurging(false));
+  const toggleRole = (u, role) => {
+    const has = (u.roles || []).includes(role);
+    const roles = has ? (u.roles || []).filter((r) => r !== role) : [...(u.roles || []), role];
+    dbAdapter.setUserRoles(u.id, roles)
+      .then(() => { notify.success(`${u.name || "User"} roles updated`); loadUsers(); })
+      .catch((e) => notify.urgent(e.response?.data?.detail || "Could not update roles"));
   };
 
   if (!data) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><div className="card-dark w-full max-w-5xl h-96 mx-4 animate-pulse" /></div>;
@@ -70,34 +54,12 @@ export default function Admin() {
             <h1 className="text-3xl font-extrabold tracking-tighter mt-2">Admin Console</h1>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button data-testid="test-mode-toggle" onClick={toggleTestMode}
-              className={`h-10 px-5 text-xs rounded-full font-bold border transition-colors ${testMode ? "bg-amber-400/15 border-amber-400/50 text-amber-300" : "border-white/10 text-zinc-400 hover:text-white"}`}>
-              {testMode ? "🧪 Test mode: ON - payments simulated" : "Test mode: OFF"}
+            <button data-testid="admin-refresh" className="btn-ghost h-10 px-5 text-xs" onClick={load}>
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh
             </button>
-            <button data-testid="reset-demo-btn" className="btn-ghost h-10 px-5 text-xs" onClick={() => dbAdapter.resetDemo().then(() => { notify.success("Demo data reset"); load(); })}>
-              <RefreshCw className="w-3.5 h-3.5" /> Reset demo data
-            </button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button data-testid="purge-demo-btn" disabled={purging} className="btn-coral h-10 px-5 text-xs">
-                  <Trash2 className="w-3.5 h-3.5" /> {purging ? "Purging…" : "Purge demo data"}
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="card-dark border-white/10 text-white">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="font-display font-extrabold tracking-tighter">Go live - purge demo data?</AlertDialogTitle>
-                  <AlertDialogDescription className="text-zinc-400">
-                    This permanently deletes all seeded/demo records - demo users, seed clippers, and demo projects, bids and contracts. Real accounts and their data are left untouched. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="btn-ghost h-10 px-5 text-sm border-0">Cancel</AlertDialogCancel>
-                  <AlertDialogAction data-testid="purge-demo-confirm" onClick={purgeDemo} className="btn-coral h-10 px-5 text-sm">
-                    <Trash2 className="w-3.5 h-3.5" /> Purge demo data
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Link to="/customer/create" data-testid="admin-create-job" className="btn-lime h-10 px-5 text-xs">
+              <Plus className="w-3.5 h-3.5" /> Create job
+            </Link>
           </div>
         </div>
 
@@ -131,13 +93,23 @@ export default function Admin() {
               {users.length === 0 && <p className="text-sm text-zinc-500 py-6 text-center">No users yet.</p>}
               {users.map((u) => (
                 <div key={u.id} className="card-dark p-4 flex items-center gap-4 flex-wrap" data-testid={`admin-user-${u.id}`}>
-                  <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold uppercase shrink-0">{(u.name || u.email || "?").slice(0, 2)}</div>
+                  <img src={u.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0" />
                   <div className="flex-1 min-w-48">
                     <p className="font-bold text-sm">{u.name} {u.disabled && <span className="text-[#FF4500] text-xs">(SUSPENDED)</span>}</p>
                     <p className="text-xs text-zinc-500">{u.email} · joined {u.created_at ? new Date(u.created_at).toLocaleDateString() : "-"} · via {u.auth_provider || "local"}</p>
                   </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-white/10 text-zinc-300"}`}>{u.role}</span>
-                  {u.role !== "admin" && (
+                  <div className="flex items-center gap-1.5" data-testid={`admin-user-roles-${u.id}`} title="Click a role to grant or revoke it">
+                    {ALL_ROLES.map((r) => {
+                      const on = (u.roles || []).includes(r);
+                      return (
+                        <button key={r} onClick={() => toggleRole(u, r)}
+                          className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-colors ${on ? `${ROLE_COLORS[r]} border-transparent` : "border-white/10 text-zinc-600 hover:text-white hover:border-white/25"}`}>
+                          {r}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!(u.roles || []).includes("admin") && (
                     <button data-testid={`admin-user-toggle-${u.id}`} className={`h-9 px-4 text-xs font-bold rounded-full transition-colors ${u.disabled ? "bg-[#CCFF00] text-black" : "border border-[#FF4500]/40 text-[#FF4500] hover:bg-[#FF4500]/10"}`}
                       onClick={() => userAction(u)}>
                       {u.disabled ? <><RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore</> : <><Ban className="w-3.5 h-3.5 inline mr-1" />Suspend</>}

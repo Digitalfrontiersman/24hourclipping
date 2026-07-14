@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from collections import defaultdict
 
-from sqlalchemy import select, update, func, or_
+from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -1047,26 +1047,53 @@ async def google_auth(body: GoogleAuthRequest, session: AsyncSession = Depends(g
 
 
 # ============================ MEDIA / UPLOADS ============================
-@api_router.post("/uploads")
-async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = Form(None),
-                       file: UploadFile = File(...), user: dict = Depends(get_current_user),
-                       session: AsyncSession = Depends(get_session)):
-    ext = os.path.splitext(file.filename or "")[1].lower()
+class PresignRequest(BaseModel):
+    kind: str = "source"
+    filename: str = ""
+    content_type: str = "application/octet-stream"
+    contract_id: Optional[str] = None
+
+
+async def _compute_upload_key(kind: str, filename: str, contract_id, user: dict, session: AsyncSession) -> str:
+    """Compute the object key + enforce who may upload what."""
+    ext = os.path.splitext(filename or "")[1].lower()
     ext = ext if len(ext) <= 10 and ext.startswith(".") else ""
     uid = uuid.uuid4().hex
     if kind == "delivery":
         if not contract_id:
             raise HTTPException(400, "contract_id required for a delivery upload")
         await _require_contract_party(session, contract_id, user, allow=("clipper",))
-        key = f"deliveries/{contract_id}/{uid}{ext}"
-    elif kind == "avatar":
-        if not (file.content_type or "").startswith("image/"):
-            raise HTTPException(415, "Avatar must be an image")
-        key = f"avatars/{user['id']}/{uid}{ext}"
-    else:
-        if not ({"customer", "admin"} & set(user_roles(user))):
-            raise HTTPException(403, "Only customers upload source footage")
-        key = f"sources/{user['id']}/{uid}{ext}"
+        return f"deliveries/{contract_id}/{uid}{ext}"
+    if kind == "avatar":
+        return f"avatars/{user['id']}/{uid}{ext}"
+    if not ({"customer", "admin"} & set(user_roles(user))):
+        raise HTTPException(403, "Only customers upload source footage")
+    return f"sources/{user['id']}/{uid}{ext}"
+
+
+@api_router.post("/uploads/presign")
+async def presign_upload(body: PresignRequest, user: dict = Depends(get_current_user),
+                         session: AsyncSession = Depends(get_session)):
+    """Mint a presigned PUT URL so the browser uploads DIRECTLY to S3 (large video
+    files never stream through our server)."""
+    if not storage.is_s3():
+        raise HTTPException(503, "Direct uploads are not enabled")
+    ct = (body.content_type or "").lower()
+    if body.kind == "avatar" and not ct.startswith("image/"):
+        raise HTTPException(415, "Avatar must be an image")
+    if not ct.startswith(("video/", "image/")):
+        raise HTTPException(415, "Only video or image files are allowed")
+    key = await _compute_upload_key(body.kind, body.filename, body.contract_id, user, session)
+    return {"upload_url": storage.presign_put(key, body.content_type), "key": key}
+
+
+@api_router.post("/uploads")
+async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = Form(None),
+                       file: UploadFile = File(...), user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
+    if kind == "avatar" and not (file.content_type or "").startswith("image/"):
+        raise HTTPException(415, "Avatar must be an image")
+    key = await _compute_upload_key(kind, file.filename, contract_id, user, session)
     try:
         size = await storage.save_upload(file, key)
     except storage.UploadError as e:
@@ -1078,6 +1105,13 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
 async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = None):
     if not storage.verify_media(key, exp, sig):
         raise HTTPException(403, "Invalid or expired media link")
+    if storage.is_s3():
+        # Redirect image/video links straight to a presigned S3 URL so bytes never
+        # flow through our server.
+        from fastapi.responses import RedirectResponse
+        if not storage.object_exists(key):
+            raise HTTPException(404, "Not found")
+        return RedirectResponse(storage.presign_get(key, 3600))
     path = storage.safe_path(key)
     if path is None or not path.exists():
         raise HTTPException(404, "Not found")
@@ -1982,6 +2016,34 @@ async def admin_restore_user(user_id: str, admin: dict = Depends(require_role("a
     target.disabled = False
     await session.commit()
     return {"ok": True}
+
+
+class SetRolesRequest(BaseModel):
+    roles: List[str] = []
+
+
+@api_router.post("/admin/users/{user_id}/roles")
+async def admin_set_roles(user_id: str, body: SetRolesRequest,
+                          admin: dict = Depends(require_role("admin")),
+                          session: AsyncSession = Depends(get_session)):
+    """Grant/revoke a user's capabilities (customer / clipper / admin)."""
+    uid = as_uuid(user_id)
+    target = await session.scalar(select(User).options(selectinload(User.roles)).where(User.id == uid)) if uid else None
+    if not target:
+        raise HTTPException(404, "User not found")
+    wanted = {r for r in body.roles if r in ("customer", "clipper", "admin")}
+    if str(target.id) == admin["id"] and "admin" not in wanted:
+        raise HTTPException(400, "You cannot remove your own admin role")
+    current = set(_roles_list(target))
+    for r in wanted - current:
+        session.add(UserRoleAssoc(user_id=target.id, role=UserRole(r)))
+    for r in current - wanted:
+        await session.execute(delete(UserRoleAssoc).where(
+            UserRoleAssoc.user_id == target.id, UserRoleAssoc.role == UserRole(r)))
+    if "clipper" in wanted:
+        await _ensure_clipper_profile_row(session, target)
+    await session.commit()
+    return {"ok": True, "roles": sorted(wanted)}
 
 
 # ============================ AI CONCIERGE ============================

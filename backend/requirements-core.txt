@@ -28,3 +28,5 @@ solana==0.36.6
 solders==0.26.0
 # AI concierge (OpenAI)
 openai==1.99.9
+# S3-compatible object storage (AWS S3 / R2 / B2 / Storj)
+boto3==1.35.99
