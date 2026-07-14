@@ -625,7 +625,7 @@ def clipper_public(profile: Optional[ClipperProfile], user: Optional[User]) -> O
     return {
         "id": uid,
         "name": user.name if user else "",
-        "avatar": (user.avatar_url if user else None) or f"https://i.pravatar.cc/150?u={uid}",
+        "avatar": (user.avatar_url if user else None) or _default_avatar(user.name if user else "clipper"),
         "specialty": profile.specialty or "New Clipper",
         "rating": float(profile.rating or 0),
         "on_time_pct": profile.on_time_pct,
@@ -913,6 +913,15 @@ async def ensure_auth_setup():
 
 
 # ============================ AUTH ENDPOINTS ============================
+def _default_avatar(name: str) -> str:
+    """A clean, on-brand generated avatar (lime background + black initials) so no
+    account is ever blank. Deterministic per name."""
+    from urllib.parse import quote
+    seed = quote((name or "user").strip()[:40] or "user")
+    return (f"https://api.dicebear.com/9.x/initials/svg?seed={seed}"
+            "&backgroundColor=CCFF00&textColor=000000&fontWeight=700&radius=50")
+
+
 @api_router.post("/auth/register")
 async def register(body: RegisterRequest, request: Request, session: AsyncSession = Depends(get_session)):
     if not auth.rate_limit(f"reg:{client_ip(request)}", 10, 3600):
@@ -922,7 +931,8 @@ async def register(body: RegisterRequest, request: Request, session: AsyncSessio
     if await session.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "An account with this email already exists")
     row = User(email=email, name=body.name.strip(), hashed_password=auth.hash_password(body.password),
-               auth_provider=AuthProvider.local, credits=0, onboarded=False, disabled=False)
+               auth_provider=AuthProvider.local, avatar_url=_default_avatar(body.name),
+               credits=0, onboarded=False, disabled=False)
     session.add(row)
     await session.commit()
     try:
@@ -1021,8 +1031,9 @@ async def google_auth(body: GoogleAuthRequest, session: AsyncSession = Depends(g
                                .where(User.email == email))
     hint = body.role if body.role in ("customer", "clipper") else "customer"
     if not row:
-        row = User(email=email, name=info.get("name") or email.split("@")[0],
-                   auth_provider=AuthProvider.google, avatar_url=info.get("picture"),
+        _nm = info.get("name") or email.split("@")[0]
+        row = User(email=email, name=_nm,
+                   auth_provider=AuthProvider.google, avatar_url=info.get("picture") or _default_avatar(_nm),
                    credits=0, onboarded=False, disabled=False)
         session.add(row)
         await session.commit()
