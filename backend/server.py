@@ -25,7 +25,7 @@ from sqlalchemy.orm import selectinload
 import auth
 import storage
 import payments
-import ziina
+import square
 import solana_pay as solpay
 
 from database import get_session, init_db, SessionLocal, engine
@@ -1179,15 +1179,15 @@ async def create_card_checkout(project_id: str, user: dict = Depends(get_current
                                session: AsyncSession = Depends(get_session)):
     p = await _require_project_owner(session, project_id, user)
     pdict = {"id": str(p.id), "budget": float(p.budget), "title": p.title}
-    if ziina.is_configured():
+    if square.is_configured():
         try:
-            intent = ziina.create_payment_intent(pdict)
+            intent = square.create_payment_intent(pdict)
         except Exception as e:
-            logger.error("Ziina checkout error: %s", e)
+            logger.error("Square checkout error: %s", e)
             raise HTTPException(502, "Could not start card checkout")
-        await _set_setting(session, f"payintent:{p.id}", {"provider": "ziina", "id": intent["id"]})
+        await _set_setting(session, f"payintent:{p.id}", {"provider": "square", "id": intent["id"]})
         await session.commit()
-        return {"url": intent["url"], "provider": "ziina", "test_mode": ziina.ZIINA_TEST}
+        return {"url": intent["url"], "provider": "square", "test_mode": square.is_sandbox()}
     if payments.is_configured():
         try:
             url = payments.create_checkout_session(pdict)
@@ -1204,24 +1204,24 @@ async def confirm_card_checkout(project_id: str, body: dict, user: dict = Depend
     p = await _require_project_owner(session, project_id, user)
     if p.funded:
         return {"ok": True}
-    if ziina.is_configured():
+    if square.is_configured():
         setting = await _get_setting(session, f"payintent:{p.id}")
-        ref = (setting or {}).get("id") if (setting or {}).get("provider") == "ziina" else None
+        ref = (setting or {}).get("id") if (setting or {}).get("provider") == "square" else None
         if not ref:
-            raise HTTPException(400, "No pending Ziina payment for this project")
+            raise HTTPException(400, "No pending Square payment for this project")
         try:
-            status = ziina.get_status(ref)
+            status = square.get_status(ref)
         except Exception as e:
-            logger.error("Ziina confirm error: %s", e)
+            logger.error("Square confirm error: %s", e)
             raise HTTPException(502, "Could not verify payment")
         if status != "completed":
             raise HTTPException(402, f"Payment not completed (status: {status})")
         p.funded = True
         p.status = ProjectStatus.open
-        p.payment_method = "ziina"
+        p.payment_method = "square"
         session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
                                 from_user=as_uuid(user["id"]), amount=_base_units(p.budget, "usd"),
-                                currency=Currency.usd, chain_sig=ref, meta={"provider": "ziina"}))
+                                currency=Currency.usd, chain_sig=ref, meta={"provider": "square"}))
         await session.commit()
         return {"ok": True}
     if payments.is_configured():
