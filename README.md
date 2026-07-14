@@ -17,10 +17,16 @@ marketplace — full-stack monorepo with a **FastAPI + MongoDB** backend and a
 ├── frontend/          React 19 + CRACO + Tailwind + Radix UI
 │   ├── src/           Pages, components, service adapters
 │   └── Dockerfile
+├── docs/              Docs & references (deploy, server access, design, Vellum)
+├── assets/            Source media (hero video, source clips, images)
+├── scripts/           Ops scripts (GitHub runner setup, legacy deploy)
 ├── docker-compose.yml One command for Mongo + backend + frontend
 ├── package.json       Root dev scripts (concurrently)
 └── Makefile           Convenience targets
 ```
+
+Deployment and server access: see [`docs/DEPLOY.md`](docs/DEPLOY.md) and
+[`docs/SERVER-ACCESS.md`](docs/SERVER-ACCESS.md).
 
 ## Quick start
 
@@ -95,7 +101,7 @@ No login required — use the **role switcher** in the navbar:
   → `/clipper/room/:id` (deliver)
 - **Admin:** `/admin`
 
-See `replit.md` for the full route table and service-adapter details.
+See [`docs/replit.md`](docs/replit.md) for the full route table and service-adapter details.
 
 ## Tests
 
