@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { Zap, Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, Clock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
@@ -52,11 +52,6 @@ export default function Login() {
         {/* radial lime glow so the form doesn't float on pure black */}
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-sm">
-          <Link to="/" className="flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter mb-8">
-            <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
-            <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
-          </Link>
-
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-1">Log in</h1>
           <p className="text-sm text-zinc-500 mb-6">Welcome back. Pick up where you left off.</p>
 
@@ -78,24 +73,36 @@ export default function Login() {
       </div>
 
       {/* RIGHT - brand panel */}
-      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden border-l border-white/10 bg-[#080808] grain p-12">
-        <div className="pointer-events-none absolute -bottom-32 -right-24 h-[32rem] w-[32rem] rounded-full bg-[#CCFF00]/10 blur-[130px]" aria-hidden="true" />
+      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden border-l border-white/10 bg-gradient-to-br from-[#0c0c0c] via-[#0a0a0a] to-[#070707] grain p-12 xl:p-16">
+        <div className="pointer-events-none absolute -top-28 -right-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/[0.08] blur-[120px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-32 -left-24 h-[30rem] w-[30rem] rounded-full bg-[#CCFF00]/[0.05] blur-[130px]" aria-hidden="true" />
+
         <div className="relative z-10">
           <span className="label-caps text-[#CCFF00]">The 24-hour clipping marketplace</span>
         </div>
+
         <div className="relative z-10">
-          <div className="font-mono text-6xl xl:text-7xl font-extrabold tracking-tighter text-white">18h 42m</div>
-          <p className="label-caps mt-3">Average first-cut turnaround</p>
-          <p className="text-zinc-400 mt-6 max-w-sm leading-relaxed">
-            Vetted clippers stake real money behind your deadline. Post the moment, pick your clipper, and get a ready-to-post cut before it gets old - or your money back.
-          </p>
+          <h2 className="font-display font-extrabold text-4xl xl:text-5xl leading-[1.05] tracking-tight">
+            Your best moments,<br /><span className="text-[#CCFF00]">clipped in 24 hours.</span>
+          </h2>
+          <div className="mt-8 inline-flex items-end gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.9)]">
+            <Clock className="w-5 h-5 text-[#CCFF00] mb-1.5" />
+            <span className="font-mono text-3xl font-extrabold tracking-tighter leading-none">18h 42m</span>
+            <span className="text-xs text-zinc-500 mb-1">avg turnaround</span>
+          </div>
         </div>
-        <div className="relative z-10 flex items-center gap-x-3 gap-y-2 text-sm text-zinc-500 flex-wrap">
-          <span>Vetted clippers</span>
-          <span className="w-1 h-1 rounded-full bg-[#CCFF00]" />
-          <span>Deadline backed</span>
-          <span className="w-1 h-1 rounded-full bg-[#CCFF00]" />
-          <span>8% success fee</span>
+
+        <div className="relative z-10 space-y-3">
+          {[
+            "Vetted clippers who stake real money on your deadline",
+            "A ready-to-post cut before the moment gets old",
+            "Only pay when you approve - 8% success fee",
+          ].map((t) => (
+            <div key={t} className="flex items-start gap-2.5 text-sm text-zinc-400">
+              <CheckCircle2 className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
+              <span>{t}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

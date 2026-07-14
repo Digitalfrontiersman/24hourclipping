@@ -36,29 +36,31 @@ export default function Landing() {
       {/* HERO */}
       <HeroBanner />
 
-      {/* REAL CLIP SHOWCASE - Network School traction */}
+      {/* CLIP SHOWCASE */}
       <section className="relative border-t border-white/10 bg-[#080808] py-20 grain overflow-hidden">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
           <SectionHeading
             align="center"
             className="mb-12"
-            eyebrow="Real traction · Network School"
+            eyebrow="Real work"
             title="Real clips. Real creators."
-            sub={<>Actual short-form clips delivered on 24 Hour Clipping by <span className="text-white font-bold">Network School</span> members - raw footage in, scroll-stopping cut out.</>}
+            sub={<>Short-form clips delivered on 24 Hour Clipping - raw footage in, scroll-stopping cut out.</>}
           />
           <div className="flex flex-wrap justify-center gap-6">
             {["/showcase/clip1.mp4", "/showcase/clip2.mp4"].map((clip) => (
               <div key={clip} className="relative w-[260px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
-                <video src={clip} className="w-full aspect-[9/16] object-cover bg-black" autoPlay muted loop playsInline controls preload="metadata" />
-                <div className="p-4 flex items-center justify-between">
-                  <span className="badge-live">DELIVERED</span>
-                  <span className="text-xs font-bold text-zinc-400">Network School</span>
-                </div>
+                <video
+                  src={clip}
+                  className="w-full aspect-[9/16] object-cover bg-black pointer-events-none"
+                  autoPlay muted loop playsInline preload="metadata"
+                  disablePictureInPicture
+                  controlsList="nofullscreen nodownload noplaybackrate"
+                />
               </div>
             ))}
           </div>
           <div className="text-center mt-10">
-            <Link to="/marketplace" data-testid="showcase-see-job" className="btn-lime h-12 px-8">See the live Network School job <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/marketplace" data-testid="showcase-see-job" className="btn-lime h-12 px-8">Browse live jobs <ArrowRight className="w-4 h-4" /></Link>
           </div>
         </div>
       </section>

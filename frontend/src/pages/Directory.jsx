@@ -14,8 +14,8 @@ export default function Directory() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+    <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
         <span className="label-caps">Founding roster</span>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-2">Clipper Directory</h1>
         <p className="text-zinc-500 mb-10">Every clipper is manually vetted. On-time percentage is the score that matters most.</p>

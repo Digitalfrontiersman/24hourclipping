@@ -58,8 +58,8 @@ export default function Marketplace() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+    <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
         <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter">Open projects</h1>
