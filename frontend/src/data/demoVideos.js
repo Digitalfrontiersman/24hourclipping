@@ -1,4 +1,4 @@
-// DEMO VIDEO SLOTS — replace these URLs with your own videos/thumbnails.
+// DEMO VIDEO SLOTS - replace these URLs with your own videos/thumbnails.
 // Each slot maps to a marketing/demo surface in the app.
 export const DEMO_VIDEOS = [
   {

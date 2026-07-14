@@ -18,7 +18,7 @@ export default function SolanaPayoutWallet() {
     try {
       const addr = await solanaAdapter.connect();
       setWallet(addr);
-      notify.success("Wallet connected", "Address filled in — click Save to use it for payouts.");
+      notify.success("Wallet connected", "Address filled in - click Save to use it for payouts.");
     } catch (err) {
       notify.urgent(err?.message || "Could not connect wallet");
     }

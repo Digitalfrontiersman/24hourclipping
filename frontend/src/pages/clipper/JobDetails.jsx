@@ -8,7 +8,7 @@ import BidChat from "@/components/BidChat";
 
 const QUICK_PITCHES = [
   "Scroll-stopping hook in the first 2s, bold captions, delivered early.",
-  "I specialize in this category — punchy pacing, on-brand, on-time.",
+  "I specialize in this category - punchy pacing, on-brand, on-time.",
   "Clean premium edit with beat-synced cuts. Guaranteed on-time.",
 ];
 
@@ -20,7 +20,9 @@ export default function JobDetails() {
   const [p, setP] = useState(null);
   const [amount, setAmount] = useState("");
   const [eta, setEta] = useState(12);
-  const [pitch, setPitch] = useState("");
+  // Prefill a sensible pitch so "Place Bid" works in a single tap. Editing stays
+  // optional - the quick-pitch chips and the field below still overwrite it.
+  const [pitch, setPitch] = useState(QUICK_PITCHES[0]);
   const [portfolioIdx, setPortfolioIdx] = useState(0);
   const [me, setMe] = useState(null);
   const [placed, setPlaced] = useState(false);
@@ -100,7 +102,7 @@ export default function JobDetails() {
                 </div>
                 <div className="bg-black/40 rounded-xl p-3 flex items-start gap-2 mb-5">
                   <Shield className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
-                  <p className="text-xs text-zinc-400">Required Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> — <span className="text-white">not locked now.</span> It locks only if your bid is accepted and you confirm the project.</p>
+                  <p className="text-xs text-zinc-400">Required Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> It locks only if your bid is accepted and you confirm the project.</p>
                 </div>
                 <button data-testid="place-bid-btn" className="btn-lime h-13 w-full h-12" onClick={submit}>Place Bid</button>
               </>

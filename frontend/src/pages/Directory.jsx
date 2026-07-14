@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { dbAdapter } from "@/services/dbAdapter";
 import ClipperCard from "@/components/ClipperCard";
+import ClipperCardSkeleton from "@/components/ClipperCardSkeleton";
+import EmptyState from "@/components/EmptyState";
 import Footer from "@/components/Footer";
+import { Users } from "lucide-react";
 
 export default function Directory() {
   const [clippers, setClippers] = useState(null);
@@ -17,7 +20,9 @@ export default function Directory() {
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-2">Clipper Directory</h1>
         <p className="text-zinc-500 mb-10">Every clipper is manually vetted. On-time percentage is the score that matters most.</p>
         {clippers === null ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => <div key={i} className="card-dark h-80 animate-pulse" />)}</div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => <ClipperCardSkeleton key={i} />)}</div>
+        ) : clippers.length === 0 ? (
+          <EmptyState icon={Users} title="No clippers listed yet." hint="Our founding roster is being vetted. Check back soon - or apply to be one of the first." cta="Apply as a clipper" to="/register" />
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {clippers.map((c) => <ClipperCard key={c.id} clipper={c} />)}

@@ -76,7 +76,7 @@ export default function DeliveryReview() {
         : await solanaAdapter.sendUsdc({ toAddress: clipperWallet, amountUsd: amt, mint: solCfg?.usdc_mint });
       await dbAdapter.tipClipper(c.id, signature, amt, tipCurrency);
       setTipping(false);
-      notify.success("Tip sent 💜", `${amt} ${unit} went straight to ${c.clipper?.name} — zero fees.`);
+      notify.success("Tip sent 💜", `${amt} ${unit} went straight to ${c.clipper?.name} - zero fees.`);
     } catch (err) {
       notify.urgent(err?.response?.data?.detail || err?.message || "Tip failed");
     }
@@ -151,7 +151,7 @@ export default function DeliveryReview() {
         <DialogContent className="bg-[#1A1A1A] border-white/10 text-white">
           <DialogTitle className="font-display font-extrabold text-xl flex items-center gap-2"><Gift className="w-5 h-5 text-[#CCFF00]" /> Tip {c.clipper?.name}</DialogTitle>
           <p className="text-xs text-zinc-400">Sent directly to the clipper's Solana wallet in USDC. <span className="text-[#CCFF00]">Zero platform fee.</span></p>
-          {solCfg?.test_mode && <p className="text-xs text-amber-300">🧪 Test mode — tip is simulated, no wallet needed.</p>}
+          {solCfg?.test_mode && <p className="text-xs text-amber-300">🧪 Test mode - tip is simulated, no wallet needed.</p>}
           {!clipperWallet && !solCfg?.test_mode && <p className="text-xs text-amber-400">This clipper hasn't added a Solana payout wallet yet.</p>}
           <div className="grid grid-cols-2 gap-2">
             <button data-testid="tip-usdc" onClick={() => setTipCurrency("usdc")} className={`h-10 rounded-lg text-xs font-bold border ${tipCurrency === "usdc" ? "border-[#CCFF00] text-[#CCFF00]" : "border-white/10 text-zinc-400"}`}>USDC</button>

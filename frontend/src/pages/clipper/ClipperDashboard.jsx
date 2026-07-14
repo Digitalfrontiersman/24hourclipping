@@ -6,6 +6,7 @@ import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
+import EmptyState from "@/components/EmptyState";
 import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
@@ -39,15 +40,17 @@ export default function ClipperDashboard() {
   const [projects, setProjects] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [newWins, setNewWins] = useState([]);
+  const [myBids, setMyBids] = useState([]);
 
   useEffect(() => {
     if (!ME) return;
     dbAdapter.getClipper(ME).then(setMe).catch(() => {});
     dbAdapter.getProjects({ status: "open" }).then(setProjects).catch(() => {});
+    dbAdapter.getMyBids().then(setMyBids).catch(() => {});
     dbAdapter.getContracts().then((cs) => {
       const mine = cs.filter((c) => c.clipper_id === ME);
       setContracts(mine);
-      // "You won" moment — celebrate contracts that just went live and haven't been seen yet.
+      // "You won" moment - celebrate contracts that just went live and haven't been seen yet.
       const live = mine.filter((c) => ["live", "revision"].includes(c.status));
       let seen = [];
       try { seen = JSON.parse(localStorage.getItem(SEEN_DEALS_KEY) || "[]"); } catch { seen = []; }
@@ -60,6 +63,8 @@ export default function ClipperDashboard() {
   }, [ME]);
 
   const active = contracts.filter((c) => ["live", "revision", "delivered"].includes(c.status));
+  // Real pending bids - placed by this clipper on jobs still open for bidding.
+  const pendingBids = myBids.filter((b) => b.status === "pending" && b.project_status === "open");
 
   // Accountability: bond staked on running deals and the soonest deadline.
   const running = contracts.filter((c) => ["live", "revision"].includes(c.status));
@@ -106,7 +111,7 @@ export default function ClipperDashboard() {
           </div>
         )}
 
-        {/* You won — deal secured celebration */}
+        {/* You won - deal secured celebration */}
         <AnimatePresence>
           {newWins.length > 0 && (
             <motion.div
@@ -117,7 +122,7 @@ export default function ClipperDashboard() {
                 <Trophy className="w-6 h-6 text-zinc-300" />
                 <div>
                   <p className="font-display font-extrabold text-2xl tracking-tighter text-white">Deal secured{newWins.length > 1 ? ` ×${newWins.length}` : ""}</p>
-                  <p className="text-sm text-zinc-300">You won {newWins.length > 1 ? "these bids" : "this bid"} — your 24-hour clock is running. Go deliver.</p>
+                  <p className="text-sm text-zinc-300">You won {newWins.length > 1 ? "these bids" : "this bid"} - your 24-hour clock is running. Go deliver.</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -134,13 +139,13 @@ export default function ClipperDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           {[
-            ["Earnings", `$${me?.earnings ?? "—"}`, ""],
-            ["Bond balance", `$${me?.bond_balance ?? "—"}`, ""],
-            ["On-time", `${me?.on_time_pct ?? "—"}%`, ""],
-            ["Rating", me?.rating ?? "—", ""],
-            ["Jobs done", me?.completed_jobs ?? "—", ""],
+            ["Earnings", `$${me?.earnings ?? "-"}`, ""],
+            ["Bond balance", `$${me?.bond_balance ?? "-"}`, "text-[#CCFF00]"],
+            ["On-time", `${me?.on_time_pct ?? "-"}%`, ""],
+            ["Rating", me?.rating ?? "-", ""],
+            ["Jobs done", me?.completed_jobs ?? "-", ""],
           ].map(([l, v, cls]) => (
-            <div key={l} className="card-dark p-5">
+            <div key={l} className="card-dark p-5 hover:border-white/15 transition-colors">
               <div className={`font-mono text-2xl font-extrabold ${cls}`}>{v}</div>
               <div className="text-xs text-zinc-500 uppercase tracking-widest mt-1">{l}</div>
             </div>
@@ -150,12 +155,12 @@ export default function ClipperDashboard() {
         {/* USDC payout wallet */}
         <SolanaPayoutWallet />
 
-        {/* Reputation progress — real, from completed jobs */}
+        {/* Reputation progress - real, from completed jobs */}
         <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="reputation-progress">
           <TrendingUp className="w-6 h-6 text-zinc-400" />
           <div className="flex-1 min-w-56">
             <div className="flex justify-between text-xs mb-2">
-              <span className="font-bold">{rep.cur.name}{rep.next ? ` → ${rep.next.name}` : " — top tier"}</span>
+              <span className="font-bold">{rep.cur.name}{rep.next ? ` → ${rep.next.name}` : " - top tier"}</span>
               <span className="text-zinc-500">{rep.next ? `${me?.completed_jobs ?? 0} / ${rep.next.min} jobs` : `${me?.completed_jobs ?? 0} jobs`}</span>
             </div>
             <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-[#CCFF00] rounded-full transition-[width]" style={{ width: `${rep.pct}%` }} /></div>
@@ -166,8 +171,12 @@ export default function ClipperDashboard() {
         </div>
 
         {/* Active countdowns */}
-        <h2 className="font-display font-bold text-xl mb-4">Active deals — clock running</h2>
-        {active.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No active deals yet. Win a bid below and it lands here.</p> : (
+        <h2 className="font-display font-bold text-xl mb-4">Active deals - clock running</h2>
+        {active.length === 0 ? (
+          <div className="mb-10">
+            <EmptyState icon={Search} title="No active deals yet." hint="Win a bid below and it lands here - your 24-hour clock starts the moment you're picked." cta="Find jobs to bid on" to="/marketplace" />
+          </div>
+        ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
             {active.map((c) => (
               <Link key={c.id} to={`/clipper/room/${c.id}`} data-testid={`clipper-contract-${c.id}`} className="card-dark p-5 hover:border-white/20 transition-colors">
@@ -184,12 +193,37 @@ export default function ClipperDashboard() {
 
         {/* Pending bids */}
         <h2 className="font-display font-bold text-xl mb-4">Pending bids</h2>
-        <div className="card-dark p-5 mb-10 flex items-center justify-between flex-wrap gap-3" data-testid="pending-bids">
-          <div className="flex items-center gap-3">
-            <Timer className="w-5 h-5 text-zinc-400" />
-            <p className="text-sm text-zinc-400">Bids you place appear here until a creator picks you. No bond is locked until you win — then the deal jumps to the top and your clock starts.</p>
-          </div>
-          <Link to="/marketplace" data-testid="pending-bids-cta" className="btn-ghost h-10 px-5 text-sm shrink-0"><Search className="w-4 h-4" /> Find jobs to bid on</Link>
+        <div className="mb-10" data-testid="pending-bids">
+          {pendingBids.length === 0 ? (
+            <div className="card-dark p-5 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <Timer className="w-5 h-5 text-zinc-400" />
+                <p className="text-sm text-zinc-400">Bids you place appear here until a creator picks you. No bond is locked until you win - then the deal jumps to the top and your clock starts.</p>
+              </div>
+              <Link to="/marketplace" data-testid="pending-bids-cta" className="btn-ghost h-10 px-5 text-sm shrink-0"><Search className="w-4 h-4" /> Find jobs to bid on</Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendingBids.map((b) => (
+                <Link key={b.id} to={`/clipper/job/${b.project_id}`} data-testid={`pending-bid-${b.id}`}
+                  className="card-dark p-4 flex items-center gap-4 flex-wrap hover:border-white/20 transition-colors">
+                  <div className="flex-1 min-w-48">
+                    <p className="font-bold text-sm truncate">{b.project_title || "Project"}</p>
+                    <p className="text-xs text-zinc-500">{b.eta_hours ? `${b.eta_hours}h ETA` : "ETA -"}{b.project_budget != null && ` · $${b.project_budget} budget`}</p>
+                  </div>
+                  <StatusBadge status="open" />
+                  <div className="text-right shrink-0">
+                    <div className="font-mono font-extrabold text-[#CCFF00]">${b.amount}</div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Your bid</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-zinc-500 shrink-0" />
+                </Link>
+              ))}
+              <div className="flex justify-end">
+                <Link to="/marketplace" data-testid="pending-bids-cta" className="btn-ghost h-10 px-5 text-sm"><Search className="w-4 h-4" /> Find more jobs to bid on</Link>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Available jobs */}

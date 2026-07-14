@@ -19,7 +19,7 @@ export default function Navbar() {
     { to: dashboardHref, label: "Dashboard" },
   ];
 
-  // Real mode switch for multi-role accounts — flips the active dashboard, no re-login.
+  // Real mode switch for multi-role accounts - flips the active dashboard, no re-login.
   const otherRoles = (roles || []).filter((r) => r !== activeRole && r !== "admin");
 
   const switchTo = async (r) => {
@@ -124,6 +124,12 @@ export default function Navbar() {
               Switch to {ROLE_NOUN[r]}
             </button>
           ))}
+          {!isAuthed && (
+            <div className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-2">
+              <Link to="/login" data-testid="mobile-nav-login" onClick={() => setOpen(false)} className="btn-ghost h-10 justify-center text-sm">Log in</Link>
+              <Link to="/register" data-testid="mobile-nav-register" onClick={() => setOpen(false)} className="btn-lime h-10 justify-center text-sm">Sign up</Link>
+            </div>
+          )}
         </div>
       )}
     </nav>

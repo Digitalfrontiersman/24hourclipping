@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp } from "lucide-react";
 import Footer from "@/components/Footer";
 import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
+import SectionHeading from "@/components/SectionHeading";
+import Countdown from "@/components/Countdown";
 import { DEMO_VIDEOS } from "@/data/demoVideos";
 import { dbAdapter } from "@/services/dbAdapter";
 
@@ -15,13 +17,15 @@ const USE_CASES = [
 ];
 
 const STEPS = [
-  { n: "01", title: "Post your footage", desc: "Upload or paste a link. Tell us the moment — or let clippers find it." },
+  { n: "01", title: "Post your footage", desc: "Upload or paste a link. Tell us the moment - or let clippers find it." },
   { n: "02", title: "Watch bids arrive live", desc: "Trusted clippers compete in real time. Pick by rating, speed and fit." },
   { n: "03", title: "First cut in 24 hours", desc: "The clock starts at Contract Live. Miss it and you get your money back." },
 ];
 
 export default function Landing() {
   const [clippers, setClippers] = useState([]);
+  // Real, ticking demo countdown ~18h out (computed once so it doesn't reset on re-render).
+  const guaranteeDeadline = useMemo(() => new Date(Date.now() + 18 * 3600 * 1000), []);
 
   useEffect(() => {
     dbAdapter.getClippers().then((c) => setClippers(c.slice(0, 3))).catch(() => {});
@@ -32,14 +36,16 @@ export default function Landing() {
       {/* HERO */}
       <HeroBanner />
 
-      {/* REAL CLIP SHOWCASE — Network School traction */}
+      {/* REAL CLIP SHOWCASE - Network School traction */}
       <section className="relative border-t border-white/10 bg-[#080808] py-20 grain overflow-hidden">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <span className="label-caps text-[#CCFF00]">Real traction · Network School</span>
-            <h2 className="font-display font-extrabold text-3xl sm:text-5xl tracking-tighter mt-3">Real clips. Real creators.</h2>
-            <p className="text-zinc-400 mt-3 max-w-xl mx-auto leading-relaxed">Actual short-form clips delivered on 24 Hour Clipping by <span className="text-white font-bold">Network School</span> members — raw footage in, scroll-stopping cut out.</p>
-          </div>
+          <SectionHeading
+            align="center"
+            className="mb-12"
+            eyebrow="Real traction · Network School"
+            title="Real clips. Real creators."
+            sub={<>Actual short-form clips delivered on 24 Hour Clipping by <span className="text-white font-bold">Network School</span> members - raw footage in, scroll-stopping cut out.</>}
+          />
           <div className="flex flex-wrap justify-center gap-6">
             {["/showcase/clip1.mp4", "/showcase/clip2.mp4"].map((clip) => (
               <div key={clip} className="relative w-[260px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
@@ -60,8 +66,7 @@ export default function Landing() {
       {/* DEMO VIDEO CAROUSEL */}
       <section className="py-16 border-t border-white/10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
-          <span className="label-caps">Made on 24 Hour Clipping</span>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2">Clips that stopped the scroll.</h2>
+          <SectionHeading eyebrow="Made on 24 Hour Clipping" title="Clips that stopped the scroll." />
         </div>
         <div className="flex gap-6 animate-marquee w-max px-4" data-testid="demo-video-carousel">
           {[...DEMO_VIDEOS, ...DEMO_VIDEOS].map((v, i) => (
@@ -83,8 +88,7 @@ export default function Landing() {
       {/* HOW IT WORKS */}
       <section id="how-it-works" className="py-20 border-t border-white/10 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <span className="label-caps">How it works</span>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2 mb-12">Three steps. Zero friction.</h2>
+          <SectionHeading className="mb-12" eyebrow="How it works" title="Three steps. Zero friction." />
           <div className="grid md:grid-cols-3 gap-6">
             {STEPS.map((s) => (
               <div key={s.n} className="card-dark p-8 hover:border-[#CCFF00]/40 transition-colors">
@@ -101,12 +105,15 @@ export default function Landing() {
       <section className="py-20 border-t border-white/10 bg-[#121212]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="label-caps text-[#FF4500]">The accountability guarantee</span>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2 mb-6">24 hours. On the clock. <span className="text-[#FF4500]">Or your money back.</span></h2>
+            <SectionHeading
+              className="mb-6"
+              eyebrow="The accountability guarantee"
+              title={<>24 hours. On the clock. <span className="text-[#FF4500]">Or your money back.</span></>}
+            />
             <ul className="space-y-4 text-zinc-300">
               {[
                 ["Deadline Bond", "Every clipper locks real money behind your deadline before the clock starts."],
-                ["Contract Live", "Funded, accepted, footage ready — the visible 24-hour countdown begins."],
+                ["Contract Live", "Funded, accepted, footage ready - the visible 24-hour countdown begins."],
                 ["Rescue Mode", "Deadline missed? Full refund plus the clipper's bond credited to you. Relaunch as a priority job instantly."],
               ].map(([t, d]) => (
                 <li key={t} className="flex gap-4">
@@ -118,7 +125,7 @@ export default function Landing() {
           </div>
           <div className="card-dark p-8 text-center">
             <span className="label-caps">Demo countdown</span>
-            <div className="font-mono text-6xl sm:text-7xl font-extrabold tracking-tighter text-[#FF4500] my-6 heartbeat">18:24:07</div>
+            <div className="my-6 flex justify-center"><Countdown size="lg" deadline={guaranteeDeadline} /></div>
             <div className="flex justify-center gap-8 text-xs text-zinc-500 uppercase tracking-widest"><span>Hours</span><span>Minutes</span><span>Seconds</span></div>
             <div className="mt-6 badge-live mx-auto w-fit"><Timer className="w-3.5 h-3.5" /> CONTRACT LIVE</div>
           </div>
@@ -129,10 +136,7 @@ export default function Landing() {
       <section className="py-20 border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
-            <div>
-              <span className="label-caps">Trusted clippers</span>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2">Vetted. Rated. On time.</h2>
-            </div>
+            <SectionHeading eyebrow="Trusted clippers" title="Vetted. Rated. On time." />
             <Link to="/clippers" data-testid="landing-view-clippers-btn" className="btn-ghost h-11 px-6 text-sm">View directory <ArrowRight className="w-4 h-4" /></Link>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
@@ -144,8 +148,7 @@ export default function Landing() {
       {/* USE CASES */}
       <section className="py-20 border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <span className="label-caps">Built for</span>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-2 mb-12">Whoever's on camera. We handle the cut.</h2>
+          <SectionHeading className="mb-12" eyebrow="Built for" title="Whoever's on camera. We handle the cut." />
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((u) => (
               <div key={u.title} className="card-dark p-6 hover:border-white/25 transition-colors">
@@ -182,14 +185,14 @@ export default function Landing() {
       {/* WHICH SIDE ARE YOU ON */}
       <section className="relative border-t border-white/10 bg-[#080808] py-20 sm:py-24 grain overflow-hidden">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
-          <h2 className="text-center font-display font-extrabold text-3xl sm:text-5xl tracking-tighter uppercase mb-12">Which side are you on?</h2>
+          <SectionHeading align="center" className="mb-12" title="Which side are you on?" />
           <div className="grid md:grid-cols-2 gap-6">
             <Link to="/customer/create" data-testid="side-need-clip" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-[#CCFF00]/60 transition-colors">
               <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[#CCFF00]/10 blur-3xl group-hover:bg-[#CCFF00]/25 transition-colors" />
               <div className="relative">
                 <span className="label-caps text-[#CCFF00]">For creators</span>
                 <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I need a clip</h3>
-                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Post your footage and vetted clippers compete to edit it — your first cut back in 24 hours.</p>
+                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Post your footage and vetted clippers compete to edit it - your first cut back in 24 hours.</p>
               </div>
               <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-[#CCFF00] px-7 py-3.5 font-bold text-black">Post a project <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>
@@ -198,7 +201,7 @@ export default function Landing() {
               <div className="relative">
                 <span className="label-caps">For clippers</span>
                 <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I make clips</h3>
-                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Bid on live jobs, ship scroll-stopping edits, and get paid — 92% yours, on Solana.</p>
+                <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Bid on live jobs, ship scroll-stopping edits, and get paid - 92% yours, on Solana.</p>
               </div>
               <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-white px-7 py-3.5 font-bold text-black group-hover:bg-zinc-200 transition-colors">Apply as a clipper <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>

@@ -28,7 +28,7 @@ export default function ChatPanel({ contractId, me, other }) {
   return (
     <div className="flex flex-col h-80">
       <div className="flex-1 overflow-y-auto space-y-3 pr-1" data-testid="chat-messages">
-        {messages.length === 0 && <p className="text-xs text-zinc-600 text-center pt-8">No messages yet. Say hi — fast communication wins.</p>}
+        {messages.length === 0 && <p className="text-xs text-zinc-600 text-center pt-8">No messages yet. Say hi - fast communication wins.</p>}
         {messages.map((m) => (
           <div key={m.id} className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${m.sender === me ? "ml-auto bg-[#CCFF00] text-black" : "bg-black/50 border border-white/10"}`}>
             {m.text}

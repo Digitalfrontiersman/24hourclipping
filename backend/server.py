@@ -65,7 +65,7 @@ async def set_test_mode(enabled: bool):
 # ---- Email (SMTP e.g. Gmail app password, or Resend) ----
 def send_email(to: str, subject: str, html: str) -> bool:
     """Send a transactional email. Prefers SMTP (works to any recipient with no
-    domain — e.g. a Gmail App Password); falls back to Resend. No-op if unset."""
+    domain - e.g. a Gmail App Password); falls back to Resend. No-op if unset."""
     if not to:
         return False
     sender = os.environ.get("EMAIL_FROM", "24 Hour Clipping <onboarding@resend.dev>")
@@ -113,25 +113,130 @@ def send_email(to: str, subject: str, html: str) -> bool:
         return False
 
 
+def _email_base_url() -> str:
+    return os.environ.get("PUBLIC_BASE_URL", "https://24hourclipping.com").rstrip("/")
+
+
+def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
+                 cta_label: str, cta_href: str, extra_html: str = "",
+                 footer_note: str = "") -> str:
+    """Responsive, client-safe transactional email built on nested tables with
+    inline styles and a bulletproof button, so it renders in Gmail, Apple Mail,
+    and Outlook alike. Content is passed in; the branded shell stays consistent."""
+    base = _email_base_url()
+    footer_note = footer_note or ("This is an automated message from a send-only address, "
+                                  "so please do not reply to it.")
+    return f"""<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <title>24 Hour Clipping</title>
+  <style>
+    body{{margin:0;padding:0;background:#0A0A0A;}}
+    a{{text-decoration:none;}}
+    @media only screen and (max-width:600px){{
+      .container{{width:100% !important;}}
+      .px{{padding-left:24px !important;padding-right:24px !important;}}
+    }}
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#0A0A0A;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0A0A0A;font-size:1px;line-height:1px;">{preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0A0A0A;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+          <!-- Header -->
+          <tr>
+            <td class="px" style="padding:4px 40px 20px;font-family:Arial,Helvetica,sans-serif;">
+              <span style="display:inline-block;width:26px;height:26px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:14px;line-height:26px;text-align:center;vertical-align:middle;">24</span>
+              <span style="font-size:16px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;vertical-align:middle;padding-left:8px;">24HR<span style="color:#CCFF00;">CLIPPING</span></span>
+            </td>
+          </tr>
+          <!-- Card -->
+          <tr>
+            <td class="px" style="background:#141414;border:1px solid #262626;border-radius:20px;padding:40px;font-family:Arial,Helvetica,sans-serif;">
+              <div style="font-size:12px;letter-spacing:2.5px;color:#CCFF00;font-weight:700;text-transform:uppercase;">{eyebrow}</div>
+              <h1 style="margin:12px 0 14px;font-size:26px;line-height:1.25;color:#ffffff;font-weight:800;letter-spacing:-0.5px;">{headline}</h1>
+              <div style="color:#a1a1aa;font-size:15px;line-height:1.65;">{body_html}</div>
+              {extra_html}
+              <!-- Bulletproof button -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 6px;">
+                <tr>
+                  <td align="center" bgcolor="#CCFF00" style="border-radius:999px;">
+                    <a href="{cta_href}" style="display:inline-block;padding:14px 34px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#0A0A0A;border-radius:999px;">{cta_label}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td class="px" style="padding:24px 40px;font-family:Arial,Helvetica,sans-serif;">
+              <p style="margin:0 0 8px;color:#71717a;font-size:12px;line-height:1.6;">
+                <a href="{base}/docs" style="color:#a1a1aa;">Docs</a> &nbsp;&bull;&nbsp;
+                <a href="{base}/terms" style="color:#a1a1aa;">Terms</a> &nbsp;&bull;&nbsp;
+                <a href="{base}/privacy" style="color:#a1a1aa;">Privacy</a>
+              </p>
+              <p style="margin:0;color:#52525b;font-size:12px;line-height:1.6;">
+                24 Hour Clipping - the marketplace for short-form clips, on the clock.<br>
+                {footer_note}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
 def _acceptance_email_html(name: str, title: str, amount, deadline_iso: str) -> str:
-    base = os.environ.get("PUBLIC_BASE_URL", "https://clip42.duckdns.org").rstrip("/")
-    return f"""
-    <div style="background:#0A0A0A;padding:32px;font-family:Arial,Helvetica,sans-serif;color:#fff">
-      <div style="max-width:520px;margin:0 auto;background:#141414;border:1px solid #262626;border-radius:16px;padding:28px">
-        <div style="font-size:12px;letter-spacing:.18em;color:#CCFF00;font-weight:bold;text-transform:uppercase">You're hired</div>
-        <h1 style="font-size:24px;margin:10px 0 6px">Hey {name}, your bid was accepted!</h1>
-        <p style="color:#a1a1aa;font-size:15px;line-height:1.6">
-          A creator just picked you to clip <b style="color:#fff">"{title}"</b>. Your deal is live and the
-          24-hour clock has started — head to your dashboard to grab the footage and ship your first cut.
-        </p>
-        <div style="background:#0A0A0A;border-radius:12px;padding:16px;margin:18px 0">
-          <div style="color:#71717a;font-size:12px">Payout on approval</div>
-          <div style="color:#CCFF00;font-family:monospace;font-size:22px;font-weight:bold">${amount}</div>
-        </div>
-        <a href="{base}/clipper" style="display:inline-block;background:#CCFF00;color:#000;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:999px">Open your dashboard →</a>
-        <p style="color:#52525b;font-size:12px;margin-top:20px">24 Hour Clipping · deliver before the clock hits zero.</p>
-      </div>
-    </div>"""
+    base = _email_base_url()
+    body = (f"A creator just picked you to clip <b style=\"color:#ffffff;\">&ldquo;{title}&rdquo;</b>. "
+            "Your deal is live and the 24-hour clock has started. Head to your dashboard to grab the "
+            "footage and ship your first cut before it hits zero.")
+    extra = (
+        "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+        "style=\"margin:22px 0 4px;background:#0A0A0A;border:1px solid #262626;border-radius:14px;\">"
+        "<tr><td style=\"padding:16px 18px;font-family:Arial,Helvetica,sans-serif;\">"
+        "<div style=\"color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;\">Payout on approval</div>"
+        f"<div style=\"color:#CCFF00;font-size:24px;font-weight:800;margin-top:4px;\">${amount}</div>"
+        "</td></tr></table>"
+    )
+    return _email_shell(
+        preheader=f"You're hired to clip “{title}” - the 24-hour clock has started.",
+        eyebrow="You're hired", headline=f"Nice one {name}, your bid was accepted.",
+        body_html=body, extra_html=extra,
+        cta_label="Open your dashboard", cta_href=f"{base}/clipper",
+        footer_note="Deliver before the clock hits zero to protect your bond and your streak.",
+    )
+
+
+def _welcome_email_html(name: str, role_hint: str) -> str:
+    """First-touch email sent the moment someone signs up. Sent no-reply."""
+    base = _email_base_url()
+    if role_hint == "clipper":
+        eyebrow, headline = "You're in", f"Welcome, {name}."
+        body = ("You're one step from your first paid clip. Finish your profile, then browse "
+                "open jobs and place a bid. Win it and the 24-hour clock starts.")
+        cta_label, cta_href = "Find a job to clip", f"{base}/onboarding"
+        preheader = "Finish your profile and place your first bid in one tap."
+    else:
+        eyebrow, headline = "Welcome aboard", f"Welcome, {name}."
+        body = ("Post a clip, fund it, and watch top clippers bid within minutes. Your finished "
+                "cut is delivered in under 24 hours. Let's get your first one on the clock.")
+        cta_label, cta_href = "Post your first clip", f"{base}/onboarding"
+        preheader = "Post a clip and get a finished cut in under 24 hours."
+    return _email_shell(
+        preheader=preheader, eyebrow=eyebrow, headline=headline, body_html=body,
+        cta_label=cta_label, cta_href=cta_href,
+    )
 
 
 class ProjectCreate(BaseModel):
@@ -234,7 +339,7 @@ class SwitchRoleRequest(BaseModel):
 class OnboardingRequest(BaseModel):
     roles: List[str] = []            # subset of {"customer", "clipper"}
     active_role: Optional[str] = None  # which dashboard to land in (defaults to first role)
-    # Creator brand basics (all optional) — seeds a brand profile.
+    # Creator brand basics (all optional) - seeds a brand profile.
     brand_name: str = ""
     niche: str = ""
     content_type: str = ""
@@ -259,8 +364,8 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def user_roles(u: dict) -> list:
     """Capabilities the account holds. Back-compat: only when the `roles` key is
     ABSENT (a pre-multi-role doc) do we derive it from the legacy single `role`.
-    An explicit empty list means "registered but not yet onboarded" — no
-    capabilities — and must NOT fall back."""
+    An explicit empty list means "registered but not yet onboarded" - no
+    capabilities - and must NOT fall back."""
     roles = u.get("roles")
     if roles is None:
         return [u["role"]] if u.get("role") else []
@@ -299,7 +404,7 @@ async def get_current_user_optional(creds: Optional[HTTPAuthorizationCredentials
 
 def require_role(*roles):
     """Capability-based gate: the account must hold at least one of `roles`
-    (admin always passes). Active mode (`role`) no longer gates access — a
+    (admin always passes). Active mode (`role`) no longer gates access - a
     "both" account can hit customer and clipper endpoints regardless of the
     dashboard it's currently viewing."""
     async def dep(user: dict = Depends(get_current_user)) -> dict:
@@ -380,7 +485,7 @@ async def ensure_auth_setup():
                                        **admin_fields})
         logger.info("Admin account ensured for %s", admin_email)
     else:
-        logger.warning("ADMIN_EMAIL / ADMIN_PASSWORD not set — no real admin account provisioned.")
+        logger.warning("ADMIN_EMAIL / ADMIN_PASSWORD not set - no real admin account provisioned.")
 
 
 @api_router.post("/auth/register")
@@ -401,6 +506,13 @@ async def register(body: RegisterRequest, request: Request):
         "credits": 0, "disabled": False, "created_at": now_iso(),
     }
     await db.users.insert_one(dict(user))
+    # Fire-and-forget welcome email (no-op if no email provider is configured).
+    try:
+        html = _welcome_email_html(user["name"] or "there", hint)
+        asyncio.create_task(asyncio.to_thread(
+            send_email, email, "Welcome to 24 Hour Clipping", html))
+    except Exception as e:
+        logger.error("Welcome email dispatch failed: %s", e)
     return await _issue(user)
 
 
@@ -533,7 +645,7 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
         await _require_contract_party(contract_id, user, allow=("clipper",))
         key = f"deliveries/{contract_id}/{uid}{ext}"
     elif kind == "avatar":
-        # Profile pictures — any authenticated user may set their own.
+        # Profile pictures - any authenticated user may set their own.
         if not (file.content_type or "").startswith("image/"):
             raise HTTPException(415, "Avatar must be an image")
         key = f"avatars/{user['id']}/{uid}{ext}"
@@ -550,7 +662,7 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
 
 @api_router.get("/media/{key:path}")
 async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = None):
-    # The signature is the capability — authorization happened when it was minted.
+    # The signature is the capability - authorization happened when it was minted.
     if not storage.verify_media(key, exp, sig):
         raise HTTPException(403, "Invalid or expired media link")
     path = storage.safe_path(key)
@@ -615,6 +727,42 @@ async def root():
 async def reset_demo(user: dict = Depends(require_role("admin"))):
     await seed_db(db)
     return {"ok": True}
+
+
+# Demo/seed data uses stable, identifiable markers (see seed.py / seed_ns.py):
+#   demo users -> auth_provider == "demo", or ns-clipper-* / *@ns.school
+#   seed clippers -> ids clipper-1..6 and ns-clipper-1..4
+#   demo projects -> owner_id == "demo-customer" (covers project-*, project-c*, ns-showcase)
+#   demo bids -> ids bid-*/ns-bid-*, or a seed clipper, or on a demo project
+#   demo contracts/messages -> ids contract-*
+# The purge targets ONLY these; real accounts (auth_provider local/google, uuid ids)
+# and anything they created are left untouched.
+DEMO_CLIPPER_IDS = [f"clipper-{i+1}" for i in range(6)] + [f"ns-clipper-{i+1}" for i in range(4)]
+
+
+@api_router.post("/admin/purge-demo")
+async def purge_demo(user: dict = Depends(require_role("admin"))):
+    """Flip to production: remove all seeded/demo data, keep real accounts + their work."""
+    res = {}
+    res["projects"] = (await db.projects.delete_many({"owner_id": "demo-customer"})).deleted_count
+    res["clippers"] = (await db.clippers.delete_many({"id": {"$in": DEMO_CLIPPER_IDS}})).deleted_count
+    res["bids"] = (await db.bids.delete_many({"$or": [
+        {"id": {"$regex": "^(bid-|ns-bid-)"}},
+        {"clipper_id": {"$in": DEMO_CLIPPER_IDS}},
+        {"project_id": {"$regex": "^(project-|ns-showcase)"}},
+    ]})).deleted_count
+    res["contracts"] = (await db.contracts.delete_many({"$or": [
+        {"id": {"$regex": "^contract-"}}, {"clipper_id": {"$in": DEMO_CLIPPER_IDS}},
+    ]})).deleted_count
+    res["messages"] = (await db.messages.delete_many({"contract_id": {"$regex": "^contract-"}})).deleted_count
+    res["brand_profiles"] = (await db.brand_profiles.delete_many({"owner": "demo-customer"})).deleted_count
+    res["users"] = (await db.users.delete_many({"$or": [
+        {"auth_provider": "demo"},
+        {"id": {"$regex": "^ns-clipper-"}},
+        {"email": {"$regex": "@ns\\.school$"}},
+    ]})).deleted_count
+    logger.info("Demo purge by %s: %s", user.get("email"), res)
+    return {"ok": True, "deleted": res}
 
 @api_router.get("/clippers")
 async def get_clippers():
@@ -748,7 +896,7 @@ async def solana_config():
 
 @api_router.post("/projects/{project_id}/fund/test")
 async def fund_test(project_id: str, user: dict = Depends(get_current_user)):
-    """Simulated funding for presentations — only works while test mode is on."""
+    """Simulated funding for presentations - only works while test mode is on."""
     await _require_project_owner(project_id, user)
     if not await get_test_mode():
         raise HTTPException(403, "Test mode is off")
@@ -868,7 +1016,7 @@ async def _pay_contract(contract: dict) -> dict:
         raise HTTPException(502, f"Payout failed: {e}")
     except Exception as e:
         logger.error("Solana payout error: %s", e)
-        raise HTTPException(502, "Payout failed — check treasury balance and try again")
+        raise HTTPException(502, "Payout failed - check treasury balance and try again")
     await db.contracts.update_one({"id": contract["id"]}, {"$set": {
         "payout_sig": pay["signature"], "payout_amount": split["clipper"],
         "payout_currency": pay["currency"], "payout_sent": pay["amount"], "fee_amount": split["fee"],
@@ -926,6 +1074,22 @@ async def get_bids(project_id: str):
     bids = await db.bids.find({"project_id": project_id}, NO_ID).sort("created_at", -1).to_list(100)
     return await attach_clipper(bids)
 
+@api_router.get("/me/bids")
+async def my_bids(user: dict = Depends(get_current_user)):
+    """The signed-in clipper's own bids across all projects, newest first, each
+    annotated with its project's title/status/deadline so the dashboard can list
+    pending bids without N extra fetches."""
+    bids = await db.bids.find({"clipper_id": user["id"]}, NO_ID).sort("created_at", -1).to_list(200)
+    ids = list({b["project_id"] for b in bids})
+    projects = await db.projects.find({"id": {"$in": ids}}, NO_ID).to_list(len(ids) or 1)
+    pmap = {p["id"]: p for p in projects}
+    for b in bids:
+        p = pmap.get(b["project_id"]) or {}
+        b["project_title"] = p.get("title", "Project")
+        b["project_status"] = p.get("status")
+        b["project_budget"] = p.get("budget")
+    return bids
+
 @api_router.post("/projects/{project_id}/bids")
 async def create_bid(project_id: str, body: BidCreate, user: dict = Depends(require_role("clipper", "admin"))):
     project = await db.projects.find_one({"id": project_id}, NO_ID)
@@ -947,7 +1111,7 @@ async def create_bid(project_id: str, body: BidCreate, user: dict = Depends(requ
 
 DEMO_PITCHES = [
     "Hook locked in the first 1.5 seconds. Let's go.",
-    "This is exactly my lane — check my last three clips.",
+    "This is exactly my lane. Check my last three clips.",
     "I can start right now. First cut well under deadline.",
     "Punch-ins, sound design, captions on point. Done it 200 times.",
     "Your audience will not scroll past this. Guaranteed pacing.",
@@ -994,7 +1158,7 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     await db.bids.update_one({"id": bid_id}, {"$set": {"status": "accepted"}})
     # Accepting = the deal is on: the contract goes live and the 24h clock starts,
     # so the clipper immediately sees it on their dashboard and can deliver.
-    # (A project can accept several clippers — each gets its own live contract.)
+    # (A project can accept several clippers - each gets its own live contract.)
     started = datetime.now(timezone.utc)
     deadline = started + timedelta(hours=24)
     contract = {
@@ -1012,7 +1176,7 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
         if clip_user and clip_user.get("email"):
             title = proj.get("title", "your project")
             html = _acceptance_email_html(clip_user.get("name") or "there", title, bid["amount"], deadline.isoformat())
-            await asyncio.to_thread(send_email, clip_user["email"], f"You're hired — {title}", html)
+            await asyncio.to_thread(send_email, clip_user["email"], f"You're hired: {title}", html)
     except Exception as e:
         logger.error("acceptance email error: %s", e)
     contract.pop("_id", None)
@@ -1263,7 +1427,7 @@ Your job: through a SHORT, friendly conversation (max 4-5 questions total, ONE q
 - Mood, editing style, caption preference, call to action
 - Budget ($20-$500)
 
-Rules: Be energetic and concise (2-3 sentences max per reply). Never use emojis. Ask ONE question at a time. When you have enough info, say "I have everything I need — hit Generate Brief and I'll build your one-page project brief."
+Rules: Be energetic and concise (2-3 sentences max per reply). Never use emojis. Ask ONE question at a time. When you have enough info, say "I have everything I need - hit Generate Brief and I'll build your one-page project brief."
 """
 
 BRIEF_SYSTEM = """You convert a conversation into a video clipping project brief. Reply ONLY with valid JSON, no markdown fences, with exactly these keys:
@@ -1363,7 +1527,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # We authenticate with Bearer tokens (not cookies), so credentialed CORS is not
-# needed — this keeps a wildcard origin valid. Lock CORS_ORIGINS to your domain
+# needed - this keeps a wildcard origin valid. Lock CORS_ORIGINS to your domain
 # in production for defense in depth.
 app.add_middleware(
     CORSMiddleware,
@@ -1381,13 +1545,16 @@ async def startup():
         await seed_db(db)
         logger.info("Seeded demo data")
     await ensure_auth_setup()
-    # Network School showcase (hardcoded real-traction data) — always present, idempotent.
-    try:
-        from seed_ns import seed_ns
-        await seed_ns(db)
-        logger.info("NS showcase seeded")
-    except Exception as e:
-        logger.error("NS seed error: %s", e)
+    # Network School showcase (hardcoded demo data). Idempotent, but gate it so a
+    # production box can turn it off (set SEED_NS_SHOWCASE=false) and stay clean
+    # after purging demo data.
+    if os.environ.get("SEED_NS_SHOWCASE", "true").lower() != "false":
+        try:
+            from seed_ns import seed_ns
+            await seed_ns(db)
+            logger.info("NS showcase seeded")
+        except Exception as e:
+            logger.error("NS seed error: %s", e)
 
 
 @app.on_event("shutdown")

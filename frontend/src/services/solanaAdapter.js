@@ -1,4 +1,4 @@
-// REAL SOLANA ADAPTER — Phantom wallet + USDC (SPL token) transfers on mainnet.
+// REAL SOLANA ADAPTER - Phantom wallet + USDC (SPL token) transfers on mainnet.
 // The backend verifies every transfer on-chain; this only builds/sends from the
 // user's own wallet. No secret keys live in the frontend.
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -26,7 +26,7 @@ export const solanaAdapter = {
   async connect() {
     const provider = getProvider();
     if (!provider) {
-      throw new Error("Phantom wallet not found — install it from phantom.app");
+      throw new Error("Phantom wallet not found - install it from phantom.app");
     }
     const res = await provider.connect();
     return res.publicKey.toString();

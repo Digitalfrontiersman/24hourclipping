@@ -64,7 +64,7 @@ export default function BrandProfile() {
 
         <div className="card-dark p-6 mt-6 border-[#CCFF00]/30 flex gap-4 items-start">
           <Sparkles className="w-5 h-5 text-[#CCFF00] shrink-0 mt-0.5" />
-          <p className="text-sm text-zinc-400"><span className="text-white font-bold">Auto-fill in action:</span> when you post your next project, the concierge and manual builder pre-load your caption style, pacing, CTA and avoid-list — so briefs take seconds, not minutes.</p>
+          <p className="text-sm text-zinc-400"><span className="text-white font-bold">Auto-fill in action:</span> when you post your next project, the concierge and manual builder pre-load your caption style, pacing, CTA and avoid-list - so briefs take seconds, not minutes.</p>
         </div>
       </div>
       <Footer />

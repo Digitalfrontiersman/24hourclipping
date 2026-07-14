@@ -1,4 +1,4 @@
-// FILE STORAGE ADAPTER — uploads to the backend (streamed to the server's disk).
+// FILE STORAGE ADAPTER - uploads to the backend (streamed to the server's disk).
 // Falls back to a local object URL if the server upload fails, so the flow still
 // completes in a demo/misconfigured environment.
 import { api } from "./api";
@@ -19,7 +19,7 @@ export const storageAdapter = {
       if (onProgress) onProgress(100);
       return { key: data.key, name: data.name, size: data.size };
     } catch (err) {
-      // Graceful fallback — simulate so the UX still completes.
+      // Graceful fallback - simulate so the UX still completes.
       return new Promise((resolve) => {
         let pct = 0;
         const tick = setInterval(() => {

@@ -60,7 +60,7 @@ def build_clippers():
             "bond_balance": 120 + i * 40,
             "tools": ["Premiere Pro", "CapCut", "After Effects"][: (i % 3) + 1],
             "portfolio": [
-                {"title": f"{spec} — Sample {n+1}", "thumb": list(IMG.values())[(i + n) % 6], "video_url": VIDS[(i + n) % 4]}
+                {"title": f"{spec} - Sample {n+1}", "thumb": list(IMG.values())[(i + n) % 6], "video_url": VIDS[(i + n) % 4]}
                 for n in range(3)
             ],
             "reviews": [
@@ -117,7 +117,7 @@ def build_projects(t):
 def build_bids(t):
     bids = []
     pool = [
-        ("project-1", 0, 78, "I clip ranked clutches daily — hook in 1.5s guaranteed.", 10),
+        ("project-1", 0, 78, "I clip ranked clutches daily - hook in 1.5s guaranteed.", 10),
         ("project-1", 2, 70, "300+ gaming clips shipped. I'll make this pop.", 8),
         ("project-1", 5, 82, "Clean pacing + kill-feed zooms. My specialty.", 12),
         ("project-2", 1, 110, "Podcast storytelling is my lane. Emotional arc guaranteed.", 14),
@@ -168,9 +168,9 @@ def build_contracts(t):
         })
         versions = []
         if status in ("delivered", "completed"):
-            versions = [{"num": 1, "url": VIDS[0], "thumb": thumb, "note": "First cut — tightened the hook per brief.", "submitted_at": iso(t - timedelta(hours=2))}]
+            versions = [{"num": 1, "url": VIDS[0], "thumb": thumb, "note": "First cut - tightened the hook per brief.", "submitted_at": iso(t - timedelta(hours=2))}]
         if status == "completed":
-            versions.append({"num": 2, "url": VIDS[1], "thumb": thumb, "note": "Final — revised captions + end card.", "submitted_at": iso(t - timedelta(hours=1))})
+            versions.append({"num": 2, "url": VIDS[1], "thumb": thumb, "note": "Final - revised captions + end card.", "submitted_at": iso(t - timedelta(hours=1))})
         contracts.append({
             "id": cid, "project_id": pid, "clipper_id": CLIPPER_IDS[ci],
             "price": price, "bond": bond_for(price), "status": status,
@@ -184,7 +184,7 @@ def build_contracts(t):
 def build_messages(t):
     msgs = []
     convo = [
-        ("customer", "Footage link is in the brief — the clutch moment is at 1:42:10."),
+        ("customer", "Footage link is in the brief - the clutch moment is at 1:42:10."),
         ("clipper", "Got it. Downloading now. I'll punch in on the final kill and add kill-feed zoom."),
         ("customer", "Perfect. Keep the caption style bold like my last clip."),
         ("clipper", "On it. First cut coming well before the deadline."),

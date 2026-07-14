@@ -180,7 +180,7 @@ def verify_incoming_sol(signature_str: str, dest_owner: str, expected_amount: fl
     if meta.err is not None:
         raise PaymentError("transaction failed on-chain")
     received = _sol_delta(tx, dest_owner)
-    # SOL price drifts between quote and settle — allow 5% + dust slippage.
+    # SOL price drifts between quote and settle - allow 5% + dust slippage.
     tol = tolerance if tolerance is not None else max(0.001, float(expected_amount) * 0.05)
     if received + tol < float(expected_amount):
         raise PaymentError(f"insufficient SOL received: got {received}, expected {expected_amount}")

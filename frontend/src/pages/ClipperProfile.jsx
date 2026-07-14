@@ -52,7 +52,7 @@ export default function ClipperProfile() {
         {/* On-time hero stat */}
         <div className="grid sm:grid-cols-4 gap-4 mb-10">
           <div className="card-dark p-6 sm:col-span-2">
-            <div className="label-caps mb-2">On-time delivery — the score that matters</div>
+            <div className="label-caps mb-2">On-time delivery - the score that matters</div>
             <div className="font-mono text-5xl font-extrabold flex items-center gap-3"><Timer className="w-8 h-8 text-zinc-500" />{c.on_time_pct}%</div>
             <div className="text-xs text-zinc-500 mt-2">{c.missed_deadlines} missed deadlines · {c.completed_jobs} completed jobs</div>
           </div>
@@ -145,9 +145,9 @@ function EditProfile({ clipper, onClose, onSaved }) {
     try {
       const res = await storageAdapter.upload(file, () => {}, { kind: "avatar" });
       if (res.key) setAvatarKey(res.key);
-      else toast.error("Upload failed — try again");
+      else toast.error("Upload failed - try again");
     } catch {
-      toast.error("Upload failed — try again");
+      toast.error("Upload failed - try again");
     }
     setUploading(false);
   };

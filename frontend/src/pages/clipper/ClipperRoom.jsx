@@ -23,10 +23,10 @@ export default function ClipperRoom() {
     if (!file) return;
     setPct(0);
     const res = await storageAdapter.upload(file, setPct, { kind: "delivery", contractId });
-    await dbAdapter.deliver(contractId, { note: note || `First cut — ${file.name}`, key: res.key });
+    await dbAdapter.deliver(contractId, { note: note || `First cut - ${file.name}`, key: res.key });
     setPct(null);
     setNote("");
-    notify.success("Delivery sent", "Clock stopped — the customer has been notified.");
+    notify.success("Delivery sent", "Clock stopped - the customer has been notified.");
     load();
   };
 
@@ -51,21 +51,21 @@ export default function ClipperRoom() {
           {c.status === "live" || c.status === "revision" ? (
             <>
               <Countdown deadline={c.deadline_at} size="lg" />
-              <p className="label-caps mt-4">{c.status === "revision" ? "Revision requested — resubmit before the clock hits zero" : "Deliver your first cut before the clock hits zero"}</p>
+              <p className="label-caps mt-4">{c.status === "revision" ? "Revision requested - resubmit before the clock hits zero" : "Deliver your first cut before the clock hits zero"}</p>
             </>
           ) : c.status === "delivered" ? (
             <div data-testid="delivered-confirmation">
               <CheckCircle2 className="w-12 h-12 text-[#CCFF00] mx-auto mb-3" />
-              <p className="font-display font-extrabold text-2xl text-[#CCFF00]">Delivered — clock stopped</p>
+              <p className="font-display font-extrabold text-2xl text-[#CCFF00]">Delivered - clock stopped</p>
               <p className="text-sm text-zinc-400 mt-2">The customer was notified and is reviewing your cut. You'll hear back here.</p>
             </div>
           ) : c.status === "rescue" ? (
             <div>
-              <p className="font-display font-extrabold text-2xl text-[#FF4500]">DEADLINE MISSED — RESCUE MODE</p>
+              <p className="font-display font-extrabold text-2xl text-[#FF4500]">DEADLINE MISSED - RESCUE MODE</p>
               <p className="text-sm text-zinc-400 mt-2">Your ${c.bond} bond was credited to the customer. This counts as a missed-deadline strike.</p>
             </div>
           ) : (
-            <p className="font-display font-extrabold text-2xl text-[#CCFF00]">Completed — payment released</p>
+            <p className="font-display font-extrabold text-2xl text-[#CCFF00]">Completed - payment released</p>
           )}
         </div>
 
@@ -94,14 +94,14 @@ export default function ClipperRoom() {
               <div className="card-dark p-6" data-testid="upload-cut-panel">
                 <span className="label-caps block mb-4">{c.status === "revision" ? "Upload revised cut" : "Upload first cut"}</span>
                 {c.status === "revision" && (
-                  <div className="flex items-center gap-2 text-xs text-amber-400 mb-3"><RefreshCw className="w-4 h-4" /> The customer requested changes — check chat for details.</div>
+                  <div className="flex items-center gap-2 text-xs text-amber-400 mb-3"><RefreshCw className="w-4 h-4" /> The customer requested changes - check chat for details.</div>
                 )}
                 <input className="input-dark text-sm mb-3" data-testid="delivery-note-input" placeholder="Delivery note (what you changed, choices you made)" value={note} onChange={(e) => setNote(e.target.value)} />
                 <FileDropzone
                   onFile={upload}
                   uploading={pct}
                   title="Drop your cut here or click to upload"
-                  hint="Drag & drop or click · MP4, MOV — submitting stops the clock"
+                  hint="Drag & drop or click · MP4, MOV - submitting stops the clock"
                   wrapperTestId="upload-cut-dropzone"
                   inputTestId="upload-cut-input"
                 />

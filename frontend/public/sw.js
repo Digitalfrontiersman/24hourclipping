@@ -1,4 +1,4 @@
-/* Minimal service worker — enables PWA install + basic offline shell.
+/* Minimal service worker - enables PWA install + basic offline shell.
    Network-first for navigations (so users always get the latest SPA), with a
    cached fallback when offline. Cache-first for hashed static assets. */
 const CACHE = "24hourclipping-v2";
@@ -19,7 +19,7 @@ self.addEventListener("fetch", (e) => {
   const { request } = e;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  // Never touch the API — let it hit the network directly.
+  // Never touch the API - let it hit the network directly.
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {

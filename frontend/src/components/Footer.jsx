@@ -12,14 +12,16 @@ export default function Footer() {
           </div>
           <p className="text-sm text-zinc-500">Friction is fiction. First cuts in 24 hours.</p>
         </div>
-        <div className="flex gap-8 text-sm text-zinc-400">
+        <div className="grid grid-cols-2 sm:flex sm:gap-8 gap-x-8 gap-y-2 text-sm text-zinc-400">
           <Link to="/marketplace" className="hover:text-white transition-colors">Live Jobs</Link>
           <Link to="/clippers" className="hover:text-white transition-colors">Clippers</Link>
-          <Link to="/register" className="hover:text-white transition-colors">Become a Clipper</Link>
+          <Link to="/docs" className="hover:text-white transition-colors">Docs</Link>
+          <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
+          <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+          <Link to="/cookies" className="hover:text-white transition-colors">Cookies</Link>
         </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-600 border border-white/10 rounded-full px-4 py-2" data-testid="solana-badge">
-          <span className="w-2 h-2 rounded-full bg-gradient-to-r from-[#CCFF00] to-emerald-400" />
-          Payments powered by Solana
+        <div className="text-xs text-zinc-600" data-testid="footer-meta">
+          &copy; {new Date().getFullYear()} 24 Hour Clipping
         </div>
       </div>
     </footer>

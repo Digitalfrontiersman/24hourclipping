@@ -1,4 +1,4 @@
-// DATA ADAPTER — thin HTTP wrapper around the real FastAPI backend (Mongo).
+// DATA ADAPTER - thin HTTP wrapper around the real FastAPI backend (Mongo).
 // Centralizes endpoint paths so components never build URLs themselves.
 import { api } from "./api";
 
@@ -25,6 +25,7 @@ export const dbAdapter = {
   contractPayout: (contractId) => api.post(`/contracts/${contractId}/payout`).then((r) => r.data),
   getBids: (projectId) => api.get(`/projects/${projectId}/bids`).then((r) => r.data),
   createBid: (projectId, data) => api.post(`/projects/${projectId}/bids`, data).then((r) => r.data),
+  getMyBids: () => api.get("/me/bids").then((r) => r.data),
   getBidMessages: (bidId) => api.get(`/bids/${bidId}/messages`).then((r) => r.data),
   sendBidMessage: (bidId, text) => api.post(`/bids/${bidId}/messages`, { text }).then((r) => r.data),
   seedDemoBids: (projectId) => api.post(`/projects/${projectId}/demo-bids`).then((r) => r.data),
@@ -45,6 +46,7 @@ export const dbAdapter = {
   adminUsers: (params) => api.get("/admin/users", { params }).then((r) => r.data),
   suspendUser: (id) => api.post(`/admin/users/${id}/suspend`).then((r) => r.data),
   restoreUser: (id) => api.post(`/admin/users/${id}/restore`).then((r) => r.data),
+  purgeDemo: () => api.post("/admin/purge-demo").then((r) => r.data),
   resetDemo: () => api.post("/demo/reset").then((r) => r.data),
 };
 

@@ -1,4 +1,4 @@
-// AI ADAPTER — streams from the backend OpenAI concierge.
+// AI ADAPTER - streams from the backend OpenAI concierge.
 import { API, getToken } from "./api";
 import { api } from "./api";
 

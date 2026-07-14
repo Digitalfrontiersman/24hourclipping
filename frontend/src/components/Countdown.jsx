@@ -31,7 +31,7 @@ export default function Countdown({ deadline, size = "sm", onExpire }) {
       </div>
     );
   return (
-    <span data-testid="countdown-small" className={`font-mono font-bold ${expired ? "text-[#FF4500]" : urgent ? "text-[#FF4500]" : "text-[#CCFF00]"}`}>
+    <span data-testid="countdown-small" className={`font-mono font-bold ${expired || urgent ? "text-[#FF4500]" : "text-white"} ${urgent ? "heartbeat" : ""}`}>
       {expired ? "EXPIRED" : `${pad(h)}:${pad(m)}:${pad(s)}`}
     </span>
   );

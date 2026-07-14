@@ -1,4 +1,4 @@
-"""Card payments via Stripe Checkout (hosted — we never touch card data).
+"""Card payments via Stripe Checkout (hosted - we never touch card data).
 
 Demo-friendly flow: create a Checkout Session, redirect the customer to Stripe's
 hosted page, and confirm payment on return by retrieving the session (no webhook

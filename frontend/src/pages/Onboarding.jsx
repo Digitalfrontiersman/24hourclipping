@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { ROLE_HOME } from "@/lib/roles";
@@ -7,31 +7,24 @@ import { CATEGORIES } from "@/data/demoVideos";
 import { Sparkles, ArrowRight, Loader2, Film, Scissors, Users, RotateCcw, Zap, Check } from "lucide-react";
 
 const TOOLS = ["Premiere Pro", "CapCut", "After Effects", "DaVinci Resolve", "Final Cut"];
-const PLATFORMS = ["TikTok", "Reels", "YouTube Shorts", "X / Twitter", "LinkedIn"];
 
-// The whole question set. Which ones appear depends on the role chosen first.
+// The question set. Which ones appear depends on the role.
 // A conversational flow (Vellum §7): one question per turn, streamed in.
+// Creators are asked nothing beyond the role split (none of it fed the builder,
+// so it was dead weight). Clippers keep only the two answers their directory
+// card needs - samples/wallet are deferred to profile editing.
 const ROLE_Q = {
   id: "roles", kind: "choice",
-  prompt: (n) => `Hey ${n} — first things first. Which side are you on?`,
+  prompt: (n) => `Hey ${n} - first things first. Which side are you on?`,
   options: [
-    { value: ["customer"], label: "I need clips", sub: "Creator / brand — post jobs, get clips back in 24h", icon: Film, display: "Creator" },
-    { value: ["clipper"], label: "I make clips", sub: "Editor — bid on jobs, deliver against the clock", icon: Scissors, display: "Clipper" },
-    { value: ["customer", "clipper"], label: "Both", sub: "Create and edit — one account, both dashboards", icon: Users, display: "Both" },
+    { value: ["customer"], label: "I need clips", sub: "Creator / brand - post jobs, get clips back in 24h", icon: Film, display: "Creator" },
+    { value: ["clipper"], label: "I make clips", sub: "Editor - bid on jobs, deliver against the clock", icon: Scissors, display: "Clipper" },
+    { value: ["customer", "clipper"], label: "Both", sub: "Create and edit - one account, both dashboards", icon: Users, display: "Both" },
   ],
 };
-const CREATOR_QS = [
-  { id: "brandName", kind: "text", prompt: () => "Love it. What's your brand or channel called?", placeholder: "e.g. NovaStreams" },
-  { id: "niche", kind: "text", prompt: () => "What's your niche? A single line is plenty.", placeholder: "e.g. Variety gaming & IRL, 120k followers" },
-  { id: "contentType", kind: "text", prompt: () => "What kind of footage will you send in?", placeholder: "e.g. Twitch VODs, podcast episodes" },
-  { id: "platforms", kind: "multi", prompt: () => "Where do the clips go? Pick all that apply.", options: PLATFORMS },
-  { id: "audience", kind: "text", optional: true, prompt: () => "Who's your audience? You can skip this.", placeholder: "e.g. 16–30 gamers" },
-];
 const CLIPPER_QS = [
   { id: "specialties", kind: "multi", prompt: () => "What do you specialize in?", options: CATEGORIES },
   { id: "tools", kind: "multi", prompt: () => "Which tools do you edit in?", options: TOOLS },
-  { id: "samples", kind: "textarea", optional: true, prompt: () => "Got sample clips? Drop 1–3 links — one per line. You can skip this.", placeholder: "https://…" },
-  { id: "wallet", kind: "text", optional: true, prompt: () => "Where should payouts land? A USDC / Solana address — or skip and add it later.", placeholder: "Solana address" },
 ];
 const START_Q = {
   id: "startRole", kind: "choice",
@@ -42,20 +35,34 @@ const START_Q = {
   ],
 };
 
-function buildQueue(roles) {
-  const q = [ROLE_Q];
-  if (roles.includes("customer")) q.push(...CREATOR_QS);
+// `skipRole` is true when the role was chosen upstream (Register ?role hint), so
+// we don't re-ask "which side are you on?".
+function buildQueue(roles, skipRole) {
+  const q = [];
+  if (!skipRole) q.push(ROLE_Q);
   if (roles.includes("clipper")) q.push(...CLIPPER_QS);
   if (roles.length > 1) q.push(START_Q);
   return q;
 }
 
+function rolesFromHint(hint) {
+  if (hint === "clipper") return ["clipper"];
+  if (hint === "customer") return ["customer"];
+  return null;
+}
+
 export default function Onboarding() {
   const { user, completeOnboarding } = useApp();
   const nav = useNavigate();
+  const [params] = useSearchParams();
   const firstName = user?.name?.split(" ")[0] || "there";
 
-  const [answers, setAnswers] = useState({ roles: [] });
+  // Role hint passed through from Register (?role=clipper|customer). When present
+  // we know the side already and skip the opening "which side?" question.
+  const hintedRoles = useMemo(() => rolesFromHint(params.get("role")), [params]);
+  const skipRole = !!hintedRoles;
+
+  const [answers, setAnswers] = useState(() => ({ roles: hintedRoles || [] }));
   const [log, setLog] = useState([]);     // [{ prompt, display }]
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState("");
@@ -66,7 +73,7 @@ export default function Onboarding() {
   const finished = useRef(false);
   const bottom = useRef(null);
 
-  const queue = useMemo(() => buildQueue(answers.roles), [answers.roles]);
+  const queue = useMemo(() => buildQueue(answers.roles, skipRole), [answers.roles, skipRole]);
   const current = queue[step];
 
   // Stream the current question in, character by character (honours reduced motion).
@@ -117,7 +124,7 @@ export default function Onboarding() {
         payout_wallet: (a.wallet || "").trim(),
       };
       const u = await completeOnboarding(payload);
-      toast.success("You're all set — welcome aboard!");
+      toast.success("You're all set - welcome aboard!");
       nav(ROLE_HOME[u.role] || "/", { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.detail || "Could not finish setup");
@@ -128,7 +135,7 @@ export default function Onboarding() {
 
   const restart = () => {
     finished.current = false;
-    setAnswers({ roles: [] }); setLog([]); setStep(0); setDraft(""); setPicks([]);
+    setAnswers({ roles: hintedRoles || [] }); setLog([]); setStep(0); setDraft(""); setPicks([]);
   };
 
   const submitText = () => {
@@ -164,7 +171,7 @@ export default function Onboarding() {
       {/* chat */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-          {/* answered history — quiet */}
+          {/* answered history - quiet */}
           {log.map((t, idx) => (
             <div key={idx} className="space-y-3 opacity-55">
               <Bubble>{t.prompt}</Bubble>

@@ -1,4 +1,4 @@
-// LIVE BID SIMULATION — in demo/test mode, populate a project's bid room with
+// LIVE BID SIMULATION - in demo/test mode, populate a project's bid room with
 // realistic bids (server-side, from seed clippers) and reveal them one-by-one
 // so the room feels alive. Falls back gracefully outside test mode.
 import { dbAdapter, bondFor } from "./dbAdapter";
@@ -17,7 +17,7 @@ export const realtimeAdapter = {
           timers.push(t);
         });
       })
-      .catch(() => { /* not in test mode / not owner — no simulated bids */ });
+      .catch(() => { /* not in test mode / not owner - no simulated bids */ });
     return () => {
       stopped = true;
       timers.forEach(clearTimeout);

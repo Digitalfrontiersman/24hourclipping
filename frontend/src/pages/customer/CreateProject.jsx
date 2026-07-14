@@ -5,13 +5,15 @@ import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
 import FileDropzone from "@/components/FileDropzone";
-import { Sparkles, PenLine, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon } from "lucide-react";
+import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon } from "lucide-react";
 
 const chip = (active) => `px-4 py-2 rounded-full text-sm font-bold transition-colors ${active ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`;
 
 export default function CreateProject() {
   const nav = useNavigate();
-  const [step, setStep] = useState(0);
+  // Default straight into the manual builder (step 1). The AI concierge is now a
+  // small inline link rather than a full-screen decision gate.
+  const [step, setStep] = useState(1);
   const [uploadPct, setUploadPct] = useState(null);
   const [uploaded, setUploaded] = useState(null);
   const [thumbPct, setThumbPct] = useState(null);
@@ -60,30 +62,6 @@ export default function CreateProject() {
     }
   };
 
-  if (step === 0)
-    return (
-      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center px-4">
-        <div className="max-w-3xl w-full">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-2 text-center">How do you want to start?</h1>
-          <p className="text-zinc-500 text-center mb-10">Two paths. Same 24-hour result.</p>
-          <div className="grid sm:grid-cols-2 gap-6">
-            <Link to="/customer/concierge" data-testid="create-ai-path" className="card-dark p-8 hover:border-[#CCFF00]/50 transition-colors group">
-              <Sparkles className="w-8 h-8 text-[#CCFF00] mb-4" />
-              <h2 className="font-display font-bold text-xl mb-2">Talk It Out With AI</h2>
-              <p className="text-sm text-zinc-400 leading-relaxed mb-4">Have a quick conversation. Our concierge turns it into a complete project brief.</p>
-              <span className="text-[#CCFF00] text-sm font-bold flex items-center gap-1">Start talking <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
-            </Link>
-            <button data-testid="create-manual-path" onClick={() => setStep(1)} className="card-dark p-8 hover:border-white/40 transition-colors text-left group">
-              <PenLine className="w-8 h-8 text-white mb-4" />
-              <h2 className="font-display font-bold text-xl mb-2">Build It Manually</h2>
-              <p className="text-sm text-zinc-400 leading-relaxed mb-4">A short, visual form. Three quick steps, no dense fields.</p>
-              <span className="text-white text-sm font-bold flex items-center gap-1">Open the builder <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
@@ -95,7 +73,12 @@ export default function CreateProject() {
 
         {step === 1 && (
           <div className="space-y-6">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The footage</h1>
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The footage</h1>
+              <Link to="/customer/concierge" data-testid="create-ai-path" className="text-sm font-semibold text-[#CCFF00] hover:underline flex items-center gap-1 shrink-0">
+                or talk it out with AI <Sparkles className="w-3.5 h-3.5" />
+              </Link>
+            </div>
             <div>
               <label className="label-caps block mb-2">Project title</label>
               <input data-testid="project-title-input" className="input-dark" placeholder="e.g. Ranked Finals Clutch Moment" value={f.title} onChange={(e) => set("title", e.target.value)} />
@@ -118,17 +101,17 @@ export default function CreateProject() {
               <div className="card-dark p-6">
                 <div className="flex items-center gap-2 mb-2 text-sm font-bold"><Link2 className="w-4 h-4 text-[#CCFF00]" /> Or paste a link</div>
                 <input data-testid="source-link-input" className="input-dark h-10 text-sm" placeholder="Twitch, YouTube, Drive, Dropbox…" value={f.source_link} onChange={(e) => set("source_link", e.target.value)} />
-                <p className="text-xs text-zinc-600 mt-2">No file yet? A link works — the clipper pulls the footage.</p>
+                <p className="text-xs text-zinc-600 mt-2">No file yet? A link works - the clipper pulls the footage.</p>
               </div>
             </div>
             <div>
-              <label className="label-caps block mb-2">Thumbnail <span className="normal-case tracking-normal text-zinc-600">— optional cover shown in the marketplace &amp; bid room</span></label>
+              <label className="label-caps block mb-2">Thumbnail <span className="normal-case tracking-normal text-zinc-600">- optional cover shown in the marketplace &amp; bid room</span></label>
               <label data-testid="upload-thumbnail-label" className="card-dark p-4 flex items-center gap-4 cursor-pointer hover:border-[#CCFF00]/40 transition-colors">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center shrink-0">
                   {thumb?.preview ? <img src={thumb.preview} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-zinc-600" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold">{thumb ? "Thumbnail set — click to change" : "Upload a thumbnail image"}</p>
+                  <p className="text-sm font-bold">{thumb ? "Thumbnail set - click to change" : "Upload a thumbnail image"}</p>
                   <p className="text-xs text-zinc-500">{thumbPct !== null ? `Uploading… ${thumbPct}%` : "JPG or PNG · gives your job a custom cover"}</p>
                 </div>
                 <input data-testid="upload-thumbnail-input" type="file" accept="image/*" className="hidden" onChange={(e) => uploadThumb(e.target.files?.[0])} />
@@ -150,9 +133,9 @@ export default function CreateProject() {
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">The vibe</h1>
-                <p className="text-sm text-zinc-500 mt-1">All optional — smart defaults are already set. Tweak anything, or skip.</p>
+                <p className="text-sm text-zinc-500 mt-1">All optional - smart defaults are already set. Tweak anything, or skip.</p>
               </div>
-              <button data-testid="step2-skip" className="btn-ghost h-10 px-5 text-sm shrink-0" onClick={() => setStep(3)}>Skip — use defaults <ArrowRight className="w-4 h-4" /></button>
+              <button data-testid="step2-skip" className="btn-ghost h-10 px-5 text-sm shrink-0" onClick={() => setStep(3)}>Skip - use defaults <ArrowRight className="w-4 h-4" /></button>
             </div>
             <div>
               <label className="label-caps block mb-2">Goal</label>
@@ -203,10 +186,10 @@ export default function CreateProject() {
               </div>
             </div>
             <div className="card-dark p-6">
-              <label className="label-caps block mb-4">Budget — <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
+              <label className="label-caps block mb-4">Budget - <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
               <input data-testid="budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />
               <div className="flex justify-between text-xs text-zinc-600 mt-2 font-mono"><span>$20</span><span>$500</span></div>
-              <div className="mt-4 text-xs text-zinc-400 bg-black/40 rounded-xl p-3">Clipper's Deadline Bond at this budget: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(f.budget))}</span> — locked behind your deadline.</div>
+              <div className="mt-4 text-xs text-zinc-400 bg-black/40 rounded-xl p-3">Clipper's Deadline Bond at this budget: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(f.budget))}</span> - locked behind your deadline.</div>
             </div>
             <div>
               <label className="label-caps block mb-2">Call to action</label>

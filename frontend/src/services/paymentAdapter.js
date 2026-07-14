@@ -1,4 +1,4 @@
-// PAYMENT ADAPTER — drives the backend funding endpoints. Real Solana/Stripe/
+// PAYMENT ADAPTER - drives the backend funding endpoints. Real Solana/Stripe/
 // Ziina flows run when the server is configured; otherwise the backend's test
 // mode simulates the transfer (no real funds move).
 import { dbAdapter } from "./dbAdapter";

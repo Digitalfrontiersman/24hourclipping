@@ -1,0 +1,54 @@
+name: Deploy to production
+
+# Pushes to main auto-deploy to the VPS. The VPS is only reachable over WireGuard
+# with public SSH firewalled off, so GitHub-hosted runners can't reach it. Instead
+# a SELF-HOSTED runner lives on the box (label: clip-prod) and runs this job locally
+# after pulling the code. Nothing inbound is exposed.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, clip-prod]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync code into /opt/24hourclipping (keep .env + docker volumes)
+        run: |
+          set -euo pipefail
+          sudo rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '*.env' \
+            --exclude 'node_modules' \
+            --exclude 'frontend/node_modules' \
+            --exclude 'frontend/build' \
+            --exclude '__pycache__' \
+            "$GITHUB_WORKSPACE"/ /opt/24hourclipping/
+
+      - name: Rebuild and restart containers
+        run: |
+          set -euo pipefail
+          cd /opt/24hourclipping
+          sudo docker compose -f docker-compose.prod.yml up -d --build
+          sudo docker image prune -f >/dev/null 2>&1 || true
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          sleep 6
+          for i in 1 2 3 4 5; do
+            if curl -fsS -m 10 http://127.0.0.1:8090/api/ >/dev/null; then
+              echo "Backend healthy."; exit 0
+            fi
+            echo "waiting for backend ($i)..."; sleep 4
+          done
+          echo "Backend did not come up healthy"; exit 1

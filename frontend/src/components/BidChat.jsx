@@ -3,7 +3,7 @@ import { dbAdapter } from "@/services/dbAdapter";
 import { Send, Loader2 } from "lucide-react";
 
 // Pre-acceptance chat between a creator and a bidding clipper (keyed by bid).
-// `meSender` is "customer" (creator) or "clipper" — decides bubble alignment.
+// `meSender` is "customer" (creator) or "clipper" - decides bubble alignment.
 export default function BidChat({ bidId, meSender, otherName }) {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
@@ -39,7 +39,7 @@ export default function BidChat({ bidId, meSender, otherName }) {
       <div className="flex-1 space-y-2 overflow-y-auto pr-1">
         {msgs.length === 0 && (
           <p className="py-10 text-center text-xs text-zinc-600">
-            No messages yet — say hi and align on the brief{otherName ? ` with ${otherName}` : ""} before the deal.
+            No messages yet - say hi and align on the brief{otherName ? ` with ${otherName}` : ""} before the deal.
           </p>
         )}
         {msgs.map((m) => (

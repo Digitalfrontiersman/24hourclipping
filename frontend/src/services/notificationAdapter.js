@@ -1,4 +1,4 @@
-// MOCK NOTIFICATION ADAPTER — toast wrapper. Replace with push/email service later.
+// MOCK NOTIFICATION ADAPTER - toast wrapper. Replace with push/email service later.
 import { toast } from "sonner";
 
 export const notify = {

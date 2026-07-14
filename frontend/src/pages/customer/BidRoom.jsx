@@ -20,8 +20,9 @@ export default function BidRoom() {
   const [project, setProject] = useState(null);
   const [bids, setBids] = useState([]);
   const [selected, setSelected] = useState([]);
+  const [multi, setMulti] = useState(false); // explicit multi-accept mode (off = one-tap single accept)
   const [confirming, setConfirming] = useState(false);
-  const [accepting, setAccepting] = useState(null); // null | "waiting" | "live"
+  const [accepting, setAccepting] = useState(null); // null | "sending" | "live"
   const [chatBid, setChatBid] = useState(null);
   const [submission, setSubmission] = useState(null);
 
@@ -46,16 +47,17 @@ export default function BidRoom() {
 
   const toggle = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
+  // Single-accept fast path: one tap on "Accept Bid" jumps straight to confirm.
+  const acceptOne = (b) => { setSelected([b.id]); setConfirming(true); };
+
   const confirm = async () => {
-    setConfirming(false);
-    setAccepting("waiting");
+    setAccepting("sending");
     try {
-      // Accept every selected clipper — each becomes a live contract instantly.
+      // Accept every selected clipper - each becomes a live contract instantly.
       for (const b of selectedBids) await dbAdapter.acceptBid(b.id);
-      setTimeout(() => {
-        setAccepting("live");
-        setTimeout(() => nav("/customer"), 2200);
-      }, 1400);
+      setConfirming(false);
+      setAccepting("live");
+      setTimeout(() => nav("/customer"), 2000);
     } catch {
       notify.urgent("Could not accept bid");
       setAccepting(null);
@@ -86,9 +88,15 @@ export default function BidRoom() {
 
         {/* Right: live bids */}
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="font-display font-extrabold text-2xl tracking-tight">Live Bid Room</h2>
-            <span className="text-xs text-zinc-500">Ranked by <span className="text-[#CCFF00] font-bold">Best Fit</span> — not lowest price</span>
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-zinc-500">Ranked by <span className="text-[#CCFF00] font-bold">Best Fit</span> - not lowest price</span>
+              <button data-testid="multi-select-toggle" onClick={() => { setMulti((m) => !m); setSelected([]); }}
+                className={`text-xs font-bold transition-colors ${multi ? "text-[#CCFF00]" : "text-zinc-500 hover:text-white"}`}>
+                {multi ? "Done selecting" : "Accept multiple"}
+              </button>
+            </div>
           </div>
           <div className="space-y-4" data-testid="bid-list">
             <AnimatePresence initial={false}>
@@ -128,9 +136,9 @@ export default function BidRoom() {
                       </div>
                     )}
                     <button data-testid={`message-bid-${b.id}`} className="btn-ghost h-10 px-4 text-xs ml-auto" onClick={() => setChatBid(b)}><MessageCircle className="w-3.5 h-3.5" /> Message</button>
-                    <button data-testid={`accept-bid-${b.id}`} onClick={() => toggle(b.id)}
-                      className={`h-10 px-5 text-xs font-bold rounded-full transition-colors active:scale-95 ${selected.includes(b.id) ? "bg-[#CCFF00] text-black" : "bg-white text-black hover:bg-zinc-200"}`}>
-                      {selected.includes(b.id) ? <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Selected</span> : "Accept Bid"}
+                    <button data-testid={`accept-bid-${b.id}`} onClick={() => (multi ? toggle(b.id) : acceptOne(b))}
+                      className={`h-10 px-5 text-xs font-bold rounded-full transition-colors active:scale-95 ${multi && selected.includes(b.id) ? "bg-[#CCFF00] text-black" : "bg-white text-black hover:bg-zinc-200"}`}>
+                      {multi && selected.includes(b.id) ? <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Selected</span> : "Accept Bid"}
                     </button>
                   </div>
                 </motion.div>
@@ -140,15 +148,15 @@ export default function BidRoom() {
               <div className="card-dark p-12 text-center" data-testid="bids-empty">
                 <Loader2 className="w-6 h-6 animate-spin text-[#CCFF00] mx-auto mb-3" />
                 <p className="font-bold">Your job just went live.</p>
-                <p className="text-sm text-zinc-500">Clippers are viewing it now — first bids usually land within minutes.</p>
+                <p className="text-sm text-zinc-500">Clippers are viewing it now - first bids usually land within minutes.</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Sticky selection bar */}
-      {selected.length > 0 && !accepting && (
+      {/* Sticky selection bar - only in explicit multi-accept mode */}
+      {multi && selected.length > 0 && !accepting && (
         <motion.div initial={{ y: 80 }} animate={{ y: 0 }} className="fixed bottom-0 inset-x-0 bg-[#121212] border-t border-[#CCFF00]/40 p-4 z-40">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -167,7 +175,7 @@ export default function BidRoom() {
             <img src={chatBid?.clipper?.avatar} alt="" className="w-7 h-7 rounded-full" />
             Chat with {chatBid?.clipper?.name}
           </DialogTitle>
-          <p className="-mt-1 text-xs text-zinc-500">Align on the brief before you accept — bid ${chatBid?.amount} · ETA {chatBid?.eta_hours}h</p>
+          <p className="-mt-1 text-xs text-zinc-500">Align on the brief before you accept - bid ${chatBid?.amount} · ETA {chatBid?.eta_hours}h</p>
           {chatBid && <BidChat bidId={chatBid.id} meSender="customer" otherName={chatBid.clipper?.name} />}
         </DialogContent>
       </Dialog>
@@ -180,10 +188,10 @@ export default function BidRoom() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm modal */}
-      <Dialog open={confirming} onOpenChange={setConfirming}>
+      {/* Confirm modal - the single primary action for accepting */}
+      <Dialog open={confirming} onOpenChange={(o) => { if (accepting !== "sending") setConfirming(o); }}>
         <DialogContent className="bg-[#1A1A1A] border-white/10 text-white">
-          <DialogTitle className="font-display font-extrabold text-xl">Confirm your clipper{selected.length > 1 ? "s" : ""}</DialogTitle>
+          <DialogTitle className="font-display font-extrabold text-xl">Confirm your clipper{selectedBids.length > 1 ? "s" : ""}</DialogTitle>
           {selectedBids.map((b) => (
             <div key={b.id} className="flex justify-between items-center py-2 border-b border-white/10 text-sm">
               <span>{b.clipper?.name}</span><span className="font-mono font-bold text-[#CCFF00]">${b.amount}</span>
@@ -191,28 +199,26 @@ export default function BidRoom() {
           ))}
           <div className="flex justify-between items-center py-2 font-bold"><span>Combined project total</span><span className="font-mono text-xl text-[#CCFF00]" data-testid="combined-total">${total}</span></div>
           <p className="text-xs text-zinc-500">Each clipper must accept and lock their Deadline Bond before their 24-hour clock starts.</p>
-          <button data-testid="final-confirm-btn" className="btn-lime h-12 w-full" onClick={confirm}>Send acceptance</button>
+          {accepting === "sending" ? (
+            <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-400" data-testid="awaiting-clipper-state">
+              <Loader2 className="w-4 h-4 animate-spin text-[#CCFF00]" /> Locking the Deadline Bond…
+            </div>
+          ) : (
+            <button data-testid="final-confirm-btn" className="btn-lime h-12 w-full" onClick={confirm}>Send acceptance</button>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Contract live overlay */}
-      <Dialog open={!!accepting}>
+      {/* Contract live overlay - single celebratory beat, then dashboard */}
+      <Dialog open={accepting === "live"}>
         <DialogContent className="bg-[#0A0A0A] border-white/10 text-white text-center [&>button]:hidden">
           <DialogTitle className="sr-only">Contract status</DialogTitle>
-          {accepting === "waiting" ? (
-            <div className="py-8" data-testid="awaiting-clipper-state">
-              <Loader2 className="w-10 h-10 animate-spin text-[#CCFF00] mx-auto mb-4" />
-              <p className="font-display font-extrabold text-xl mb-1">Waiting for the clipper…</p>
-              <p className="text-sm text-zinc-500">Accepting the project and locking the Deadline Bond.</p>
-            </div>
-          ) : (
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="py-8" data-testid="contract-live-state">
-              <Zap className="w-12 h-12 text-[#CCFF00] mx-auto mb-4" fill="#CCFF00" />
-              <p className="font-display font-extrabold text-3xl tracking-tighter text-[#CCFF00] mb-2">CONTRACT LIVE</p>
-              <p className="text-sm text-zinc-400">Bond locked. Footage confirmed. The 24-hour clock starts now.</p>
-              <div className="font-mono font-extrabold text-4xl mt-4">24:00:00</div>
-            </motion.div>
-          )}
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="py-8" data-testid="contract-live-state">
+            <Zap className="w-12 h-12 text-[#CCFF00] mx-auto mb-4" fill="#CCFF00" />
+            <p className="font-display font-extrabold text-3xl tracking-tighter text-[#CCFF00] mb-2">CONTRACT LIVE</p>
+            <p className="text-sm text-zinc-400">Bond locked. Footage confirmed. The 24-hour clock starts now.</p>
+            <div className="font-mono font-extrabold text-4xl mt-4">24:00:00</div>
+          </motion.div>
         </DialogContent>
       </Dialog>
     </div>

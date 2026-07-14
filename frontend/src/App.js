@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppProvider } from "@/context/AppContext";
 import Navbar from "@/components/Navbar";
@@ -22,6 +22,10 @@ import ClipperRoom from "@/pages/clipper/ClipperRoom";
 import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import Docs from "@/pages/Docs";
+import Privacy from "@/pages/legal/Privacy";
+import Cookies from "@/pages/legal/Cookies";
+import Terms from "@/pages/legal/Terms";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const Customer = ({ children }) => <ProtectedRoute roles={["customer", "admin"]}>{children}</ProtectedRoute>;
@@ -42,6 +46,10 @@ function App() {
             <Route path="/clippers/:id" element={<ClipperProfile />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/docs" element={<Docs />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/cookies" element={<Cookies />} />
+            <Route path="/terms" element={<Terms />} />
 
             {/* Onboarding (any authed user; runs before dashboards) */}
             <Route path="/onboarding" element={<ProtectedRoute skipOnboarding><Onboarding /></ProtectedRoute>} />
@@ -57,7 +65,6 @@ function App() {
             <Route path="/customer/review/:contractId" element={<Customer><DeliveryReview /></Customer>} />
 
             {/* Clipper */}
-            <Route path="/clipper/onboarding" element={<Navigate to="/onboarding" replace />} />
             <Route path="/clipper" element={<Clipper><ClipperDashboard /></Clipper>} />
             <Route path="/clipper/job/:projectId" element={<Clipper><JobDetails /></Clipper>} />
             <Route path="/clipper/room/:contractId" element={<Clipper><ClipperRoom /></Clipper>} />

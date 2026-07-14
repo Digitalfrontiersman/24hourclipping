@@ -4,7 +4,8 @@ import { dbAdapter } from "@/services/dbAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import Footer from "@/components/Footer";
-import { Plus, Sparkles, Wallet, ArrowRight, LifeBuoy, Scissors } from "lucide-react";
+import EmptyState from "@/components/EmptyState";
+import { Plus, Sparkles, Wallet, ArrowRight, LifeBuoy, Scissors, Timer } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
 export default function CustomerDashboard() {
@@ -52,8 +53,8 @@ export default function CustomerDashboard() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          {[["Receiving bids", bidding.length, ""], ["Contracts live", live.length, ""], ["Awaiting review", delivered.length, ""], ["Credits", `$${user.credits}`, ""]].map(([l, v, cls]) => (
-            <div key={l} className="card-dark p-5">
+          {[["Receiving bids", bidding.length, ""], ["Contracts live", live.length, "text-[#CCFF00]"], ["Awaiting review", delivered.length, ""], ["Credits", `$${user.credits}`, ""]].map(([l, v, cls]) => (
+            <div key={l} className="card-dark p-5 hover:border-white/15 transition-colors">
               <div className={`font-mono text-3xl font-extrabold ${cls}`}>{v}</div>
               <div className="text-xs text-zinc-500 uppercase tracking-widest mt-1">{l}</div>
             </div>
@@ -78,7 +79,11 @@ export default function CustomerDashboard() {
 
         {/* Live contracts */}
         <h2 className="font-display font-bold text-xl mb-4">Active project countdowns</h2>
-        {live.length === 0 ? <p className="text-zinc-600 text-sm mb-10">No live contracts right now.</p> : (
+        {live.length === 0 ? (
+          <div className="mb-10">
+            <EmptyState icon={Timer} title="No live contracts right now." hint="Post a clip and the 24-hour clock starts the moment a clipper accepts." cta="Post a Clip" to="/customer/create" />
+          </div>
+        ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
             {live.map((c) => (
               <Link key={c.id} to={`/customer/clip-room/${c.id}`} data-testid={`live-contract-${c.id}`} className="card-dark overflow-hidden group hover:border-white/20 transition-colors">

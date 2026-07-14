@@ -1,4 +1,4 @@
-"""Card / Apple Pay payments via Ziina (hosted checkout — we never touch card data).
+"""Card / Apple Pay payments via Ziina (hosted checkout - we never touch card data).
 
 Flow: create a payment intent -> redirect the customer to Ziina's hosted page
 (cards, Apple Pay, Google Pay) -> verify the intent status on return.

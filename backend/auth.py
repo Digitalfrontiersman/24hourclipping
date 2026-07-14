@@ -19,9 +19,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if not SECRET_KEY:
-    # Never ship this default in production — set SECRET_KEY in the environment.
+    # Never ship this default in production - set SECRET_KEY in the environment.
     SECRET_KEY = "dev-insecure-change-me"
-    logger.warning("SECRET_KEY not set — using an insecure development default.")
+    logger.warning("SECRET_KEY not set - using an insecure development default.")
 
 VALID_ROLES = {"customer", "clipper", "admin"}
 

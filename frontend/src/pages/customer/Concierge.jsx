@@ -31,8 +31,8 @@ export default function Concierge() {
   useEffect(() => {
     aiAdapter.getHistory(sessionId).then((h) => {
       if (h.length) setMessages(h.map((m) => ({ role: m.sender, text: m.text })));
-      else setMessages([{ role: "ai", text: "Hey — I'm your Clipping Concierge. Tell me about the footage you want turned into a clip. What is it, and where does it live?" }]);
-    }).catch(() => setMessages([{ role: "ai", text: "Hey — I'm your Clipping Concierge. Tell me about the footage you want turned into a clip. What is it, and where does it live?" }]));
+      else setMessages([{ role: "ai", text: "Hey - I'm your Clipping Concierge. Tell me about the footage you want turned into a clip. What is it, and where does it live?" }]);
+    }).catch(() => setMessages([{ role: "ai", text: "Hey - I'm your Clipping Concierge. Tell me about the footage you want turned into a clip. What is it, and where does it live?" }]));
   }, [sessionId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, brief]);
@@ -137,7 +137,7 @@ export default function Concierge() {
                 <span className="text-sm text-zinc-400">Budget</span>
                 <span className="font-mono font-extrabold text-xl text-[#CCFF00]">${brief.budget}</span>
               </div>
-              <button data-testid="brief-proceed-btn" className="btn-lime h-12 w-full" onClick={proceed}>Looks right — go to checkout</button>
+              <button data-testid="brief-proceed-btn" className="btn-lime h-12 w-full" onClick={proceed}>Looks right - go to checkout</button>
             </motion.div>
           )}
           <div ref={endRef} />

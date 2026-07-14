@@ -19,7 +19,7 @@ export default function ProtectedRoute({ roles, skipOnboarding = false, children
   useEffect(() => {
     if (wrongRole) {
       toast.error(roles.includes("clipper")
-        ? "Bidding is for clippers — add a clipper profile to bid."
+        ? "Bidding is for clippers - add a clipper profile to bid."
         : "That area isn't available for your account type.");
     }
   }, [wrongRole, roles]);
@@ -28,15 +28,15 @@ export default function ProtectedRoute({ roles, skipOnboarding = false, children
     return <div className="min-h-screen bg-[#0A0A0A]" />;
   }
   if (!user) {
-    // Genuinely logged out — go sign in, then return where they were headed.
+    // Genuinely logged out - go sign in, then return where they were headed.
     return <Navigate to="/login" state={{ from: loc.pathname }} replace />;
   }
   if (!skipOnboarding && !user.onboarded) {
-    // Signed up but hasn't finished the wizard — send them through it first.
+    // Signed up but hasn't finished the wizard - send them through it first.
     return <Navigate to="/onboarding" replace />;
   }
   if (wrongRole) {
-    // Logged in but lacks this capability — keep them on THEIR dashboard.
+    // Logged in but lacks this capability - keep them on THEIR dashboard.
     return <Navigate to={ROLE_HOME[user.role] || "/"} replace />;
   }
   return children;

@@ -3,19 +3,27 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import JobCard from "@/components/JobCard";
+import JobCardSkeleton from "@/components/JobCardSkeleton";
 import Footer from "@/components/Footer";
 import { useApp } from "@/context/AppContext";
 import { CATEGORIES } from "@/data/demoVideos";
-import { SlidersHorizontal, LayoutGrid, List, Shield, Clock } from "lucide-react";
+import { LayoutGrid, List, Shield, Clock } from "lucide-react";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
 const BUDGETS = [
   { label: "Any budget", min: 0, max: 9999 },
-  { label: "$20 – $49", min: 20, max: 49 },
-  { label: "$50 – $99", min: 50, max: 99 },
-  { label: "$100 – $500", min: 100, max: 500 },
+  { label: "$20 to $49", min: 20, max: 49 },
+  { label: "$50 to $99", min: 50, max: 99 },
+  { label: "$100 to $500", min: 100, max: 500 },
+];
+
+const MOMENTS = [
+  { value: "all", label: "All moments" },
+  { value: "timestamp", label: "Timestamp provided" },
+  { value: "find", label: "Find the best moment" },
 ];
 
 export default function Marketplace() {
@@ -72,36 +80,38 @@ export default function Marketplace() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="card-dark p-4 mb-8 space-y-3" data-testid="marketplace-filters">
-          <div className="flex items-center gap-2 flex-wrap">
-            <SlidersHorizontal className="w-4 h-4 text-zinc-500" />
+        {/* Filters: one calm category row + two compact dropdowns */}
+        <div className="flex items-center gap-3 mb-8 flex-wrap sm:flex-nowrap" data-testid="marketplace-filters">
+          <div className="order-2 sm:order-1 flex-1 min-w-0 flex items-center gap-1 flex-nowrap overflow-x-auto -mx-4 px-4 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
             {["All", ...CATEGORIES].map((c) => (
               <button key={c} data-testid={`filter-cat-${c.toLowerCase().replace(/\s/g, "-")}`} onClick={() => setCat(c)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${cat === c ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`}>
+                className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${cat === c ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"}`}>
                 {c}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {BUDGETS.map((b, i) => (
-              <button key={b.label} data-testid={`filter-budget-${i}`} onClick={() => setBudget(i)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold font-mono transition-colors ${budget === i ? "bg-white text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`}>
-                {b.label}
-              </button>
-            ))}
-            <span className="w-px h-5 bg-white/10 mx-1" />
-            {[["all", "All moments"], ["timestamp", "Timestamp provided"], ["find", "Find the best moment"]].map(([v, l]) => (
-              <button key={v} data-testid={`filter-moment-${v}`} onClick={() => setMoment(v)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${moment === v ? "bg-[#FF4500] text-white" : "bg-white/5 text-zinc-400 hover:text-white"}`}>
-                {l}
-              </button>
-            ))}
+          <div className="order-1 sm:order-2 flex items-center gap-2 shrink-0">
+            <Select value={String(budget)} onValueChange={(v) => setBudget(Number(v))}>
+              <SelectTrigger data-testid="filter-budget" className="h-10 w-[136px] rounded-full bg-white/[0.04] border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BUDGETS.map((b, i) => <SelectItem key={b.label} value={String(i)}>{b.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={moment} onValueChange={setMoment}>
+              <SelectTrigger data-testid="filter-moment" className="h-10 w-[150px] rounded-full bg-white/[0.04] border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MOMENTS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {projects === null ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => <div key={i} className="card-dark h-96 animate-pulse" />)}</div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[...Array(6)].map((_, i) => <JobCardSkeleton key={i} />)}</div>
         ) : filtered.length === 0 ? (
           <div className="card-dark p-16 text-center" data-testid="marketplace-empty">
             <p className="font-display font-bold text-xl mb-2">No jobs match those filters.</p>

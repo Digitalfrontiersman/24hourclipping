@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Zap, Loader2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -9,10 +9,22 @@ import GoogleButton from "@/components/GoogleButton";
 export default function Register() {
   const { register, google } = useApp();
   const nav = useNavigate();
+  const [params] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Optional ?role=clipper|customer hint (default customer). When present we know
+  // the side, so we forward it to onboarding to skip the "which side?" question.
+  const roleParam = params.get("role") === "clipper" ? "clipper" : params.get("role") === "customer" ? "customer" : null;
+  const role = roleParam || "customer";
+
+  // After auth, honour the role hint through onboarding when we're headed there.
+  const go = (user) => {
+    const dest = homeFor(user);
+    nav(roleParam && dest === "/onboarding" ? `/onboarding?role=${roleParam}` : dest, { replace: true });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -22,9 +34,9 @@ export default function Register() {
     }
     setBusy(true);
     try {
-      const user = await register({ name, email, password });
+      const user = await register({ name, email, password, role });
       toast.success(`Welcome, ${user.name.split(" ")[0]}!`);
-      nav(homeFor(user), { replace: true }); // → onboarding
+      go(user); // → onboarding
     } catch (err) {
       toast.error(err.response?.data?.detail || "Sign up failed");
     } finally {
@@ -34,9 +46,9 @@ export default function Register() {
 
   const onGoogle = async (credential) => {
     try {
-      const user = await google({ credential });
+      const user = await google({ credential, role });
       toast.success(`Welcome, ${user.name}!`);
-      nav(homeFor(user), { replace: true });
+      go(user);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Google sign-in failed");
     }

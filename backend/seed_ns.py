@@ -1,4 +1,4 @@
-"""Network School (NS) showcase — hardcoded real-traction data.
+"""Network School (NS) showcase - hardcoded real-traction data.
 
 Idempotent: run on every startup (and re-applied after demo resets). Creates 4
 NS clipper accounts ($20 credit each), their public profiles, the NS job as the
@@ -31,7 +31,7 @@ NS_CLIPPERS = [
 ]
 
 NS_BIDS = [
-    ("ns-clipper-1", 110, "NS member — I actually cut this footage. Hook lands in 1.5s.", 8),
+    ("ns-clipper-1", 110, "NS member - I actually cut this footage. Hook lands in 1.5s.", 8),
     ("ns-clipper-2", 125, "Founder storytelling is my lane. Emotional arc guaranteed.", 12),
     ("ns-clipper-3", 118, "Ad-grade motion graphics + captions, delivered early.", 10),
     ("ns-clipper-4", 100, "300+ shorts shipped. This one will pop off.", 6),
@@ -55,16 +55,16 @@ async def seed_ns(db):
             "badge": badge, "missed_deadlines": 0, "repeat_clients": 20 + i * 9,
             "ratings": {"editing": rating, "brief_match": rating, "communication": rating},
             "earnings": 20, "bond_balance": 40, "tools": ["Premiere Pro", "CapCut", "After Effects"],
-            "portfolio": [{"title": f"{name} — clip for Network School", "thumb": NS_THUMB,
+            "portfolio": [{"title": f"{name} - clip for Network School", "thumb": NS_THUMB,
                            "video_url": clip_url or NS_THUMB}],
             "delivered_clip": clip_url,
             "reviews": [{"author": "Network School", "rating": 5, "text": "Shipped a scroll-stopping cut fast."}],
             "status": "approved", "from_ns": True,
         }}, upsert=True)
 
-    # The NS job — pinned to the top of the marketplace (newest posted_at).
+    # The NS job - pinned to the top of the marketplace (newest posted_at).
     await db.projects.update_one({"id": "ns-showcase"}, {"$set": {
-        "id": "ns-showcase", "title": "NS — 24 Hour Clipping", "category": "Short Ads",
+        "id": "ns-showcase", "title": "NS - 24 Hour Clipping", "category": "Short Ads",
         "description": "Real gig from Network School: turn our founder footage into scroll-stopping short-form clips. Hook in the first 2 seconds, bold captions, delivered within 24 hours.",
         "budget": 120, "thumbnail": NS_THUMB, "posted_at": _iso(t + timedelta(minutes=5)),
         "bids_count": len(NS_BIDS), "source_length": "1h 20m", "output_length": "30-60s",

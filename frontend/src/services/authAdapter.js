@@ -1,4 +1,4 @@
-// REAL AUTH ADAPTER — talks to the FastAPI auth endpoints and stores the JWT.
+// REAL AUTH ADAPTER - talks to the FastAPI auth endpoints and stores the JWT.
 import { api, setToken, clearToken, getToken } from "./api";
 
 export const authAdapter = {

@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On an expired/invalid token, drop it and bounce to login — but never for the
+// On an expired/invalid token, drop it and bounce to login - but never for the
 // auth endpoints themselves (a 401 there just means bad credentials).
 api.interceptors.response.use(
   (r) => r,
