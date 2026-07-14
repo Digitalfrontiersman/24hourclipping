@@ -15,10 +15,14 @@ export default function GoogleButton({ onCredential }) {
         client_id: CLIENT_ID,
         callback: (resp) => onCredential(resp.credential),
       });
+      // Match the width of the surrounding form buttons. Google caps the button
+      // at 400px, so the container should be <=400 for a pixel-perfect match.
+      const width = Math.min(400, Math.round(ref.current.offsetWidth) || 384);
+      ref.current.innerHTML = "";
       window.google.accounts.id.renderButton(ref.current, {
         theme: "filled_black",
         size: "large",
-        width: 320,
+        width,
         text: "continue_with",
         shape: "pill",
       });
@@ -38,5 +42,5 @@ export default function GoogleButton({ onCredential }) {
   }, [onCredential]);
 
   if (!CLIENT_ID) return null;
-  return <div ref={ref} className="flex justify-center" />;
+  return <div ref={ref} className="w-full" />;
 }

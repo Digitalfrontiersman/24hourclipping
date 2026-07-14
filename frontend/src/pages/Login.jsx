@@ -62,7 +62,7 @@ export default function Login() {
       <div className="relative flex items-center justify-center px-4 py-8 overflow-hidden grain">
         {/* radial lime glow so the form doesn't float on pure black */}
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
-        <div className="relative z-10 w-full max-w-md">
+        <div className="relative z-10 w-full max-w-sm">
           <Link to="/" className="flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter mb-8">
             <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
             <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
