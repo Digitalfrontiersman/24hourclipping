@@ -11,7 +11,6 @@ import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film, Wa
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { notify } from "@/services/notificationAdapter";
-import SolanaPayoutWallet from "@/components/SolanaPayoutWallet";
 
 const SEEN_DEALS_KEY = "24hc_seen_deals";
 
@@ -235,9 +234,6 @@ export default function ClipperDashboard() {
             </div>
           ))}
         </div>
-
-        {/* USDC payout wallet */}
-        <SolanaPayoutWallet />
 
         {/* Reputation progress - real, from completed jobs */}
         <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="reputation-progress">

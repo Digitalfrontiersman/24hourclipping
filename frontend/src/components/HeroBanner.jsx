@@ -1,35 +1,123 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Star, ChevronDown } from "lucide-react";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] } }),
+  hidden: { opacity: 0, y: 22 },
+  show: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.09, duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+  }),
 };
 
 export default function HeroBanner() {
   return (
-    <section className="relative grain overflow-hidden min-h-[calc(100svh-4rem)] flex items-center justify-center" data-testid="hero-banner">
-      {/* ambient glows */}
-      <div className="pointer-events-none absolute -top-[12%] left-1/2 -translate-x-1/2 w-[64rem] h-[40rem] rounded-full bg-[#CCFF00]/[0.07] blur-[150px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute bottom-[-25%] right-[-8%] w-[38rem] h-[38rem] rounded-full bg-[#CCFF00]/[0.04] blur-[130px]" aria-hidden="true" />
+    <section
+      className="relative grain overflow-hidden min-h-[calc(100svh-4rem)] flex items-center justify-center"
+      data-testid="hero-banner"
+    >
+      {/* ambient light — one soft lime bloom + a faint coral, nothing else */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-[-18%] h-[42rem] w-[42rem] -translate-x-1/2 rounded-full bg-[#CCFF00]/[0.09] blur-[160px] hero-glow"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute bottom-[-30%] right-[-10%] h-[34rem] w-[34rem] rounded-full bg-[#FF4500]/[0.04] blur-[150px]"
+        aria-hidden="true"
+      />
 
-      <motion.div initial="hidden" animate="show" className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 text-center">
-        <motion.h1 variants={fadeUp} custom={0} className="font-display font-extrabold tracking-tight leading-[1.02] text-5xl sm:text-6xl lg:text-7xl mb-7" data-testid="hero-headline">
-          Your best moments,<br className="hidden sm:block" /> clipped in <span className="text-[#CCFF00]">24 hours</span>.
+      <motion.div
+        initial="hidden"
+        animate="show"
+        className="relative z-10 mx-auto w-full max-w-3xl px-5 sm:px-6 text-center"
+      >
+        {/* live pill */}
+        <motion.div variants={fadeUp} custom={0} className="mb-7 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[11px] font-semibold tracking-wide text-zinc-300 backdrop-blur">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#CCFF00] opacity-70" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#CCFF00]" />
+            </span>
+            Vetted clippers bidding live
+          </span>
+        </motion.div>
+
+        {/* headline */}
+        <motion.h1
+          variants={fadeUp}
+          custom={1}
+          className="font-display font-extrabold tracking-tight leading-[1.04] text-[2.6rem] sm:text-6xl lg:text-7xl"
+          data-testid="hero-headline"
+        >
+          Your best moments,
+          <br />
+          clipped in{" "}
+          <span className="relative whitespace-nowrap text-[#CCFF00] lime-flicker">24 hours</span>.
         </motion.h1>
 
-        <motion.p variants={fadeUp} custom={1} className="text-zinc-400 text-base sm:text-lg lg:text-xl leading-relaxed max-w-xl mx-auto mb-10">
-          Post the moment, pick a vetted clipper, and get a finished, ready-to-post clip before it gets old.
+        {/* subcopy */}
+        <motion.p
+          variants={fadeUp}
+          custom={2}
+          className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-zinc-400 sm:text-lg"
+        >
+          Post the moment, pick a vetted clipper, and get a finished, ready-to-post
+          cut back before it gets old — or your money back.
         </motion.p>
 
-        <motion.div variants={fadeUp} custom={2} className="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
-          <Link to="/customer/create" data-testid="hero-post-clip-btn" className="btn-lime h-13 sm:h-14 px-8 text-base group relative overflow-hidden">
-            <span className="relative z-10 flex items-center gap-2">Post a Clip <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1.5" /></span>
-            <span className="absolute inset-0 bg-white/30 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
+        {/* CTAs — stack full-width on mobile, inline on larger */}
+        <motion.div
+          variants={fadeUp}
+          custom={3}
+          className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4"
+        >
+          <Link
+            to="/customer/create"
+            data-testid="hero-post-clip-btn"
+            className="btn-lime group relative h-13 overflow-hidden px-8 text-base sm:h-14"
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              Post a Clip
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1.5" />
+            </span>
+            <span className="absolute inset-0 -translate-x-full bg-white/30 transition-transform duration-500 group-hover:translate-x-full" />
           </Link>
-          <Link to="/marketplace" data-testid="hero-browse-jobs-btn" className="btn-ghost h-13 sm:h-14 px-7 text-base">Browse Live Jobs</Link>
+          <Link
+            to="/marketplace"
+            data-testid="hero-browse-jobs-btn"
+            className="btn-ghost h-13 px-7 text-base sm:h-14"
+          >
+            Browse Live Jobs
+          </Link>
         </motion.div>
+
+        {/* trust line */}
+        <motion.div
+          variants={fadeUp}
+          custom={4}
+          className="mt-10 flex flex-col items-center justify-center gap-1.5 text-sm text-zinc-500 sm:flex-row sm:gap-3"
+        >
+          <span className="flex items-center gap-1 text-[#CCFF00]">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className="h-3.5 w-3.5" fill="#CCFF00" strokeWidth={0} />
+            ))}
+            <span className="ml-1 font-bold text-white">4.9</span>
+          </span>
+          <span className="hidden text-zinc-700 sm:inline">·</span>
+          <span>200+ clips delivered on deadline</span>
+        </motion.div>
+      </motion.div>
+
+      {/* scroll cue */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1, duration: 0.8 }}
+        className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2"
+        aria-hidden="true"
+      >
+        <ChevronDown className="h-5 w-5 animate-bounce text-zinc-600" />
       </motion.div>
     </section>
   );
