@@ -23,6 +23,7 @@ import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Docs from "@/pages/Docs";
+import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/legal/Privacy";
 import Cookies from "@/pages/legal/Cookies";
 import Terms from "@/pages/legal/Terms";
@@ -71,6 +72,9 @@ function App() {
 
             {/* Admin */}
             <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
+
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#1A1A1A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
         </AppProvider>

@@ -46,13 +46,17 @@ export default function Navbar() {
           <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1">
-          {links.map((l) => (
-            <Link key={l.label} to={l.to} data-testid={`nav-link-${l.label.toLowerCase().replace(" ", "-")}`}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${loc.pathname === l.to ? "bg-white/10 text-white" : "text-zinc-400 hover:text-white"}`}>
-              {l.label}
-            </Link>
-          ))}
+        <div className="hidden md:flex items-center h-16 gap-2">
+          {links.map((l) => {
+            const active = loc.pathname === l.to;
+            return (
+              <Link key={l.label} to={l.to} data-testid={`nav-link-${l.label.toLowerCase().replace(" ", "-")}`}
+                className={`relative h-16 flex items-center px-4 text-sm font-medium transition-colors ${active ? "text-white" : "text-zinc-400 hover:text-white"}`}>
+                {l.label}
+                {active && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#CCFF00]" />}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-3">
@@ -103,8 +107,8 @@ export default function Navbar() {
             </DropdownMenu>
           ) : (
             <>
-              <Link to="/login" data-testid="nav-login" className="btn-ghost h-9 px-4 text-sm">Log in</Link>
-              <Link to="/register" data-testid="nav-register" className="btn-lime h-9 px-4 text-sm hidden sm:flex">Sign up</Link>
+              <Link to="/login" data-testid="nav-login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors px-2">Log in</Link>
+              <Link to="/register" data-testid="nav-register" className="btn-lime h-9 px-5 text-sm hidden sm:flex">Sign up</Link>
             </>
           )}
           <button className="md:hidden text-white" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-label="Menu">

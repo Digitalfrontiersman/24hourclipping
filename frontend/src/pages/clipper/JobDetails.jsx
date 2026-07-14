@@ -27,6 +27,7 @@ export default function JobDetails() {
   const [me, setMe] = useState(null);
   const [placed, setPlaced] = useState(false);
   const [placedBid, setPlacedBid] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(Math.round(proj.budget * 0.9)); }).catch(() => {});
@@ -34,11 +35,18 @@ export default function JobDetails() {
   }, [projectId, ME]);
 
   const submit = async () => {
+    if (submitting) return;
     if (!amount || !pitch.trim()) return notify.urgent("Add a bid price and a one-line pitch");
-    const bid = await dbAdapter.createBid(projectId, { amount: Number(amount), pitch, eta_hours: Number(eta) });
-    setPlacedBid(bid);
-    setPlaced(true);
-    notify.success("Bid placed", "You'll be notified the moment the customer responds");
+    setSubmitting(true);
+    try {
+      const bid = await dbAdapter.createBid(projectId, { amount: Number(amount), pitch, eta_hours: Number(eta) });
+      setPlacedBid(bid);
+      setPlaced(true);
+      notify.success("Bid placed", "You'll be notified the moment the customer responds");
+    } catch (err) {
+      notify.urgent(err.response?.data?.detail || "Could not place bid", "Please try again");
+      setSubmitting(false);
+    }
   };
 
   if (!p) return <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center"><div className="card-dark w-full max-w-3xl h-96 mx-4 animate-pulse" /></div>;
@@ -104,7 +112,7 @@ export default function JobDetails() {
                   <Shield className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
                   <p className="text-xs text-zinc-400">Required Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> It locks only if your bid is accepted and you confirm the project.</p>
                 </div>
-                <button data-testid="place-bid-btn" className="btn-lime h-13 w-full h-12" onClick={submit}>Place Bid</button>
+                <button data-testid="place-bid-btn" disabled={submitting} className="btn-lime w-full h-12" onClick={submit}>{submitting ? "Placing bid…" : "Place Bid"}</button>
               </>
             ) : (
               <div data-testid="bid-placed-state">

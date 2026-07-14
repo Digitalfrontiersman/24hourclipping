@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import re
 import json
 import asyncio
 import logging
@@ -240,10 +241,10 @@ def _welcome_email_html(name: str, role_hint: str) -> str:
 
 
 class ProjectCreate(BaseModel):
-    title: str
-    category: str
-    description: str = ""
-    budget: float
+    title: str = Field(min_length=1, max_length=140)
+    category: str = Field(max_length=60)
+    description: str = Field(default="", max_length=4000)
+    budget: float = Field(gt=0, le=100000)
     source_link: str = ""
     source_key: Optional[str] = None  # uploaded source footage (object key)
     source_length: str = ""
@@ -263,9 +264,9 @@ class ProjectCreate(BaseModel):
 
 class BidCreate(BaseModel):
     clipper_id: Optional[str] = None  # ignored; identity comes from the token
-    amount: float
-    pitch: str
-    eta_hours: int
+    amount: float = Field(gt=0, le=100000)
+    pitch: str = Field(min_length=1, max_length=500)
+    eta_hours: int = Field(gt=0, le=72)
 
 class MessageCreate(BaseModel):
     sender: Optional[str] = None  # ignored; derived from the token
@@ -825,6 +826,11 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_role(
 @api_router.post("/projects/{project_id}/fund")
 async def fund_project(project_id: str, body: FundRequest, user: dict = Depends(get_current_user)):
     await _require_project_owner(project_id, user)
+    # This path marks a project funded WITHOUT taking real money, so it is only
+    # allowed while the platform is in presentation/test mode. Real funding goes
+    # through the card (Ziina/Stripe) or Solana escrow endpoints, which verify payment.
+    if not await get_test_mode():
+        raise HTTPException(403, "Live payment required. Fund via card or on-chain USDC.")
     tx = "5KJp" + uuid.uuid4().hex[:20] + "SoL" if body.payment_method == "usdc" else None
     r = await db.projects.update_one({"id": project_id}, {"$set": {"funded": True, "status": "open", "payment_method": body.payment_method, "tx_hash": tx}})
     if not r.matched_count:
@@ -1070,7 +1076,15 @@ async def contract_tip(contract_id: str, body: TipRequest, user: dict = Depends(
 
 
 @api_router.get("/projects/{project_id}/bids")
-async def get_bids(project_id: str):
+async def get_bids(project_id: str, user: dict = Depends(get_current_user)):
+    # Bids (amounts, pitches, clipper identity) are competitive data: only the
+    # project owner, an admin, or a clipper who has already bid may read them.
+    proj = await db.projects.find_one({"id": project_id}, {"owner_id": 1, "_id": 0})
+    if not proj:
+        raise HTTPException(404, "Project not found")
+    if not (proj.get("owner_id") == user["id"] or "admin" in user_roles(user)
+            or await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"]}, {"_id": 1})):
+        raise HTTPException(403, "Not authorized to view bids for this project")
     bids = await db.bids.find({"project_id": project_id}, NO_ID).sort("created_at", -1).to_list(100)
     return await attach_clipper(bids)
 
@@ -1097,6 +1111,8 @@ async def create_bid(project_id: str, body: BidCreate, user: dict = Depends(requ
         raise HTTPException(404, "Project not found")
     if project.get("status") not in ("open", None):
         raise HTTPException(409, "This project is not accepting bids")
+    if await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"], "status": "pending"}, {"_id": 1}):
+        raise HTTPException(409, "You already have a pending bid on this project")
     await _ensure_clipper_profile(user)
     doc = body.model_dump()
     doc.update({
@@ -1155,7 +1171,14 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     if not bid:
         raise HTTPException(404, "Bid not found")
     await _require_project_owner(bid["project_id"], user)
-    await db.bids.update_one({"id": bid_id}, {"$set": {"status": "accepted"}})
+    # Idempotent accept: only a still-pending bid can be accepted. This prevents a
+    # double-click (or replay) from creating two live contracts / two payouts.
+    claimed = await db.bids.update_one({"id": bid_id, "status": "pending"}, {"$set": {"status": "accepted"}})
+    if not claimed.modified_count:
+        existing = await db.contracts.find_one({"project_id": bid["project_id"], "clipper_id": bid["clipper_id"]}, NO_ID)
+        if existing:
+            return existing
+        raise HTTPException(409, "This bid has already been handled")
     # Accepting = the deal is on: the contract goes live and the 24h clock starts,
     # so the clipper immediately sees it on their dashboard and can deliver.
     # (A project can accept several clippers - each gets its own live contract.)
@@ -1216,15 +1239,15 @@ async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depend
 async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_current_user)):
     q = {"status": status} if status else {}
     contracts = await db.contracts.find(q, NO_ID).to_list(200)
-    # Scope to the caller: clippers see their own, customers see contracts on
-    # projects they own, admins see everything.
-    if user["role"] == "clipper":
-        contracts = [c for c in contracts if c["clipper_id"] == user["id"]]
-    elif user["role"] == "customer":
+    # Scope by CAPABILITY, not the active dashboard: a user sees every contract
+    # where they are the clipper OR own the project, regardless of which mode they
+    # are viewing in. Admins see everything. (Fixes contracts vanishing for
+    # multi-role accounts depending on the active role.)
+    if "admin" not in user_roles(user):
         pids = [c["project_id"] for c in contracts]
         owned = {p["id"] for p in await db.projects.find(
             {"id": {"$in": pids}, "owner_id": user["id"]}, {"id": 1, "_id": 0}).to_list(500)}
-        contracts = [c for c in contracts if c["project_id"] in owned]
+        contracts = [c for c in contracts if c["clipper_id"] == user["id"] or c["project_id"] in owned]
     contracts = await attach_clipper(contracts)
     pids = list({c["project_id"] for c in contracts})
     projects = await db.projects.find({"id": {"$in": pids}}, NO_ID).to_list(200)
@@ -1244,9 +1267,13 @@ async def get_contract(contract_id: str, user: dict = Depends(get_current_user))
 
 @api_router.post("/contracts/{contract_id}/activate")
 async def activate_contract(contract_id: str, user: dict = Depends(get_current_user)):
+    c = await _require_contract_party(contract_id, user, allow=("clipper",))
+    # The clock is set once, at acceptance. Block re-activation so a clipper can't
+    # keep resetting the 24h deadline. Only a not-yet-started contract may activate.
+    if c.get("status") not in ("awaiting_clipper", "pending_acceptance"):
+        raise HTTPException(409, "This contract is already running.")
     started = datetime.now(timezone.utc)
     deadline = started + timedelta(hours=24)
-    c = await _require_contract_party(contract_id, user, allow=("clipper",))
     await db.contracts.update_one({"id": contract_id}, {"$set": {
         "status": "live", "started_at": started.isoformat(), "deadline_at": deadline.isoformat()}})
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "contract_live"}})
@@ -1255,6 +1282,8 @@ async def activate_contract(contract_id: str, user: dict = Depends(get_current_u
 @api_router.post("/contracts/{contract_id}/deliver")
 async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(get_current_user)):
     c = await _require_contract_party(contract_id, user, allow=("clipper",))
+    if c.get("status") not in ("live", "revision"):
+        raise HTTPException(409, "You can only deliver on a live or in-revision contract.")
     version = {
         "num": len(c.get("versions", [])) + 1,
         "key": body.key,
@@ -1269,6 +1298,8 @@ async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(g
 @api_router.post("/contracts/{contract_id}/revision")
 async def request_revision(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
     c = await _require_contract_party(contract_id, user, allow=("customer",))
+    if c.get("status") != "delivered":
+        raise HTTPException(409, "You can only request a revision on a delivered cut.")
     await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "revision"}})
     await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
                                   "sender": "customer", "text": f"REVISION REQUEST: {body.text}", "created_at": now_iso()})
@@ -1277,7 +1308,16 @@ async def request_revision(contract_id: str, body: MessageCreate, user: dict = D
 @api_router.post("/contracts/{contract_id}/approve")
 async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_current_user)):
     c = await _require_contract_party(contract_id, user, allow=("customer",))
-    await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "completed", "rating_given": body.rating}})
+    # Approval releases payment, so it must follow an actual delivery. Guard against
+    # approving (and paying out) a contract that was never delivered, and against
+    # double-approval / double-payout on an already-completed contract.
+    if c.get("status") not in ("delivered", "revision"):
+        raise HTTPException(409, "You can only approve a delivered cut.")
+    claimed = await db.contracts.update_one(
+        {"id": contract_id, "status": {"$in": ["delivered", "revision"]}},
+        {"$set": {"status": "completed", "rating_given": body.rating}})
+    if not claimed.modified_count:
+        raise HTTPException(409, "This contract has already been completed.")
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "completed"}})
     split = solpay.payout_split(c["price"])
     resp = {"ok": True, "payout": split["clipper"], "fee": split["fee"], "bond_returned": c["bond"]}
@@ -1302,6 +1342,8 @@ async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_
 @api_router.post("/contracts/{contract_id}/rescue")
 async def trigger_rescue(contract_id: str, user: dict = Depends(get_current_user)):
     c = await _require_contract_party(contract_id, user, allow=("customer",))
+    if c.get("status") not in ("live", "revision", "delivered"):
+        raise HTTPException(409, "Only an active contract can be sent to rescue.")
     await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "rescue"}})
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "rescue"}})
     return {"ok": True, "refund": c["price"], "bond_credit": c["bond"]}
@@ -1309,6 +1351,8 @@ async def trigger_rescue(contract_id: str, user: dict = Depends(get_current_user
 @api_router.post("/contracts/{contract_id}/relaunch")
 async def relaunch(contract_id: str, user: dict = Depends(get_current_user)):
     c = await _require_contract_party(contract_id, user, allow=("customer",))
+    if c.get("status") != "rescue":
+        raise HTTPException(409, "Only a contract in rescue can be relaunched.")
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "open", "posted_at": now_iso(), "priority": True}})
     await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "closed_rescued"}})
     return {"ok": True}
@@ -1320,9 +1364,10 @@ async def get_messages(contract_id: str, user: dict = Depends(get_current_user))
 
 @api_router.post("/contracts/{contract_id}/messages")
 async def post_message(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
-    await _require_contract_party(contract_id, user)
-    # Sender is derived from the caller's role, not trusted from the request.
-    sender = "admin" if user["role"] == "admin" else user["role"]
+    c = await _require_contract_party(contract_id, user)
+    # Sender is derived from this user's relationship to the contract (are they the
+    # clipper on it or the project owner), not from whichever dashboard is active.
+    sender = "clipper" if c.get("clipper_id") == user["id"] else "customer"
     doc = {"id": str(uuid.uuid4()), "contract_id": contract_id, "sender": sender,
            "text": body.text, "created_at": now_iso()}
     await db.messages.insert_one(dict(doc))
@@ -1392,8 +1437,9 @@ async def admin_users(admin: dict = Depends(require_role("admin")),
     if role:
         query["role"] = role
     if q:
-        query["$or"] = [{"email": {"$regex": q, "$options": "i"}},
-                        {"name": {"$regex": q, "$options": "i"}}]
+        safe = re.escape(q)  # treat the search box as a literal, not a regex (ReDoS/injection guard)
+        query["$or"] = [{"email": {"$regex": safe, "$options": "i"}},
+                        {"name": {"$regex": safe, "$options": "i"}}]
     return await db.users.find(query, {"_id": 0, "hashed_password": 0}).sort("created_at", -1).to_list(1000)
 
 
