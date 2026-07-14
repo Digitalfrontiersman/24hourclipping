@@ -21,6 +21,7 @@ export default function BidRoom() {
   const [bids, setBids] = useState([]);
   const [selected, setSelected] = useState([]);
   const [multi, setMulti] = useState(false); // explicit multi-accept mode (off = one-tap single accept)
+  const [sort, setSort] = useState("fit"); // fit | price | eta
   const [confirming, setConfirming] = useState(false);
   const [accepting, setAccepting] = useState(null); // null | "sending" | "live"
   const [chatBid, setChatBid] = useState(null);
@@ -41,7 +42,16 @@ export default function BidRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
 
-  const ranked = useMemo(() => [...bids].sort((a, b) => fitScore(b, project?.budget || 100) - fitScore(a, project?.budget || 100)), [bids, project]);
+  const ranked = useMemo(() => {
+    const budget = project?.budget || 100;
+    const cmp = {
+      fit: (a, b) => fitScore(b, budget) - fitScore(a, budget),
+      price: (a, b) => a.amount - b.amount,           // lowest first
+      eta: (a, b) => a.eta_hours - b.eta_hours,       // fastest first
+    }[sort];
+    return [...bids].sort(cmp);
+  }, [bids, project, sort]);
+  const topLabel = { fit: "BEST FIT", price: "LOWEST", eta: "FASTEST" }[sort];
   const selectedBids = bids.filter((b) => selected.includes(b.id));
   const total = selectedBids.reduce((s, b) => s + b.amount, 0);
 
@@ -90,13 +100,20 @@ export default function BidRoom() {
         <div>
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="font-display font-extrabold text-2xl tracking-tight">Live Bid Room</h2>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-zinc-500">Ranked by <span className="text-[#CCFF00] font-bold">Best Fit</span> - not lowest price</span>
-              <button data-testid="multi-select-toggle" onClick={() => { setMulti((m) => !m); setSelected([]); }}
-                className={`text-xs font-bold transition-colors ${multi ? "text-[#CCFF00]" : "text-zinc-500 hover:text-white"}`}>
-                {multi ? "Done selecting" : "Accept multiple"}
+            <button data-testid="multi-select-toggle" onClick={() => { setMulti((m) => !m); setSelected([]); }}
+              className={`text-xs font-bold transition-colors ${multi ? "text-[#CCFF00]" : "text-zinc-500 hover:text-white"}`}>
+              {multi ? "Done selecting" : "Accept multiple"}
+            </button>
+          </div>
+          {/* Sort control - transparent ranking the customer controls */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs text-zinc-500 mr-1">Sort by</span>
+            {[["fit", "Best fit"], ["price", "Lowest price"], ["eta", "Fastest"]].map(([k, label]) => (
+              <button key={k} data-testid={`sort-${k}`} onClick={() => setSort(k)}
+                className={`h-8 px-3.5 rounded-full text-xs font-bold border transition-colors ${sort === k ? "bg-[#CCFF00] text-black border-transparent" : "border-white/10 text-zinc-400 hover:text-white hover:border-white/25"}`}>
+                {label}
               </button>
-            </div>
+            ))}
           </div>
           <div className="space-y-4" data-testid="bid-list">
             <AnimatePresence initial={false}>
@@ -108,7 +125,7 @@ export default function BidRoom() {
                     <div className="flex-1 min-w-40">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-display font-bold">{b.clipper?.name}</span>
-                        {idx === 0 && <span className="text-[10px] font-bold bg-[#CCFF00] text-black rounded-full px-2 py-0.5">BEST FIT</span>}
+                        {idx === 0 && <span className="text-[10px] font-bold bg-[#CCFF00] text-black rounded-full px-2 py-0.5">{topLabel}</span>}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-zinc-400 mt-0.5">
                         <span className="flex items-center gap-1"><Star className="w-3 h-3 text-[#CCFF00]" fill="#CCFF00" />{b.clipper?.rating}</span>

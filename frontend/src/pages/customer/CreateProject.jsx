@@ -5,7 +5,7 @@ import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
 import FileDropzone from "@/components/FileDropzone";
-import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon, Check } from "lucide-react";
+import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon, Check, SlidersHorizontal } from "lucide-react";
 
 const chip = (active) => `px-4 py-2 rounded-full text-sm font-semibold transition-all ${active ? "bg-[#CCFF00] text-black shadow-[0_4px_16px_-6px_rgba(204,255,0,0.5)]" : "bg-white/[0.04] text-zinc-400 border border-white/10 hover:text-white hover:border-white/25"}`;
 
@@ -13,8 +13,10 @@ const STEPS = [{ n: 1, label: "Footage" }, { n: 2, label: "The vibe" }, { n: 3, 
 
 export default function CreateProject() {
   const nav = useNavigate();
-  // Default straight into the manual builder (step 1). The AI concierge is now a
-  // small inline link rather than a full-screen decision gate.
+  // Express (one-screen, tap-and-go) is the default. "Full brief" opens the
+  // 3-step wizard for people who want every knob. Smart defaults mean Express
+  // only truly needs a title + budget.
+  const [mode, setMode] = useState("express");
   const [step, setStep] = useState(1);
   const [uploadPct, setUploadPct] = useState(null);
   const [uploaded, setUploaded] = useState(null);
@@ -69,9 +71,70 @@ export default function CreateProject() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+        {/* Mode toggle: Express (fast) vs Full brief (wizard) */}
+        <div className="mb-8">
+          <div className="label-caps text-[#CCFF00]/80 mb-3">Post a clip</div>
+          <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <button type="button" data-testid="mode-express" onClick={() => setMode("express")}
+              className={`flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-bold transition-colors ${mode === "express" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
+              <Zap className="w-3.5 h-3.5" fill={mode === "express" ? "black" : "none"} /> Express
+            </button>
+            <button type="button" data-testid="mode-full" onClick={() => setMode("full")}
+              className={`flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-bold transition-colors ${mode === "full" ? "bg-[#CCFF00] text-black" : "text-zinc-400 hover:text-white"}`}>
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Full brief
+            </button>
+          </div>
+        </div>
+
+        {/* ---------- EXPRESS: one screen, tap and go ---------- */}
+        {mode === "express" && (
+          <div className="space-y-6" data-testid="express-form">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter">Post in seconds</h1>
+              <p className="text-sm text-zinc-500 mt-1.5">Just a title and a budget. We'll apply smart defaults and vetted clippers start bidding right away.</p>
+            </div>
+
+            <div>
+              <label className="label-caps block mb-2">What's the clip? <span className="text-[#FF4500]">*</span></label>
+              <input data-testid="express-title-input" className="input-dark h-13 text-base" placeholder="e.g. Ranked Finals Clutch Moment" value={f.title} onChange={(e) => set("title", e.target.value)} />
+            </div>
+
+            <div>
+              <label className="label-caps block mb-2">Category</label>
+              <div className="flex flex-wrap gap-2">{CATEGORIES.map((c) => <button key={c} className={chip(f.category === c)} onClick={() => set("category", c)}>{c}</button>)}</div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FileDropzone compact onFile={uploadFile} uploading={uploadPct} doneName={uploaded?.name}
+                title="Upload footage" hint="Drag & drop or click · MP4, MOV"
+                wrapperTestId="express-upload-label" inputTestId="express-upload-input" />
+              <div className="card-dark p-6">
+                <div className="flex items-center gap-2 mb-2 text-sm font-bold"><Link2 className="w-4 h-4 text-[#CCFF00]" /> Or paste a link</div>
+                <input data-testid="express-source-link-input" className="input-dark h-10 text-sm" placeholder="Twitch, YouTube, Drive…" value={f.source_link} onChange={(e) => set("source_link", e.target.value)} />
+                <p className="text-xs text-zinc-600 mt-2">Optional now - you can add footage when you fund.</p>
+              </div>
+            </div>
+
+            <div className="card-dark p-6">
+              <label className="label-caps block mb-4">Budget - <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
+              <input data-testid="express-budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />
+              <div className="flex justify-between text-xs text-zinc-600 mt-2 font-mono"><span>$20</span><span>$500</span></div>
+              <div className="mt-4 text-xs text-zinc-400 bg-black/40 rounded-xl p-3">Clipper's Deadline Bond at this budget: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(f.budget))}</span> - locked behind your deadline.</div>
+            </div>
+
+            <button data-testid="express-submit" className="btn-lime h-14 w-full text-base disabled:opacity-40 disabled:cursor-not-allowed" disabled={saving || !f.title.trim()} onClick={submit}>
+              {saving ? "Posting…" : f.title.trim() ? "Post & find clippers" : "Add a title to post"} <ArrowRight className="w-4 h-4" />
+            </button>
+            <button type="button" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5" onClick={() => setMode("full")}>
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Want full control? Add a detailed brief
+            </button>
+          </div>
+        )}
+
+        {/* ---------- FULL BRIEF: 3-step wizard ---------- */}
+        {mode === "full" && (<>
         {/* Stepper */}
         <div className="mb-10">
-          <div className="label-caps text-[#CCFF00]/80 mb-3">Post a clip</div>
           <div className="flex items-center gap-2 sm:gap-3">
             {STEPS.map((s, i) => (
               <Fragment key={s.n}>
@@ -252,6 +315,7 @@ export default function CreateProject() {
             </div>
           </div>
         )}
+        </>)}
       </div>
     </div>
   );
