@@ -34,8 +34,8 @@ export default function BidRoom() {
 
   useEffect(() => {
     if (!project || project.status !== "open") return;
-    const unsub = realtimeAdapter.subscribeToBids(project, bids.map((b) => b.clipper_id), (bid) => {
-      setBids((prev) => [bid, ...prev]);
+    const unsub = realtimeAdapter.subscribeToBids(project, bids.map((b) => b.id), (bid) => {
+      setBids((prev) => (prev.some((x) => x.id === bid.id) ? prev : [bid, ...prev]));
       notify.info("New bid arrived", `${bid.clipper?.name} bid $${bid.amount}`);
     });
     return unsub;

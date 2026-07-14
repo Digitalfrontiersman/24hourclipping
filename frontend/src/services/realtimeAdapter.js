@@ -1,27 +1,37 @@
-// LIVE BID SIMULATION - in demo/test mode, populate a project's bid room with
-// realistic bids (server-side, from seed clippers) and reveal them one-by-one
-// so the room feels alive. Falls back gracefully outside test mode.
+// LIVE BIDS - polls the real bids endpoint so the bid room updates on its own
+// as clippers bid, without a websocket layer. The first pass "primes" the set of
+// bids already on screen (no notification), then every poll emits only genuinely
+// new bids. Stops when the caller unsubscribes (e.g. project no longer open).
 import { dbAdapter, bondFor } from "./dbAdapter";
 
+const POLL_MS = 4000;
+
 export const realtimeAdapter = {
-  // Populates + streams in demo bids for a project. Returns an unsubscribe fn.
-  subscribeToBids(project, existingClipperIds, onBid) {
+  // Streams in new bids for a project. Returns an unsubscribe fn.
+  subscribeToBids(project, _existing, onBid) {
     let stopped = false;
-    const timers = [];
-    dbAdapter
-      .seedDemoBids(project.id)
-      .then((newBids) => {
-        if (stopped || !Array.isArray(newBids)) return;
-        newBids.forEach((bid, i) => {
-          const t = setTimeout(() => { if (!stopped) onBid(bid); }, 1400 + i * 2400);
-          timers.push(t);
-        });
-      })
-      .catch(() => { /* not in test mode / not owner - no simulated bids */ });
-    return () => {
-      stopped = true;
-      timers.forEach(clearTimeout);
+    let primed = false;
+    const seen = new Set();
+
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const bids = await dbAdapter.getBids(project.id);
+        if (stopped || !Array.isArray(bids)) return;
+        for (const b of bids) {
+          if (seen.has(b.id)) continue;
+          seen.add(b.id);
+          if (primed) onBid(b); // only surface bids that arrived after we started
+        }
+        primed = true;
+      } catch {
+        /* transient error - try again next tick */
+      }
     };
+
+    poll(); // prime immediately (silently records what's already there)
+    const interval = setInterval(poll, POLL_MS);
+    return () => { stopped = true; clearInterval(interval); };
   },
 };
 

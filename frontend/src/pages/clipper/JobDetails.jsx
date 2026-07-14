@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, Zap, SlidersHorizontal } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import BidChat from "@/components/BidChat";
 
@@ -28,6 +28,7 @@ export default function JobDetails() {
   const [placed, setPlaced] = useState(false);
   const [placedBid, setPlacedBid] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [customize, setCustomize] = useState(false); // one-tap Quick Apply by default
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(Math.round(proj.budget * 0.9)); }).catch(() => {});
@@ -105,6 +106,28 @@ export default function JobDetails() {
             {!placed ? (
               <>
                 <h2 className="font-display font-extrabold text-xl mb-5">Place your bid</h2>
+
+                {!customize ? (
+                  <div data-testid="quick-apply-panel">
+                    <p className="text-sm text-zinc-400 mb-4">One tap to bid with your smart defaults. Nothing locks until the creator accepts.</p>
+                    <div className="rounded-xl bg-black/40 p-4 mb-4 space-y-2.5">
+                      <div className="flex items-center justify-between"><span className="text-xs text-zinc-500">Your bid</span><span className="font-mono font-extrabold text-xl text-[#CCFF00]">${amount || Math.round(p.budget * 0.9)}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-xs text-zinc-500">First cut in</span><span className="font-mono font-bold">{eta}h</span></div>
+                      <div className="border-t border-white/10 pt-2.5"><span className="text-xs text-zinc-500 block mb-1">Pitch</span><span className="text-sm text-zinc-300 italic">“{pitch}”</span></div>
+                    </div>
+                    <div className="bg-black/40 rounded-xl p-3 flex items-start gap-2 mb-4">
+                      <Shield className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
+                      <p className="text-xs text-zinc-400">Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> Locks only if accepted.</p>
+                    </div>
+                    <button data-testid="quick-apply-btn" disabled={submitting} className="btn-lime w-full h-14 text-base" onClick={submit}>
+                      {submitting ? "Applying…" : <>Quick Apply <Zap className="w-4 h-4" fill="black" /></>}
+                    </button>
+                    <button type="button" data-testid="customize-bid-toggle" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5 mt-3" onClick={() => setCustomize(true)}>
+                      <SlidersHorizontal className="w-3.5 h-3.5" /> Customize amount, ETA & pitch
+                    </button>
+                  </div>
+                ) : (
+                <>
                 <label className="label-caps block mb-2">Bid price</label>
                 <div className="relative mb-4">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-[#CCFF00]">$</span>
@@ -139,6 +162,11 @@ export default function JobDetails() {
                   <p className="text-xs text-zinc-400">Required Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> It locks only if your bid is accepted and you confirm the project.</p>
                 </div>
                 <button data-testid="place-bid-btn" disabled={submitting} className="btn-lime w-full h-12" onClick={submit}>{submitting ? "Placing bid…" : "Place Bid"}</button>
+                <button type="button" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5 mt-3" onClick={() => setCustomize(false)}>
+                  <Zap className="w-3.5 h-3.5" /> Back to Quick Apply
+                </button>
+                </>
+                )}
               </>
             ) : (
               <div data-testid="bid-placed-state">
