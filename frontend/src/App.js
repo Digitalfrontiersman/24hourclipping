@@ -28,6 +28,7 @@ import Privacy from "@/pages/legal/Privacy";
 import Cookies from "@/pages/legal/Cookies";
 import Terms from "@/pages/legal/Terms";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const Customer = ({ children }) => <ProtectedRoute roles={["customer", "admin"]}>{children}</ProtectedRoute>;
 const Clipper = ({ children }) => <ProtectedRoute roles={["clipper", "admin"]}>{children}</ProtectedRoute>;
@@ -38,6 +39,7 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <AppProvider>
+          <ScrollToTop />
           <Navbar />
           <Routes>
             {/* Public */}
