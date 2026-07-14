@@ -92,6 +92,7 @@ class ClipperProfile(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     handle: Mapped[str | None] = mapped_column(String(80), unique=True)
     specialty: Mapped[str | None] = mapped_column(Text)
+    bio: Mapped[str | None] = mapped_column(Text)
     price_min: Mapped[float | None] = mapped_column(Numeric(14, 2))
     price_max: Mapped[float | None] = mapped_column(Numeric(14, 2))
     badge: Mapped[str | None] = mapped_column(Text)

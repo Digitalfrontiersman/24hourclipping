@@ -636,7 +636,7 @@ def clipper_public(profile: Optional[ClipperProfile], user: Optional[User]) -> O
         ],
         "reviews": [],
         "status": profile.status,
-        "bio": "",
+        "bio": profile.bio or "",
         "payout_wallet": user.payout_wallet if user else None,
     }
 
@@ -1336,7 +1336,8 @@ async def update_clipper_profile(body: ClipperProfileUpdate,
         prof.price_min, prof.price_max = _parse_price_range(body.price_range)
     if body.tools is not None:
         prof.tools = [t.strip() for t in body.tools if t.strip()][:12]
-    # NOTE: `bio` has no column in the ClipperProfile schema; accepted but not persisted.
+    if body.bio is not None:
+        prof.bio = body.bio.strip()[:1000]
     if body.avatar_key:
         row.avatar_url = storage.sign_media_url(body.avatar_key, expires_in=365 * 24 * 3600)
     elif body.avatar_url:
