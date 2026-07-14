@@ -5,6 +5,7 @@ import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
+import Avatar from "@/components/Avatar";
 import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus } from "lucide-react";
 
 const ALL_ROLES = ["customer", "clipper", "admin"];
@@ -93,7 +94,7 @@ export default function Admin() {
               {users.length === 0 && <p className="text-sm text-zinc-500 py-6 text-center">No users yet.</p>}
               {users.map((u) => (
                 <div key={u.id} className="card-dark p-4 flex items-center gap-4 flex-wrap" data-testid={`admin-user-${u.id}`}>
-                  <img src={u.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0" />
+                  <Avatar src={u.avatar} name={u.name || u.email} className="w-9 h-9 text-sm" />
                   <div className="flex-1 min-w-48">
                     <p className="font-bold text-sm">{u.name} {u.disabled && <span className="text-[#FF4500] text-xs">(SUSPENDED)</span>}</p>
                     <p className="text-xs text-zinc-500">{u.email} · joined {u.created_at ? new Date(u.created_at).toLocaleDateString() : "-"} · via {u.auth_provider || "local"}</p>

@@ -908,8 +908,18 @@ async def ensure_auth_setup():
             session.add(row)
             await session.flush()
         await _ensure_roles(session, row.id, ["customer", "clipper", "admin"])
+        if not row.avatar_url:
+            row.avatar_url = _default_avatar(row.name)
         await session.commit()
         logger.info("Admin account ensured for %s", admin_email)
+        # Backfill default avatars for any pre-existing accounts created before
+        # default avatars existed, so nobody renders blank.
+        blanks = (await session.scalars(select(User).where(User.avatar_url.is_(None)))).all()
+        for u in blanks:
+            u.avatar_url = _default_avatar(u.name)
+        if blanks:
+            await session.commit()
+            logger.info("Backfilled default avatars for %d users", len(blanks))
 
 
 # ============================ AUTH ENDPOINTS ============================
