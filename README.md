@@ -17,8 +17,7 @@ marketplace — full-stack monorepo with a **FastAPI + MongoDB** backend and a
 ├── frontend/          React 19 + CRACO + Tailwind + Radix UI
 │   ├── src/           Pages, components, service adapters
 │   └── Dockerfile
-├── docs/              Docs & references (deploy, server access, design, Vellum)
-├── assets/            Source media (hero video, source clips, images)
+├── docs/              Docs, references, PRD, design tokens + assets/ (source media)
 ├── scripts/           Ops scripts (GitHub runner setup, legacy deploy)
 ├── docker-compose.yml One command for Mongo + backend + frontend
 ├── package.json       Root dev scripts (concurrently)
