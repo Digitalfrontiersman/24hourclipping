@@ -36,11 +36,11 @@ export default function HeroBanner() {
         <motion.h1
           variants={fadeUp}
           custom={0}
-          className="font-display font-extrabold tracking-tight leading-[1.04] text-[2.6rem] sm:text-6xl lg:text-7xl"
+          className="font-display font-extrabold tracking-tight text-[2rem] leading-[1.18] sm:text-6xl sm:leading-[1.05] lg:text-7xl"
           data-testid="hero-headline"
         >
           Your best moments,
-          <br />
+          <br className="hidden sm:block" />{" "}
           clipped in{" "}
           <span className="relative whitespace-nowrap text-[#CCFF00] lime-flicker">24 hours</span>.
         </motion.h1>
