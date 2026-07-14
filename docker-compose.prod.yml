@@ -16,15 +16,34 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-clipping}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env}"
+      POSTGRES_DB: "${POSTGRES_DB:-clipping}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clipping} -d ${POSTGRES_DB:-clipping}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     restart: unless-stopped
     depends_on:
       mongo:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       MONGO_URL: mongodb://mongo:27017
       DB_NAME: clipping
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-clipping}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clipping}"
+      DB_BACKEND: "${DB_BACKEND:-mongo}"
       CORS_ORIGINS: "${CORS_ORIGINS:-*}"
       SECRET_KEY: "${SECRET_KEY:?SECRET_KEY is required — set it in .env}"
       ACCESS_TOKEN_EXPIRE_MINUTES: "${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}"
@@ -75,4 +94,5 @@ services:
 
 volumes:
   mongo_data:
+  postgres_data:
   media_data:
