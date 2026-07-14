@@ -110,7 +110,7 @@ export default function Concierge() {
         <div className="py-6 flex items-center gap-3 border-b border-white/10">
           <span className="w-10 h-10 rounded-full bg-[#CCFF00] flex items-center justify-center"><Sparkles className="w-5 h-5 text-black" /></span>
           <div>
-            <h1 className="font-display font-extrabold tracking-tight">AI Clipping Concierge</h1>
+            <h1 className="text-xl sm:text-2xl font-display font-extrabold tracking-tighter">AI Clipping Concierge</h1>
             <p className="text-xs text-zinc-500">A short conversation → a complete project brief</p>
           </div>
         </div>

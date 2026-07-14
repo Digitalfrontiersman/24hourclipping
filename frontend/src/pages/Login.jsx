@@ -46,7 +46,7 @@ export default function Login() {
 
 
   return (
-    <div className="h-[calc(100svh-4rem)] overflow-hidden bg-[#0A0A0A] text-white grid lg:grid-cols-2">
+    <div className="min-h-[calc(100svh-4rem)] bg-[#0A0A0A] text-white grid lg:grid-cols-2">
       {/* LEFT - form */}
       <div className="relative flex items-center justify-center px-4 py-8 overflow-hidden grain">
         {/* radial lime glow so the form doesn't float on pure black */}

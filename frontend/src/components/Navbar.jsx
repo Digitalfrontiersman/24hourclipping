@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { ROLE_HOME, ROLE_NOUN } from "@/lib/roles";
 import { toast } from "sonner";
-import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield } from "lucide-react";
+import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -79,7 +79,7 @@ export default function Navbar() {
                   <div className="min-w-0 flex flex-col gap-0.5">
                     <span className="text-sm font-semibold truncate">{user?.name}</span>
                     <span className="text-xs text-zinc-500 font-normal truncate">{user?.email}</span>
-                    {onboarded && <span className="text-[10px] text-[#CCFF00] font-bold uppercase tracking-wide">Viewing as {ROLE_NOUN[activeRole]}</span>}
+                    {onboarded && <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide">Viewing as {ROLE_NOUN[activeRole]}</span>}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
@@ -90,6 +90,11 @@ export default function Navbar() {
                 {onboarded && (
                   <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(profileHref)}>
                     <User className="w-3.5 h-3.5" /> Profile
+                  </DropdownMenuItem>
+                )}
+                {onboarded && activeRole === "customer" && (
+                  <DropdownMenuItem data-testid="menu-billing" className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav("/customer/billing")}>
+                    <CreditCard className="w-3.5 h-3.5" /> Billing
                   </DropdownMenuItem>
                 )}
 
@@ -119,7 +124,7 @@ export default function Navbar() {
           ) : (
             <>
               <Link to="/login" data-testid="nav-login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors px-2">Log in</Link>
-              <Link to="/register" data-testid="nav-register" className="btn-lime h-9 px-5 text-sm hidden sm:flex">Sign up</Link>
+              <Link to="/register" data-testid="nav-register" className="btn-lime h-10 px-5 text-sm hidden sm:flex">Sign up</Link>
             </>
           )}
           <button className="md:hidden text-white" data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} aria-label="Menu">

@@ -168,7 +168,7 @@ export default function Onboarding() {
           <Check className="w-10 h-10 text-[#CCFF00] relative" />
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
-          className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight">You're all set{firstName !== "there" ? `, ${firstName}` : ""}.</motion.h1>
+          className="font-display font-extrabold text-3xl sm:text-4xl tracking-tighter">You're all set{firstName !== "there" ? `, ${firstName}` : ""}.</motion.h1>
         <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.28 }}
           className="text-zinc-500 mt-3 flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-[#CCFF00]" /> Opening your {roleLabel} dashboard…

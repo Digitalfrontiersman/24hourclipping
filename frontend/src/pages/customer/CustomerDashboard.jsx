@@ -165,6 +165,7 @@ export default function CustomerDashboard() {
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Available credits</span><span className="font-mono font-bold">${user.credits}</span></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Total spent</span><span className="font-mono font-bold">${spent}</span></div>
             <div className="flex justify-between text-sm py-1.5"><span className="text-zinc-500">Bond credits earned</span><span className="font-mono font-bold text-white">${bondCredits}</span></div>
+            <Link to="/customer/billing" data-testid="dash-billing-link" className="btn-ghost h-9 px-4 text-xs mt-4 w-full">View billing &amp; history</Link>
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import Checkout from "@/pages/customer/Checkout";
 import BidRoom from "@/pages/customer/BidRoom";
 import ClipRoom from "@/pages/customer/ClipRoom";
 import DeliveryReview from "@/pages/customer/DeliveryReview";
+import Billing from "@/pages/customer/Billing";
 import Onboarding from "@/pages/Onboarding";
 import ClipperDashboard from "@/pages/clipper/ClipperDashboard";
 import JobDetails from "@/pages/clipper/JobDetails";
@@ -66,6 +67,7 @@ function App() {
             <Route path="/customer/bids/:projectId" element={<Customer><BidRoom /></Customer>} />
             <Route path="/customer/clip-room/:contractId" element={<Customer><ClipRoom /></Customer>} />
             <Route path="/customer/review/:contractId" element={<Customer><DeliveryReview /></Customer>} />
+            <Route path="/customer/billing" element={<Customer><Billing /></Customer>} />
 
             {/* Clipper */}
             <Route path="/clipper" element={<Clipper><ClipperDashboard /></Clipper>} />

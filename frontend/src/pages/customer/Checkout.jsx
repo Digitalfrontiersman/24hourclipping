@@ -62,7 +62,7 @@ export default function Checkout() {
         {/* Brief */}
         <div className="card-dark p-6 sm:p-8 min-w-0">
           <span className="label-caps">Project brief - review before you fund</span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter mt-2 mb-4 break-words" data-testid="checkout-title">{p.title}</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-4 break-words" data-testid="checkout-title">{p.title}</h1>
           {p.description && <p className="text-sm text-zinc-400 mb-6 leading-relaxed break-words">{p.description}</p>}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs mb-6">
             {rows.map(([l, v]) => (

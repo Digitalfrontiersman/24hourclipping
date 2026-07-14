@@ -220,7 +220,7 @@ export default function Landing() {
                 <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I need a clip</h3>
                 <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Post your footage and vetted clippers compete to edit it - your first cut back in 24 hours.</p>
               </div>
-              <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-[#CCFF00] px-7 py-3.5 font-bold text-black">Post a project <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+              <span className="relative inline-flex items-center gap-2 mt-8 h-14 w-fit rounded-full bg-[#CCFF00] px-7 py-3.5 font-bold text-black">Post a project <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>
             <Link to="/register" data-testid="side-make-clips" className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#161616] to-black p-8 sm:p-12 min-h-[320px] flex flex-col justify-between hover:border-white/50 transition-colors">
               <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/5 blur-3xl group-hover:bg-white/15 transition-colors" />
@@ -229,7 +229,7 @@ export default function Landing() {
                 <h3 className="font-display font-extrabold text-4xl sm:text-5xl tracking-tighter mt-3">I make clips</h3>
                 <p className="text-zinc-400 mt-4 max-w-sm leading-relaxed">Bid on live jobs, ship scroll-stopping edits, and get paid - 92% yours, on Solana.</p>
               </div>
-              <span className="relative inline-flex items-center gap-2 mt-8 h-13 w-fit rounded-full bg-white px-7 py-3.5 font-bold text-black group-hover:bg-zinc-200 transition-colors">Apply as a clipper <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+              <span className="relative inline-flex items-center gap-2 mt-8 h-14 w-fit rounded-full bg-white px-7 py-3.5 font-bold text-black group-hover:bg-zinc-200 transition-colors">Apply as a clipper <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>
           </div>
         </div>

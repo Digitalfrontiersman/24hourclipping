@@ -26,7 +26,7 @@ export default function ClipperCard({ clipper }) {
           <p className="text-xs text-zinc-500 truncate">{clipper.specialty}</p>
         </div>
         {isFounding && (
-          <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-[#CCFF00] bg-[#CCFF00]/10 rounded-full px-2.5 py-1">
+          <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-zinc-300 bg-white/[0.05] border border-white/10 rounded-full px-2.5 py-1">
             Founding
           </span>
         )}

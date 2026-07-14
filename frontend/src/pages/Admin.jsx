@@ -6,7 +6,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import Avatar from "@/components/Avatar";
-import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus, Trash2, Zap } from "lucide-react";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -171,6 +171,12 @@ export default function Admin() {
                 <div key={p.id} className="card-dark p-4 flex items-center gap-4 flex-wrap">
                   <img src={p.thumbnail} alt="" className="w-16 aspect-video object-cover rounded-lg" />
                   <div className="flex-1 min-w-48"><p className="font-bold text-sm">{p.title}</p><p className="text-xs text-zinc-500">{p.customer_name} · ${p.budget} · {p.bids_count} bids · {p.funded ? "FUNDED" : "UNFUNDED"}</p></div>
+                  {!p.funded && (
+                    <button data-testid={`admin-publish-free-${p.id}`} className="btn-lime h-9 px-4 text-xs"
+                      onClick={() => dbAdapter.fundProjectFree(p.id).then(() => { notify.success("Published free", `${p.title} is live for bids`); load(); }).catch((e) => notify.urgent(e.response?.data?.detail || "Could not publish"))}>
+                      <Zap className="w-3.5 h-3.5" /> Publish free
+                    </button>
+                  )}
                   <StatusBadge status={p.status} />
                 </div>
               ))}

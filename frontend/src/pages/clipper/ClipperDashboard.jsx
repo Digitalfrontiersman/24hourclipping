@@ -119,7 +119,7 @@ export default function ClipperDashboard() {
           {me && <img src={me.avatar} alt="" className="w-14 h-14 rounded-full border-2 border-white/10" />}
           <div>
             <span className="label-caps">Clipper dashboard</span>
-            <h1 className="text-3xl font-extrabold tracking-tighter">{me?.name || "…"}</h1>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter">{me?.name || "…"}</h1>
           </div>
           <span className="ml-auto badge-live">{rep.cur.name.toUpperCase()}</span>
           {alsoCreator && (

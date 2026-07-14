@@ -1426,6 +1426,42 @@ async def my_balance(user: dict = Depends(get_current_user),
             "payout_wallet": row.payout_wallet}
 
 
+@api_router.get("/me/transactions")
+async def my_transactions(user: dict = Depends(get_current_user),
+                          session: AsyncSession = Depends(get_session)):
+    """The caller's money history: deposits they funded, tips sent/received,
+    payouts, refunds. `direction` is 'out' when the caller paid, 'in' when they
+    received. Amounts are returned in major units (dollars for usd)."""
+    uid = as_uuid(user["id"])
+    rows = (await session.scalars(
+        select(Transaction)
+        .where(or_(Transaction.from_user == uid, Transaction.to_user == uid))
+        .order_by(Transaction.created_at.desc()).limit(300))).all()
+    pids = {t.project_id for t in rows if t.project_id}
+    titles = {}
+    if pids:
+        for p in (await session.scalars(select(Project).where(Project.id.in_(pids)))).all():
+            titles[p.id] = p.title
+    out = []
+    for t in rows:
+        cur = getattr(t.currency, "value", str(t.currency))
+        amount = int(t.amount) / (10 ** _dec(cur))
+        out.append({
+            "id": str(t.id),
+            "kind": getattr(t.kind, "value", str(t.kind)),
+            "status": getattr(t.status, "value", str(t.status)),
+            "currency": cur,
+            "direction": "out" if str(t.from_user) == user["id"] else "in",
+            "amount": round(amount, 2 if cur == "usd" else 6),
+            "project_id": str(t.project_id) if t.project_id else None,
+            "project_title": titles.get(t.project_id),
+            "method": (t.meta or {}).get("provider"),
+            "reference": t.chain_sig,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        })
+    return out
+
+
 @api_router.post("/me/withdraw")
 async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("clipper", "admin")),
                    session: AsyncSession = Depends(get_session)):
@@ -2097,6 +2133,29 @@ async def admin_delete_user(user_id: str, admin: dict = Depends(require_role("ad
         raise HTTPException(409, "This user still has linked records and can't be deleted. "
                                  "Suspend them instead.")
     return {"ok": True, "deleted": name}
+
+
+@api_router.post("/admin/projects/{project_id}/fund-free")
+async def admin_fund_free(project_id: str, admin: dict = Depends(require_role("admin")),
+                          session: AsyncSession = Depends(get_session)):
+    """Publish a job live at no charge (admin comp). Mirrors the paid-funding
+    flip (funded + open) and records a comp deposit in the ledger. Idempotent via
+    the deterministic, unique chain_sig."""
+    pid = as_uuid(project_id)
+    p = await session.get(Project, pid) if pid else None
+    if not p:
+        raise HTTPException(404, "Project not found")
+    if p.funded:
+        return {"ok": True, "already": True}
+    p.funded = True
+    p.status = ProjectStatus.open
+    p.payment_method = "admin_comp"
+    session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
+                            from_user=p.owner_id, amount=_base_units(p.budget, "usd"),
+                            currency=Currency.usd, chain_sig=f"admin-comp:{p.id}",
+                            meta={"provider": "admin_comp"}))
+    await session.commit()
+    return {"ok": True}
 
 
 # ============================ AI CONCIERGE ============================

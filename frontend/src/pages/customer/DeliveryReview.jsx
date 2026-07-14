@@ -88,7 +88,7 @@ export default function DeliveryReview() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-[1.6fr_1fr] gap-8 items-start">
         <div>
           <span className="label-caps">Delivery review</span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter mt-2 mb-6">{c.project?.title}</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-6">{c.project?.title}</h1>
           {v ? (
             <video key={v.num} controls autoPlay muted className="w-full rounded-2xl border border-white/10 bg-black max-h-[480px]" src={v.url} data-testid="delivery-video" />
           ) : <div className="card-dark aspect-video flex items-center justify-center text-zinc-600">No delivery yet</div>}

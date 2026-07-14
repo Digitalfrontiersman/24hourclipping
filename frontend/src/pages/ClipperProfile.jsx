@@ -30,7 +30,7 @@ export default function ClipperProfile() {
           <img src={c.avatar} alt="" className="w-24 h-24 rounded-full object-cover border border-white/10" />
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-3xl font-extrabold tracking-tighter">{c.name}</h1>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter">{c.name}</h1>
               <BadgeCheck className="w-6 h-6 text-zinc-400" />
               <span className={`badge-live ${c.badge === "Founding Clipper" ? "text-white border-white/25" : ""}`}>{c.badge}</span>
             </div>
@@ -111,7 +111,7 @@ export default function ClipperProfile() {
         )}
 
         {!isOwner && (
-          <Link to="/customer/create" data-testid="hire-clipper-btn" className="btn-lime h-14 px-10">Post a project for {c.name.split(" ")[0]}</Link>
+          <Link to="/customer/create" data-testid="hire-clipper-btn" className="btn-lime h-12 px-10">Post a project for {c.name.split(" ")[0]}</Link>
         )}
       </div>
 

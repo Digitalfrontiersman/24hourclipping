@@ -4,6 +4,7 @@ import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { CATEGORIES } from "@/data/demoVideos";
+import { useApp } from "@/context/AppContext";
 import FileDropzone from "@/components/FileDropzone";
 import { Sparkles, Link2, ArrowRight, ArrowLeft, Zap, Image as ImageIcon, Check, SlidersHorizontal } from "lucide-react";
 
@@ -13,6 +14,8 @@ const STEPS = [{ n: 1, label: "Footage" }, { n: 2, label: "The vibe" }, { n: 3, 
 
 export default function CreateProject() {
   const nav = useNavigate();
+  const { user } = useApp();
+  const isAdmin = !!user?.roles?.includes("admin");
   // Express (one-screen, tap-and-go) is the default. "Full brief" opens the
   // 3-step wizard for people who want every knob. Smart defaults mean Express
   // only truly needs a title + budget.
@@ -61,7 +64,14 @@ export default function CreateProject() {
     try {
       const references = f.references.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
       const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), references, source_key: uploaded?.key, thumbnail_key: thumb?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
-      nav(`/customer/checkout/${p.id}`);
+      if (isAdmin) {
+        // Admins publish live at no charge - skip checkout, straight to the bid room.
+        await dbAdapter.fundProjectFree(p.id);
+        notify.success("Job published", "Live with no charge (admin). Clippers can bid now.");
+        nav(`/customer/bids/${p.id}`);
+      } else {
+        nav(`/customer/checkout/${p.id}`);
+      }
     } catch {
       notify.urgent("Could not create project");
       setSaving(false);
@@ -96,7 +106,7 @@ export default function CreateProject() {
 
             <div>
               <label className="label-caps block mb-2">What's the clip? <span className="text-[#FF4500]">*</span></label>
-              <input data-testid="express-title-input" className="input-dark h-13 text-base" placeholder="e.g. Ranked Finals Clutch Moment" value={f.title} onChange={(e) => set("title", e.target.value)} />
+              <input data-testid="express-title-input" className="input-dark h-14 text-base" placeholder="e.g. Ranked Finals Clutch Moment" value={f.title} onChange={(e) => set("title", e.target.value)} />
             </div>
 
             <div>
@@ -123,7 +133,7 @@ export default function CreateProject() {
             </div>
 
             <button data-testid="express-submit" className="btn-lime h-14 w-full text-base disabled:opacity-40 disabled:cursor-not-allowed" disabled={saving || !f.title.trim()} onClick={submit}>
-              {saving ? "Posting…" : f.title.trim() ? "Post & find clippers" : "Add a title to post"} <ArrowRight className="w-4 h-4" />
+              {saving ? "Posting…" : !f.title.trim() ? "Add a title to post" : isAdmin ? "Publish job (no charge)" : "Post & find clippers"} <ArrowRight className="w-4 h-4" />
             </button>
             <button type="button" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5" onClick={() => setMode("full")}>
               <SlidersHorizontal className="w-3.5 h-3.5" /> Want full control? Add a detailed brief
@@ -311,7 +321,7 @@ export default function CreateProject() {
             </div>
             <div className="flex gap-3">
               <button className="btn-ghost h-12 px-6" onClick={() => setStep(2)}><ArrowLeft className="w-4 h-4" /> Back</button>
-              <button data-testid="create-project-submit" className="btn-lime h-12 flex-1" disabled={saving} onClick={submit}>{saving ? "Creating…" : "Review brief & fund"} <ArrowRight className="w-4 h-4" /></button>
+              <button data-testid="create-project-submit" className="btn-lime h-12 flex-1" disabled={saving} onClick={submit}>{saving ? "Creating…" : isAdmin ? "Publish job (no charge)" : "Review brief & fund"} <ArrowRight className="w-4 h-4" /></button>
             </div>
           </div>
         )}
