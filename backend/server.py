@@ -4,7 +4,6 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import re
 import json
@@ -16,19 +15,30 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 
-from seed import seed_db, bond_for
+from collections import defaultdict
+
+from sqlalchemy import select, update, func, or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 import auth
 import storage
 import payments
-import ziina
+import square
 import solana_pay as solpay
+
+from database import get_session, init_db, SessionLocal, engine
+from models import (
+    User, UserRoleAssoc, ClipperProfile, PortfolioItem, BrandProfile,
+    Project, ProjectReference, Bid, Contract, Delivery, Review, Message,
+    Transaction, AppSetting,
+    AuthProvider, UserRole, ProjectStatus, BidStatus, ContractStatus,
+    Currency, TxnKind, TxnStatus,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -36,10 +46,18 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-NO_ID = {"_id": 0}
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+def as_uuid(val):
+    """Parse a value into a UUID, returning None on anything invalid (so a bad path
+    param surfaces as a clean 404 rather than a 500)."""
+    try:
+        return uuid.UUID(str(val))
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def client_ip(request) -> str:
@@ -50,17 +68,22 @@ def client_ip(request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-# ---- Presentation / test mode: when on, payments are simulated (no on-chain money) ----
-DEFAULT_TEST_MODE = os.environ.get("PAYMENTS_TEST_MODE", "false").lower() == "true"
+def bond_for(budget: float) -> float:
+    """Deadline bond a clipper stakes, as a function of the project budget."""
+    budget = float(budget)
+    if budget < 50:
+        return 5.0
+    if budget < 100:
+        return round(budget * 0.15, 2)
+    return round(budget * 0.20, 2)
 
-async def get_test_mode() -> bool:
-    doc = await db.settings.find_one({"_id": "app"})
-    if doc and "test_mode" in doc:
-        return bool(doc["test_mode"])
-    return DEFAULT_TEST_MODE
 
-async def set_test_mode(enabled: bool):
-    await db.settings.update_one({"_id": "app"}, {"$set": {"test_mode": bool(enabled)}}, upsert=True)
+def _dec(currency: str) -> int:
+    return {"sol": 9, "usd": 2}.get(currency, 6)
+
+
+def _base_units(amount, currency: str) -> int:
+    return int(round(float(amount) * (10 ** _dec(currency))))
 
 
 # ---- Email (SMTP e.g. Gmail app password, or Resend) ----
@@ -280,13 +303,14 @@ def _welcome_email_html(name: str, role_hint: str) -> str:
     )
 
 
+# ============================ REQUEST MODELS ============================
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=140)
     category: str = Field(max_length=60)
     description: str = Field(default="", max_length=4000)
     budget: float = Field(gt=0, le=100000)
     source_link: str = ""
-    source_key: Optional[str] = None  # uploaded source footage (object key)
+    source_key: Optional[str] = None
     source_length: str = ""
     output_length: str = "30-60s"
     aspect_ratio: str = "9:16"
@@ -299,36 +323,31 @@ class ProjectCreate(BaseModel):
     style: str = ""
     cta: str = ""
     thumbnail: Optional[str] = None
-    thumbnail_key: Optional[str] = None  # uploaded thumbnail image (object key)
+    thumbnail_key: Optional[str] = None
     customer_name: str = "Demo Customer"
-    # --- Creative direction (creator's taste + references) ---
-    references: List[str] = Field(default_factory=list)   # links to clips the creator likes
-    quality_notes: str = Field(default="", max_length=2000)  # taste / quality bar / expectations
-    # --- Deadline policy ---
-    deadline_hours: int = Field(default=24, ge=1, le=168)   # base turnaround window
-    allow_extension: bool = False   # creator lets the clipper request more time past the base deadline
+    references: List[str] = Field(default_factory=list)
+    quality_notes: str = Field(default="", max_length=2000)
+    deadline_hours: int = Field(default=24, ge=1, le=168)
+    allow_extension: bool = False
 
 class BidCreate(BaseModel):
-    clipper_id: Optional[str] = None  # ignored; identity comes from the token
+    clipper_id: Optional[str] = None
     amount: float = Field(gt=0, le=100000)
     pitch: str = Field(min_length=1, max_length=500)
     eta_hours: int = Field(gt=0, le=72)
 
 class MessageCreate(BaseModel):
-    sender: Optional[str] = None  # ignored; derived from the token
+    sender: Optional[str] = None
     text: str
 
 class DeliveryCreate(BaseModel):
     note: str = ""
     url: str = ""
-    key: Optional[str] = None  # uploaded cut (object key)
-
-class FundRequest(BaseModel):
-    payment_method: str = "usdc"
+    key: Optional[str] = None
 
 class SolanaFundRequest(BaseModel):
     signature: str
-    currency: str = "usdc"  # "usdc" | "sol"
+    currency: str = "usdc"
 
 class PayoutWalletRequest(BaseModel):
     wallet: str
@@ -336,16 +355,13 @@ class PayoutWalletRequest(BaseModel):
 class TipRequest(BaseModel):
     signature: str
     amount: float
-    currency: str = "usdc"  # "usdc" | "sol"
-
-class TestModeRequest(BaseModel):
-    enabled: bool
+    currency: str = "usdc"
 
 class RateRequest(BaseModel):
     rating: int = 5
 
 class ExtendRequest(BaseModel):
-    hours: int = Field(gt=0, le=48)   # extra time requested, capped per request
+    hours: int = Field(gt=0, le=48)
 
 class BrandProfileUpdate(BaseModel):
     name: str = ""
@@ -365,12 +381,11 @@ class BriefRequest(BaseModel):
     session_id: str
 
 
-# ============================ AUTH ============================
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=200)
     name: str = Field(min_length=1, max_length=80)
-    role: Optional[str] = None  # optional hint; real roles are chosen in onboarding
+    role: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -378,44 +393,93 @@ class LoginRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str
-    role: Optional[str] = None  # optional hint; real roles are chosen in onboarding
-
-class DemoLoginRequest(BaseModel):
-    role: str = "customer"
+    role: Optional[str] = None
 
 class SwitchRoleRequest(BaseModel):
-    role: str  # the capability to make the active mode ("customer" | "clipper" | "admin")
+    role: str
 
 class OnboardingRequest(BaseModel):
-    roles: List[str] = []            # subset of {"customer", "clipper"}
-    active_role: Optional[str] = None  # which dashboard to land in (defaults to first role)
-    # Creator brand basics (all optional) - seeds a brand profile.
+    roles: List[str] = []
+    active_role: Optional[str] = None
     brand_name: str = ""
     niche: str = ""
     content_type: str = ""
     platforms: str = ""
     audience: str = ""
-    # Clipper basics (all optional).
     specialties: List[str] = []
     tools: List[str] = []
     samples: List[str] = []
     payout_wallet: str = ""
 
 
-DEMO_USERS = {
-    "customer": {"id": "demo-customer", "email": "customer@demo.24hrclipping.com", "name": "Aria Chen", "role": "customer", "roles": ["customer"], "onboarded": True, "credits": 150},
-    "clipper":  {"id": "clipper-1",     "email": "clipper@demo.24hrclipping.com",  "name": "Maya Torres", "role": "clipper", "roles": ["clipper"], "onboarded": True, "credits": 0},
-    "admin":    {"id": "demo-admin",    "email": "admin@demo.24hrclipping.com",    "name": "Demo Admin",  "role": "admin",  "roles": ["customer", "clipper", "admin"], "onboarded": True, "credits": 0},
-}
+class ClipperProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    specialty: Optional[str] = None
+    price_range: Optional[str] = None
+    tools: Optional[List[str]] = None
+    bio: Optional[str] = None
+    avatar_key: Optional[str] = None
+    avatar_url: Optional[str] = None
 
+
+# ============================ AUTH / IDENTITY HELPERS ============================
+ROLE_ORDER = ["customer", "clipper", "admin"]
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _roles_list(user_row: User) -> list:
+    """Order-normalised capability list. Only call on a User loaded with
+    selectinload(User.roles) - accessing the relationship lazily is not
+    allowed under async SQLAlchemy."""
+    held = {r.role.value for r in (user_row.roles or [])}
+    return [r for r in ROLE_ORDER if r in held]
+
+
+def _order_roles(role_values) -> list:
+    held = set(role_values)
+    return [r for r in ROLE_ORDER if r in held]
+
+
+async def _load_role_values(session: AsyncSession, user_id) -> set:
+    """Async-safe read of a user's capabilities straight from the join table."""
+    return set(await session.scalars(
+        select(UserRoleAssoc.role).where(UserRoleAssoc.user_id == user_id)))
+
+
+def _user_to_dict(user_row: User, active_role: Optional[str] = None,
+                  roles: Optional[list] = None) -> dict:
+    """Mirror the legacy Mongo user document shape so `user_roles`, `public_user`,
+    `require_role`, and every endpoint keep working unchanged. The active `role`
+    lives only in the JWT now (there is no active-role column); we thread it in.
+    `roles` MUST be supplied unless `user_row` was loaded with selectinload(User.roles)."""
+    if roles is None:
+        roles = _roles_list(user_row)
+    if active_role:
+        active = active_role
+    elif roles:
+        active = roles[0]
+    else:
+        active = "customer"
+    return {
+        "id": str(user_row.id),
+        "email": user_row.email,
+        "name": user_row.name,
+        "role": active,
+        "roles": roles,
+        "onboarded": bool(user_row.onboarded),
+        "credits": user_row.credits,
+        "avatar": user_row.avatar_url,
+        "payout_wallet": user_row.payout_wallet,
+        "hashed_password": user_row.hashed_password,
+        "auth_provider": user_row.auth_provider.value if user_row.auth_provider else "local",
+        "disabled": bool(user_row.disabled),
+        "created_at": user_row.created_at.isoformat() if user_row.created_at else None,
+    }
+
+
 def user_roles(u: dict) -> list:
-    """Capabilities the account holds. Back-compat: only when the `roles` key is
-    ABSENT (a pre-multi-role doc) do we derive it from the legacy single `role`.
-    An explicit empty list means "registered but not yet onboarded" - no
-    capabilities - and must NOT fall back."""
+    """Capabilities the account holds. An explicit empty list means "registered but
+    not yet onboarded" - no capabilities."""
     roles = u.get("roles")
     if roles is None:
         return [u["role"]] if u.get("role") else []
@@ -429,34 +493,41 @@ def public_user(u: dict) -> dict:
             "payout_wallet": u.get("payout_wallet")}
 
 
-async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)) -> dict:
+async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+                           session: AsyncSession = Depends(get_session)) -> dict:
     if not creds:
         raise HTTPException(401, "Not authenticated")
     try:
         payload = auth.decode_access_token(creds.credentials)
     except Exception:
         raise HTTPException(401, "Invalid or expired token")
-    u = await db.users.find_one({"id": payload.get("sub")}, NO_ID)
-    if not u or u.get("disabled"):
+    uid = as_uuid(payload.get("sub"))
+    row = await session.scalar(
+        select(User).options(selectinload(User.roles)).where(User.id == uid)) if uid else None
+    if not row or row.disabled:
         raise HTTPException(401, "User not found")
-    return u
+    return _user_to_dict(row, active_role=payload.get("role"))
 
 
-async def get_current_user_optional(creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)):
+async def get_current_user_optional(creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+                                    session: AsyncSession = Depends(get_session)):
     if not creds:
         return None
     try:
         payload = auth.decode_access_token(creds.credentials)
-        return await db.users.find_one({"id": payload.get("sub")}, NO_ID)
+        uid = as_uuid(payload.get("sub"))
+        row = await session.scalar(
+            select(User).options(selectinload(User.roles)).where(User.id == uid)) if uid else None
+        if not row or row.disabled:
+            return None
+        return _user_to_dict(row, active_role=payload.get("role"))
     except Exception:
         return None
 
 
 def require_role(*roles):
     """Capability-based gate: the account must hold at least one of `roles`
-    (admin always passes). Active mode (`role`) no longer gates access - a
-    "both" account can hit customer and clipper endpoints regardless of the
-    dashboard it's currently viewing."""
+    (admin always passes)."""
     async def dep(user: dict = Depends(get_current_user)) -> dict:
         held = set(user_roles(user))
         if "admin" in held or held & set(roles):
@@ -465,117 +536,407 @@ def require_role(*roles):
     return dep
 
 
-async def _require_project_owner(project_id: str, user: dict) -> dict:
-    p = await db.projects.find_one({"id": project_id}, NO_ID)
+async def _require_project_owner(session: AsyncSession, project_id: str, user: dict) -> Project:
+    pid = as_uuid(project_id)
+    p = await session.get(Project, pid) if pid else None
     if not p:
         raise HTTPException(404, "Project not found")
-    if "admin" not in user_roles(user) and p.get("owner_id") != user["id"]:
+    if "admin" not in user_roles(user) and str(p.owner_id) != user["id"]:
         raise HTTPException(403, "You do not own this project")
     return p
 
 
-async def _require_contract_party(contract_id: str, user: dict, allow=("customer", "clipper")) -> dict:
-    c = await db.contracts.find_one({"id": contract_id}, NO_ID)
+async def _require_contract_party(session: AsyncSession, contract_id: str, user: dict,
+                                  allow=("customer", "clipper")) -> Contract:
+    cid = as_uuid(contract_id)
+    c = await session.get(Contract, cid) if cid else None
     if not c:
         raise HTTPException(404, "Contract not found")
     if "admin" in user_roles(user):
         return c
-    proj = await db.projects.find_one({"id": c["project_id"]}, NO_ID) or {}
-    is_customer = proj.get("owner_id") == user["id"]
-    is_clipper = c.get("clipper_id") == user["id"]
+    proj = await session.get(Project, c.project_id)
+    is_customer = proj is not None and str(proj.owner_id) == user["id"]
+    is_clipper = str(c.clipper_id) == user["id"]
     if ("customer" in allow and is_customer) or ("clipper" in allow and is_clipper):
         return c
     raise HTTPException(403, "You are not a party to this contract")
 
 
 async def _issue(user: dict) -> dict:
-    token = auth.create_access_token(user["id"], user["role"])
+    token = auth.create_access_token(user["id"], user.get("role") or "customer")
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 
-async def _ensure_clipper_profile(user: dict):
-    if "clipper" not in user_roles(user) or await db.clippers.find_one({"id": user["id"]}):
+async def _ensure_clipper_profile_row(session: AsyncSession, user_row: User) -> ClipperProfile:
+    existing = await session.get(ClipperProfile, user_row.id)
+    if existing:
+        return existing
+    prof = ClipperProfile(
+        user_id=user_row.id, specialty="New Clipper", tools=[], rating=0,
+        on_time_pct=100, completed_jobs=0, missed_deadlines=0, status="approved",
+        price_min=20, price_max=100, badge="New",
+    )
+    session.add(prof)
+    await session.flush()
+    return prof
+
+
+async def _ensure_roles(session: AsyncSession, user_id, roles) -> set:
+    """Add any missing role assocs for the user (async-safe: queries the join
+    table directly rather than touching the User.roles relationship). Returns the
+    full set of role enums the user holds after the call."""
+    have = await _load_role_values(session, user_id)
+    for r in roles:
+        er = UserRole(r)
+        if er not in have:
+            session.add(UserRoleAssoc(user_id=user_id, role=er))
+            have.add(er)
+    return have
+
+
+# ============================ SERIALIZERS ============================
+def _parse_price_range(s):
+    nums = re.findall(r"\d+(?:\.\d+)?", s or "")
+    if len(nums) >= 2:
+        return float(nums[0]), float(nums[1])
+    if len(nums) == 1:
+        return float(nums[0]), float(nums[0])
+    return None, None
+
+
+def _price_range_str(prof: ClipperProfile) -> str:
+    if prof.price_min is not None and prof.price_max is not None:
+        return f"${int(prof.price_min)}-${int(prof.price_max)}"
+    return "$20-$100"
+
+
+def clipper_public(profile: Optional[ClipperProfile], user: Optional[User]) -> Optional[dict]:
+    if not profile:
+        return None
+    uid = str(profile.user_id)
+    return {
+        "id": uid,
+        "name": user.name if user else "",
+        "avatar": (user.avatar_url if user else None) or f"https://i.pravatar.cc/150?u={uid}",
+        "specialty": profile.specialty or "New Clipper",
+        "rating": float(profile.rating or 0),
+        "on_time_pct": profile.on_time_pct,
+        "completed_jobs": profile.completed_jobs,
+        "price_range": _price_range_str(profile),
+        "badge": profile.badge or "New",
+        "missed_deadlines": profile.missed_deadlines,
+        "repeat_clients": 0,
+        "ratings": {"editing": 0, "brief_match": 0, "communication": 0},
+        "earnings": 0,
+        "bond_balance": 0,
+        "tools": list(profile.tools or []),
+        "portfolio": [
+            {"title": p.title, "thumb": p.thumb_url, "video_url": p.video_url, "url": p.video_url}
+            for p in sorted(profile.portfolio or [], key=lambda x: x.position)
+        ],
+        "reviews": [],
+        "status": profile.status,
+        "bio": profile.bio or "",
+        "payout_wallet": user.payout_wallet if user else None,
+    }
+
+
+def project_public(p: Project, customer_name: Optional[str] = None, bids_count: int = 0) -> dict:
+    return {
+        "id": str(p.id),
+        "owner_id": str(p.owner_id),
+        "title": p.title,
+        "category": p.category,
+        "description": p.description or "",
+        "budget": float(p.budget),
+        "bond": float(p.bond or 0),
+        "status": p.status.value,
+        "funded": bool(p.funded),
+        "output_length": p.output_length,
+        "aspect_ratio": p.aspect_ratio,
+        "captions": p.captions,
+        "platform": p.platform,
+        "moment_mode": p.moment_mode,
+        "goal": p.goal,
+        "audience": p.audience,
+        "mood": p.mood,
+        "style": p.style,
+        "cta": p.cta,
+        "source_link": p.source_link,
+        "source_key": p.source_key,
+        "source_length": p.source_length,
+        "quality_notes": p.quality_notes,
+        "deadline_hours": p.deadline_hours,
+        "allow_extension": bool(p.allow_extension),
+        "payment_method": p.payment_method,
+        "references": [r.url for r in sorted(p.references or [], key=lambda r: r.position)],
+        "thumbnail": p.thumbnail_url,
+        "customer_name": customer_name,
+        "bids_count": bids_count or 0,
+        "timestamp_provided": p.moment_mode == "known",
+        "posted_at": p.created_at.isoformat() if p.created_at else None,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+def bid_public(b: Bid) -> dict:
+    return {
+        "id": str(b.id),
+        "project_id": str(b.project_id),
+        "clipper_id": str(b.clipper_id),
+        "amount": float(b.amount),
+        "pitch": b.pitch,
+        "eta_hours": b.eta_hours,
+        "bond_required": float(b.bond_required or 0),
+        "status": b.status.value,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+    }
+
+
+def _version_json(d: Delivery) -> dict:
+    return {
+        "num": d.version,
+        "key": d.object_key,
+        "url": storage.sign_media_url(d.object_key) if d.object_key else d.url,
+        "thumb": d.thumb_url,
+        "note": d.note,
+        "submitted_at": d.submitted_at.isoformat() if d.submitted_at else None,
+    }
+
+
+def contract_public(c: Contract, deliveries: Optional[list] = None) -> dict:
+    """Serialize a contract. `deliveries` is passed in explicitly (batch-loaded by
+    the caller) so we never lazy-load the relationship under async."""
+    return {
+        "id": str(c.id),
+        "bid_id": str(c.bid_id),
+        "project_id": str(c.project_id),
+        "clipper_id": str(c.clipper_id),
+        "price": float(c.price),
+        "bond": float(c.bond or 0),
+        "status": c.status.value,
+        "base_hours": c.base_hours,
+        "extended_hours": c.extended_hours,
+        "allow_extension": bool(c.allow_extension),
+        "started_at": c.started_at.isoformat() if c.started_at else None,
+        "deadline_at": c.deadline_at.isoformat() if c.deadline_at else None,
+        "rating_given": c.rating_given,
+        "payment_method": c.payment_method,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "versions": [_version_json(d) for d in sorted(deliveries or [], key=lambda d: d.version)],
+    }
+
+
+def message_public(m: Message, sender_name: Optional[str] = None) -> dict:
+    d = {
+        "id": str(m.id),
+        "sender": m.sender_role.value,
+        "sender_name": sender_name,
+        "text": m.text,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+    if m.contract_id:
+        d["contract_id"] = str(m.contract_id)
+    if m.bid_id:
+        d["bid_id"] = str(m.bid_id)
+    return d
+
+
+def brand_public(bp: BrandProfile) -> dict:
+    return {
+        "id": str(bp.id),
+        "owner": str(bp.owner_id),
+        "owner_id": str(bp.owner_id),
+        "name": bp.name,
+        "description": bp.description,
+        "audience": bp.audience,
+        "caption_style": bp.caption_style,
+        "pacing": bp.pacing,
+        "cta": bp.cta,
+        "avoid": bp.avoid,
+        "fonts": bp.fonts,
+        "colors": list(bp.colors or []),
+    }
+
+
+def _admin_user_json(u: User) -> dict:
+    roles = _roles_list(u)
+    return {
+        "id": str(u.id),
+        "email": u.email,
+        "name": u.name,
+        "role": roles[0] if roles else None,
+        "roles": roles,
+        "onboarded": bool(u.onboarded),
+        "credits": u.credits,
+        "disabled": bool(u.disabled),
+        "avatar": u.avatar_url,
+        "auth_provider": u.auth_provider.value if u.auth_provider else "local",
+        "payout_wallet": u.payout_wallet,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+    }
+
+
+# ---- batch enrichment ----
+async def attach_clipper(session: AsyncSession, items: list) -> list:
+    ids = {as_uuid(i["clipper_id"]) for i in items if i.get("clipper_id")}
+    ids.discard(None)
+    if not ids:
+        for i in items:
+            i["clipper"] = None
+        return items
+    profs = {p.user_id: p for p in await session.scalars(
+        select(ClipperProfile).options(selectinload(ClipperProfile.portfolio))
+        .where(ClipperProfile.user_id.in_(ids)))}
+    users = {u.id: u for u in await session.scalars(
+        select(User).where(User.id.in_(ids)))}
+    for i in items:
+        cid = as_uuid(i.get("clipper_id"))
+        i["clipper"] = clipper_public(profs.get(cid), users.get(cid))
+    return items
+
+
+async def serialize_projects(session: AsyncSession, projects: list) -> list:
+    if not projects:
+        return []
+    owner_ids = {p.owner_id for p in projects}
+    pids = [p.id for p in projects]
+    names = dict((await session.execute(
+        select(User.id, User.name).where(User.id.in_(owner_ids)))).all())
+    counts = dict((await session.execute(
+        select(Bid.project_id, func.count()).where(Bid.project_id.in_(pids)).group_by(Bid.project_id))).all())
+    return [project_public(p, names.get(p.owner_id), counts.get(p.id, 0)) for p in projects]
+
+
+async def serialize_project(session: AsyncSession, p: Project) -> dict:
+    name = await session.scalar(select(User.name).where(User.id == p.owner_id))
+    cnt = await session.scalar(select(func.count()).select_from(Bid).where(Bid.project_id == p.id))
+    return project_public(p, name, cnt or 0)
+
+
+async def _attach_payouts(session: AsyncSession, contracts_json: list) -> None:
+    ids = {as_uuid(c["id"]) for c in contracts_json}
+    ids.discard(None)
+    if not ids:
         return
-    await db.clippers.insert_one({
-        "id": user["id"], "name": user["name"],
-        "avatar": user.get("avatar") or f"https://i.pravatar.cc/150?u={user['id']}",
-        "specialty": "New Clipper", "rating": 0, "on_time_pct": 100, "completed_jobs": 0,
-        "price_range": "$20-$100", "badge": "New", "missed_deadlines": 0, "repeat_clients": 0,
-        "ratings": {"editing": 0, "brief_match": 0, "communication": 0}, "earnings": 0,
-        "bond_balance": 0, "tools": [], "portfolio": [], "reviews": [], "status": "approved",
-    })
+    txns = await session.scalars(select(Transaction).where(
+        Transaction.kind == TxnKind.payout, Transaction.contract_id.in_(ids)))
+    m = {t.contract_id: t for t in txns}
+    for c in contracts_json:
+        t = m.get(as_uuid(c["id"]))
+        if t:
+            meta = t.meta or {}
+            c["payout_sig"] = t.chain_sig
+            c["payout_currency"] = t.currency.value
+            c["payout_amount"] = meta.get("clipper")
+            c["fee_amount"] = meta.get("fee")
+            c["payout_wallet"] = meta.get("wallet")
+            c["payout_at"] = meta.get("at")
 
 
+async def enrich_contracts(session: AsyncSession, rows: list) -> list:
+    cids = [c.id for c in rows]
+    # Batch-load deliveries by contract (never lazy-load off the passed rows,
+    # which may be freshly created or fetched via session.get).
+    dmap = defaultdict(list)
+    if cids:
+        for d in await session.scalars(select(Delivery).where(Delivery.contract_id.in_(cids))):
+            dmap[d.contract_id].append(d)
+    data = [contract_public(c, dmap.get(c.id, [])) for c in rows]
+    await attach_clipper(session, data)
+    pids = {c.project_id for c in rows}
+    proj_rows = list(await session.scalars(
+        select(Project).options(selectinload(Project.references))
+        .where(Project.id.in_(pids)))) if pids else []
+    serialized = await serialize_projects(session, proj_rows)
+    pmap = {as_uuid(pj["id"]): pj for pj in serialized}
+    for d in data:
+        d["project"] = pmap.get(as_uuid(d["project_id"]))
+    await _attach_payouts(session, data)
+    return data
+
+
+async def serialize_messages(session: AsyncSession, rows: list) -> list:
+    sender_ids = {m.sender_id for m in rows}
+    names = {}
+    if sender_ids:
+        names = dict((await session.execute(
+            select(User.id, User.name).where(User.id.in_(sender_ids)))).all())
+    return [message_public(m, names.get(m.sender_id)) for m in rows]
+
+
+# ---- settings (K/V used for payment intents + AI concierge history) ----
+async def _get_setting(session: AsyncSession, key: str):
+    s = await session.get(AppSetting, key)
+    return s.value if s else None
+
+
+async def _set_setting(session: AsyncSession, key: str, value: dict):
+    s = await session.get(AppSetting, key)
+    if s:
+        s.value = value
+    else:
+        session.add(AppSetting(key=key, value=value))
+
+
+# ============================ STARTUP HELPERS ============================
 async def ensure_auth_setup():
-    await db.users.create_index("email", unique=True)
-    for role, u in DEMO_USERS.items():
-        await db.users.update_one(
-            {"id": u["id"]},
-            {"$setOnInsert": {**u, "auth_provider": "demo", "hashed_password": None,
-                              "disabled": False, "created_at": now_iso()}},
-            upsert=True)
-    # Backfill: any pre-multi-role user gets roles=[legacy role] and is treated
-    # as already onboarded so existing accounts are never locked out or forced
-    # back through the wizard.
-    async for u in db.users.find({"roles": {"$exists": False}}, {"id": 1, "role": 1}):
-        await db.users.update_one(
-            {"id": u["id"]},
-            {"$set": {"roles": [u["role"]] if u.get("role") else [], "onboarded": True}})
+    """Ensure the real admin account exists in Postgres. No demo users, no seeding."""
     admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     admin_pw = os.environ.get("ADMIN_PASSWORD", "")
-    if admin_email and admin_pw:
-        admin_fields = {"hashed_password": auth.hash_password(admin_pw), "role": "admin",
-                        "roles": ["customer", "clipper", "admin"], "onboarded": True, "disabled": False}
-        existing = await db.users.find_one({"email": admin_email})
-        if existing:
-            await db.users.update_one({"email": admin_email}, {"$set": admin_fields})
-        else:
-            await db.users.insert_one({"id": str(uuid.uuid4()), "email": admin_email, "name": "Administrator",
-                                       "credits": 0, "auth_provider": "local", "created_at": now_iso(),
-                                       **admin_fields})
-        logger.info("Admin account ensured for %s", admin_email)
-    else:
+    if not (admin_email and admin_pw):
         logger.warning("ADMIN_EMAIL / ADMIN_PASSWORD not set - no real admin account provisioned.")
+        return
+    async with SessionLocal() as session:
+        row = await session.scalar(select(User).where(User.email == admin_email))
+        if row:
+            row.hashed_password = auth.hash_password(admin_pw)
+            row.onboarded = True
+            row.disabled = False
+        else:
+            row = User(email=admin_email, name="Administrator",
+                       hashed_password=auth.hash_password(admin_pw),
+                       auth_provider=AuthProvider.local, onboarded=True, credits=0)
+            session.add(row)
+            await session.flush()
+        await _ensure_roles(session, row.id, ["customer", "clipper", "admin"])
+        await session.commit()
+        logger.info("Admin account ensured for %s", admin_email)
 
 
+# ============================ AUTH ENDPOINTS ============================
 @api_router.post("/auth/register")
-async def register(body: RegisterRequest, request: Request):
+async def register(body: RegisterRequest, request: Request, session: AsyncSession = Depends(get_session)):
     if not auth.rate_limit(f"reg:{client_ip(request)}", 10, 3600):
         raise HTTPException(429, "Too many attempts. Please try again later.")
-    # Real capabilities are chosen in onboarding; `body.role` is only a UI hint
-    # for the default dashboard. New accounts start with no capabilities and are
-    # routed through the wizard.
     hint = body.role if body.role in ("customer", "clipper") else "customer"
     email = body.email.lower()
-    if await db.users.find_one({"email": email}):
+    if await session.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "An account with this email already exists")
-    user = {
-        "id": str(uuid.uuid4()), "email": email, "name": body.name.strip(), "role": hint,
-        "roles": [], "onboarded": False,
-        "hashed_password": auth.hash_password(body.password), "auth_provider": "local",
-        "credits": 0, "disabled": False, "created_at": now_iso(),
-    }
-    await db.users.insert_one(dict(user))
-    # Fire-and-forget welcome email (no-op if no email provider is configured).
+    row = User(email=email, name=body.name.strip(), hashed_password=auth.hash_password(body.password),
+               auth_provider=AuthProvider.local, credits=0, onboarded=False, disabled=False)
+    session.add(row)
+    await session.commit()
     try:
-        html = _welcome_email_html(user["name"] or "there", hint)
-        asyncio.create_task(asyncio.to_thread(
-            send_email, email, "Welcome to 24 Hour Clipping", html))
+        html = _welcome_email_html(row.name or "there", hint)
+        asyncio.create_task(asyncio.to_thread(send_email, email, "Welcome to 24 Hour Clipping", html))
     except Exception as e:
         logger.error("Welcome email dispatch failed: %s", e)
-    return await _issue(user)
+    # Brand-new account: no capabilities yet (roles chosen in onboarding).
+    return await _issue(_user_to_dict(row, active_role=hint, roles=[]))
 
 
 @api_router.post("/auth/login")
-async def login(body: LoginRequest, request: Request):
+async def login(body: LoginRequest, request: Request, session: AsyncSession = Depends(get_session)):
     if not auth.rate_limit(f"login:{client_ip(request)}", 15, 900):
         raise HTTPException(429, "Too many attempts. Please try again later.")
-    user = await db.users.find_one({"email": body.email.lower()})
-    if not user or not auth.verify_password(body.password, user.get("hashed_password")):
+    row = await session.scalar(select(User).options(selectinload(User.roles))
+                               .where(User.email == body.email.lower()))
+    if not row or not auth.verify_password(body.password, row.hashed_password):
         raise HTTPException(401, "Invalid email or password")
-    if user.get("disabled"):
+    if row.disabled:
         raise HTTPException(403, "Account disabled")
-    return await _issue(user)
+    return await _issue(_user_to_dict(row))
 
 
 @api_router.get("/auth/me")
@@ -585,66 +946,62 @@ async def me(user: dict = Depends(get_current_user)):
 
 @api_router.post("/auth/switch-role")
 async def switch_role(body: SwitchRoleRequest, user: dict = Depends(get_current_user)):
-    """Flip the active dashboard mode for a multi-role account. Re-issues a JWT
-    whose active `role` is the requested capability. No re-login, no password."""
+    """Flip the active dashboard mode for a multi-role account. Re-issues a JWT whose
+    active `role` is the requested capability. The active role lives only in the token."""
     if body.role not in user_roles(user):
         raise HTTPException(403, "You don't have that role")
-    await db.users.update_one({"id": user["id"]}, {"$set": {"role": body.role}})
     user["role"] = body.role
     return await _issue(user)
 
 
 @api_router.post("/auth/onboarding")
-async def complete_onboarding(body: OnboardingRequest, user: dict = Depends(get_current_user)):
+async def complete_onboarding(body: OnboardingRequest, user: dict = Depends(get_current_user),
+                              session: AsyncSession = Depends(get_session)):
     """Finish signup: set the account's capabilities, seed a brand profile and/or
     clipper profile, grant customer credits once, and mark onboarded."""
     roles = [r for r in ("customer", "clipper") if r in body.roles]
     if not roles:
         raise HTTPException(400, "Pick at least one role")
-    # Preserve any existing capabilities (e.g. admin) and add the new ones.
-    prev = set(user_roles(user))
-    merged = list(prev | set(roles))
-    active = body.active_role if body.active_role in merged else roles[0]
-
-    update = {"roles": merged, "onboarded": True, "role": active}
-    # Grant the customer starter credits only the first time customer is added.
-    if "customer" in roles and "customer" not in prev and not user.get("credits"):
-        update["credits"] = 150
+    uid = as_uuid(user["id"])
+    row = await session.get(User, uid)
+    if not row:
+        raise HTTPException(401, "User not found")
+    prev = {r.value for r in await _load_role_values(session, uid)}
+    await _ensure_roles(session, uid, roles)
+    row.onboarded = True
+    if "customer" in roles and "customer" not in prev and not row.credits:
+        row.credits = 150
     if body.payout_wallet.strip():
-        update["payout_wallet"] = body.payout_wallet.strip()
-    await db.users.update_one({"id": user["id"]}, {"$set": update})
-    user.update(update)
+        row.payout_wallet = body.payout_wallet.strip()
 
-    # Seed a brand profile from the creator answers (id is deterministic per user).
     if "customer" in roles and (body.brand_name or body.niche or body.content_type):
-        pid = f"brand-{user['id']}"
-        if not await db.brand_profiles.find_one({"id": pid}):
-            await db.brand_profiles.insert_one({
-                "id": pid, "owner": user["id"],
-                "name": body.brand_name or user.get("name", ""),
-                "description": body.niche, "audience": body.audience,
-                "caption_style": "", "pacing": "", "cta": "", "avoid": "",
-                "fonts": "", "content_type": body.content_type, "platforms": body.platforms,
-            })
+        exists = await session.scalar(select(BrandProfile.id).where(BrandProfile.owner_id == uid))
+        if not exists:
+            session.add(BrandProfile(owner_id=uid, name=body.brand_name or row.name,
+                                     description=body.niche, audience=body.audience))
 
-    # Ensure the clipper profile exists, then apply any specialties/tools/samples.
     if "clipper" in roles:
-        await _ensure_clipper_profile(user)
-        clip_update = {}
+        # Load the profile (with portfolio) so replacing samples is async-safe.
+        prof = await session.scalar(select(ClipperProfile)
+                                    .options(selectinload(ClipperProfile.portfolio))
+                                    .where(ClipperProfile.user_id == uid))
+        if not prof:
+            prof = await _ensure_clipper_profile_row(session, row)
         if body.specialties:
-            clip_update["specialty"] = ", ".join(body.specialties[:3])
+            prof.specialty = ", ".join(body.specialties[:3])
         if body.tools:
-            clip_update["tools"] = body.tools
+            prof.tools = body.tools
         if body.samples:
-            clip_update["portfolio"] = [{"url": s} for s in body.samples]
-        if clip_update:
-            await db.clippers.update_one({"id": user["id"]}, {"$set": clip_update})
+            prof.portfolio = [PortfolioItem(video_url=s, position=i) for i, s in enumerate(body.samples)]
 
-    return await _issue(user)
+    await session.commit()
+    merged = prev | set(roles)
+    active = body.active_role if body.active_role in merged else roles[0]
+    return await _issue(_user_to_dict(row, active_role=active, roles=_order_roles(merged)))
 
 
 @api_router.post("/auth/google")
-async def google_auth(body: GoogleAuthRequest):
+async def google_auth(body: GoogleAuthRequest, session: AsyncSession = Depends(get_session)):
     try:
         info = auth.verify_google_credential(body.credential)
     except RuntimeError:
@@ -652,50 +1009,38 @@ async def google_auth(body: GoogleAuthRequest):
     except Exception:
         raise HTTPException(401, "Invalid Google credential")
     email = info["email"].lower()
-    user = await db.users.find_one({"email": email})
-    if not user:
-        hint = body.role if body.role in ("customer", "clipper") else "customer"
-        user = {
-            "id": str(uuid.uuid4()), "email": email,
-            "name": info.get("name") or email.split("@")[0], "role": hint,
-            "roles": [], "onboarded": False,
-            "hashed_password": None, "auth_provider": "google", "avatar": info.get("picture"),
-            "credits": 0, "disabled": False, "created_at": now_iso(),
-        }
-        await db.users.insert_one(dict(user))
-    if user.get("disabled"):
+    row = await session.scalar(select(User).options(selectinload(User.roles))
+                               .where(User.email == email))
+    hint = body.role if body.role in ("customer", "clipper") else "customer"
+    if not row:
+        row = User(email=email, name=info.get("name") or email.split("@")[0],
+                   auth_provider=AuthProvider.google, avatar_url=info.get("picture"),
+                   credits=0, onboarded=False, disabled=False)
+        session.add(row)
+        await session.commit()
+        # Fresh account: no capabilities yet.
+        return await _issue(_user_to_dict(row, active_role=hint, roles=[]))
+    if row.disabled:
         raise HTTPException(403, "Account disabled")
-    return await _issue(user)
-
-
-@api_router.post("/auth/demo")
-async def demo_login(body: DemoLoginRequest):
-    if os.environ.get("ENABLE_DEMO_LOGIN", "true").lower() != "true":
-        raise HTTPException(403, "Demo login is disabled")
-    role = body.role if body.role in DEMO_USERS else "customer"
-    if role == "admin" and os.environ.get("ENABLE_DEMO_ADMIN", "false").lower() != "true":
-        raise HTTPException(403, "Demo admin access is disabled")
-    u = await db.users.find_one({"id": DEMO_USERS[role]["id"]})
-    if not u:
-        raise HTTPException(404, "Demo user unavailable")
-    return await _issue(u)
+    roles = _roles_list(row)
+    return await _issue(_user_to_dict(row, active_role=hint if not roles else None, roles=roles))
 # ========================== END AUTH ==========================
 
 
 # ============================ MEDIA / UPLOADS ============================
 @api_router.post("/uploads")
 async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = Form(None),
-                       file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+                       file: UploadFile = File(...), user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
     ext = os.path.splitext(file.filename or "")[1].lower()
     ext = ext if len(ext) <= 10 and ext.startswith(".") else ""
     uid = uuid.uuid4().hex
     if kind == "delivery":
         if not contract_id:
             raise HTTPException(400, "contract_id required for a delivery upload")
-        await _require_contract_party(contract_id, user, allow=("clipper",))
+        await _require_contract_party(session, contract_id, user, allow=("clipper",))
         key = f"deliveries/{contract_id}/{uid}{ext}"
     elif kind == "avatar":
-        # Profile pictures - any authenticated user may set their own.
         if not (file.content_type or "").startswith("image/"):
             raise HTTPException(415, "Avatar must be an image")
         key = f"avatars/{user['id']}/{uid}{ext}"
@@ -712,7 +1057,6 @@ async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = 
 
 @api_router.get("/media/{key:path}")
 async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = None):
-    # The signature is the capability - authorization happened when it was minted.
     if not storage.verify_media(key, exp, sig):
         raise HTTPException(403, "Invalid or expired media link")
     path = storage.safe_path(key)
@@ -722,186 +1066,131 @@ async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = No
 
 
 @api_router.get("/projects/{project_id}/source-url")
-async def project_source_url(project_id: str, user: dict = Depends(get_current_user)):
-    p = await db.projects.find_one({"id": project_id}, NO_ID)
+async def project_source_url(project_id: str, user: dict = Depends(get_current_user),
+                             session: AsyncSession = Depends(get_session)):
+    pid = as_uuid(project_id)
+    p = await session.get(Project, pid) if pid else None
     if not p:
         raise HTTPException(404, "Project not found")
-    if not p.get("source_key"):
+    if not p.source_key:
         raise HTTPException(404, "No uploaded source footage")
-    allowed = "admin" in user_roles(user) or p.get("owner_id") == user["id"]
+    allowed = "admin" in user_roles(user) or str(p.owner_id) == user["id"]
     if not allowed:
-        # A clipper who has bid on or holds a contract for this project may fetch it.
-        has_bid = await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"]})
-        has_contract = await db.contracts.find_one({"project_id": project_id, "clipper_id": user["id"]})
+        uid = as_uuid(user["id"])
+        has_bid = await session.scalar(select(Bid.id).where(
+            Bid.project_id == p.id, Bid.clipper_id == uid))
+        has_contract = await session.scalar(select(Contract.id).where(
+            Contract.project_id == p.id, Contract.clipper_id == uid))
         allowed = bool(has_bid or has_contract)
     if not allowed:
         raise HTTPException(403, "Not authorized to access this footage")
-    return {"url": storage.sign_media_url(p["source_key"])}
+    return {"url": storage.sign_media_url(p.source_key)}
 # ========================== END MEDIA / UPLOADS ==========================
-
-
-def _sign_versions(version: dict) -> dict:
-    """Replace a delivered version's stored key with a fresh signed playback URL."""
-    if version.get("key"):
-        version["url"] = storage.sign_media_url(version["key"])
-    return version
-
-
-def _sign_contract_media(contract: dict) -> dict:
-    for v in (contract.get("versions") or []):
-        _sign_versions(v)
-    return contract
-
-
-def _sign_clipper(c):
-    """If the clipper uploaded an avatar, serve it via a fresh signed media URL."""
-    if c and c.get("avatar_key"):
-        c["avatar"] = storage.sign_media_url(c["avatar_key"])
-    return c
-
-
-async def attach_clipper(items):
-    ids = list({i["clipper_id"] for i in items})
-    clippers = await db.clippers.find({"id": {"$in": ids}}, NO_ID).to_list(50)
-    cmap = {c["id"]: _sign_clipper(c) for c in clippers}
-    for i in items:
-        i["clipper"] = cmap.get(i["clipper_id"])
-    return items
 
 
 @api_router.get("/")
 async def root():
     return {"message": "24 Hour Clipping API", "status": "live"}
 
-@api_router.post("/demo/reset")
-async def reset_demo(user: dict = Depends(require_role("admin"))):
-    await seed_db(db)
-    return {"ok": True}
 
+# ============================ CLIPPERS ============================
+async def _list_clippers(session: AsyncSession, limit: int = 100) -> list:
+    profs = list(await session.scalars(
+        select(ClipperProfile).options(selectinload(ClipperProfile.portfolio)).limit(limit)))
+    uids = {p.user_id for p in profs}
+    users = {u.id: u for u in await session.scalars(select(User).where(User.id.in_(uids)))} if uids else {}
+    return [clipper_public(p, users.get(p.user_id)) for p in profs]
 
-# Demo/seed data uses stable, identifiable markers (see seed.py / seed_ns.py):
-#   demo users -> auth_provider == "demo", or ns-clipper-* / *@ns.school
-#   seed clippers -> ids clipper-1..6 and ns-clipper-1..4
-#   demo projects -> owner_id == "demo-customer" (covers project-*, project-c*, ns-showcase)
-#   demo bids -> ids bid-*/ns-bid-*, or a seed clipper, or on a demo project
-#   demo contracts/messages -> ids contract-*
-# The purge targets ONLY these; real accounts (auth_provider local/google, uuid ids)
-# and anything they created are left untouched.
-DEMO_CLIPPER_IDS = [f"clipper-{i+1}" for i in range(6)] + [f"ns-clipper-{i+1}" for i in range(4)]
-
-
-@api_router.post("/admin/purge-demo")
-async def purge_demo(user: dict = Depends(require_role("admin"))):
-    """Flip to production: remove all seeded/demo data, keep real accounts + their work."""
-    res = {}
-    res["projects"] = (await db.projects.delete_many({"owner_id": "demo-customer"})).deleted_count
-    res["clippers"] = (await db.clippers.delete_many({"id": {"$in": DEMO_CLIPPER_IDS}})).deleted_count
-    res["bids"] = (await db.bids.delete_many({"$or": [
-        {"id": {"$regex": "^(bid-|ns-bid-)"}},
-        {"clipper_id": {"$in": DEMO_CLIPPER_IDS}},
-        {"project_id": {"$regex": "^(project-|ns-showcase)"}},
-    ]})).deleted_count
-    res["contracts"] = (await db.contracts.delete_many({"$or": [
-        {"id": {"$regex": "^contract-"}}, {"clipper_id": {"$in": DEMO_CLIPPER_IDS}},
-    ]})).deleted_count
-    res["messages"] = (await db.messages.delete_many({"contract_id": {"$regex": "^contract-"}})).deleted_count
-    res["brand_profiles"] = (await db.brand_profiles.delete_many({"owner": "demo-customer"})).deleted_count
-    res["users"] = (await db.users.delete_many({"$or": [
-        {"auth_provider": "demo"},
-        {"id": {"$regex": "^ns-clipper-"}},
-        {"email": {"$regex": "@ns\\.school$"}},
-    ]})).deleted_count
-    logger.info("Demo purge by %s: %s", user.get("email"), res)
-    return {"ok": True, "deleted": res}
 
 @api_router.get("/clippers")
-async def get_clippers():
-    clippers = await db.clippers.find({}, NO_ID).to_list(100)
-    return [_sign_clipper(c) for c in clippers]
+async def get_clippers(session: AsyncSession = Depends(get_session)):
+    return await _list_clippers(session)
+
 
 @api_router.get("/clippers/{clipper_id}")
-async def get_clipper(clipper_id: str):
-    c = await db.clippers.find_one({"id": clipper_id}, NO_ID)
-    if not c:
+async def get_clipper(clipper_id: str, session: AsyncSession = Depends(get_session)):
+    cid = as_uuid(clipper_id)
+    prof = await session.scalar(select(ClipperProfile).options(selectinload(ClipperProfile.portfolio))
+                                .where(ClipperProfile.user_id == cid)) if cid else None
+    if not prof:
         raise HTTPException(404, "Clipper not found")
-    return _sign_clipper(c)
+    u = await session.get(User, prof.user_id)
+    return clipper_public(prof, u)
 
+
+# ============================ PROJECTS ============================
 @api_router.get("/projects")
 async def get_projects(status: Optional[str] = None, category: Optional[str] = None,
-                       mine: bool = False, user: Optional[dict] = Depends(get_current_user_optional)):
-    q = {}
-    if status:
-        q["status"] = status
+                       mine: bool = False, user: Optional[dict] = Depends(get_current_user_optional),
+                       session: AsyncSession = Depends(get_session)):
+    stmt = select(Project).options(selectinload(Project.references))
+    if status and status in ProjectStatus.__members__:
+        stmt = stmt.where(Project.status == ProjectStatus(status))
     if category:
-        q["category"] = category
+        stmt = stmt.where(Project.category == category)
     if mine:
         if not user:
             raise HTTPException(401, "Not authenticated")
-        q["owner_id"] = user["id"]
-    return await db.projects.find(q, NO_ID).sort("posted_at", -1).to_list(200)
+        stmt = stmt.where(Project.owner_id == as_uuid(user["id"]))
+    stmt = stmt.order_by(Project.created_at.desc()).limit(200)
+    rows = list(await session.scalars(stmt))
+    return await serialize_projects(session, rows)
+
 
 @api_router.get("/projects/{project_id}")
-async def get_project(project_id: str):
-    p = await db.projects.find_one({"id": project_id}, NO_ID)
+async def get_project(project_id: str, session: AsyncSession = Depends(get_session)):
+    pid = as_uuid(project_id)
+    p = await session.scalar(select(Project).options(selectinload(Project.references))
+                             .where(Project.id == pid)) if pid else None
     if not p:
         raise HTTPException(404, "Project not found")
-    return p
+    return await serialize_project(session, p)
+
 
 @api_router.post("/projects")
-async def create_project(body: ProjectCreate, user: dict = Depends(require_role("customer", "admin"))):
-    doc = body.model_dump()
-    # Uploaded thumbnail -> a long-lived signed URL usable in <img> anywhere.
+async def create_project(body: ProjectCreate, user: dict = Depends(require_role("customer", "admin")),
+                         session: AsyncSession = Depends(get_session)):
     if body.thumbnail_key:
         thumb = storage.sign_media_url(body.thumbnail_key, expires_in=365 * 24 * 3600)
     else:
         thumb = body.thumbnail or "https://images.pexels.com/photos/14540970/pexels-photo-14540970.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
-    doc.pop("thumbnail_key", None)
-    doc.update({
-        "id": str(uuid.uuid4()),
-        "owner_id": user["id"],
-        "customer_name": user.get("name") or body.customer_name,
-        "bond": bond_for(body.budget),
-        "status": "draft",
-        "funded": False,
-        "bids_count": 0,
-        "posted_at": now_iso(),
-        "timestamp_provided": body.moment_mode == "known",
-        "thumbnail": thumb,
-    })
-    await db.projects.insert_one(dict(doc))
-    doc.pop("_id", None)
-    return doc
-
-@api_router.post("/projects/{project_id}/fund")
-async def fund_project(project_id: str, body: FundRequest, user: dict = Depends(get_current_user)):
-    await _require_project_owner(project_id, user)
-    # This path marks a project funded WITHOUT taking real money, so it is only
-    # allowed while the platform is in presentation/test mode. Real funding goes
-    # through the card (Ziina/Stripe) or Solana escrow endpoints, which verify payment.
-    if not await get_test_mode():
-        raise HTTPException(403, "Live payment required. Fund via card or on-chain USDC.")
-    tx = "5KJp" + uuid.uuid4().hex[:20] + "SoL" if body.payment_method == "usdc" else None
-    r = await db.projects.update_one({"id": project_id}, {"$set": {"funded": True, "status": "open", "payment_method": body.payment_method, "tx_hash": tx}})
-    if not r.matched_count:
-        raise HTTPException(404, "Project not found")
-    return {"ok": True, "tx_hash": tx}
+    p = Project(
+        owner_id=as_uuid(user["id"]),
+        title=body.title, category=body.category, description=body.description or "",
+        budget=body.budget, bond=bond_for(body.budget), status=ProjectStatus.draft, funded=False,
+        output_length=body.output_length, aspect_ratio=body.aspect_ratio, captions=body.captions,
+        platform=body.platform, moment_mode=body.moment_mode, goal=body.goal, audience=body.audience,
+        mood=body.mood, style=body.style, cta=body.cta, source_link=body.source_link,
+        source_key=body.source_key, source_length=body.source_length, thumbnail_url=thumb,
+        thumbnail_key=body.thumbnail_key, quality_notes=body.quality_notes,
+        deadline_hours=body.deadline_hours, allow_extension=body.allow_extension,
+    )
+    # Assign (don't append) so the collection is initialised as loaded even when
+    # empty - accessing an un-initialised relationship would lazy-load under async.
+    p.references = [ProjectReference(url=url, position=i)
+                    for i, url in enumerate(body.references or [])]
+    session.add(p)
+    await session.commit()
+    return project_public(p, user.get("name") or body.customer_name, 0)
 
 
 @api_router.post("/projects/{project_id}/checkout")
-async def create_card_checkout(project_id: str, user: dict = Depends(get_current_user)):
-    p = await _require_project_owner(project_id, user)
-    # Ziina is preferred when configured; Stripe is the fallback provider.
-    if ziina.is_configured():
+async def create_card_checkout(project_id: str, user: dict = Depends(get_current_user),
+                               session: AsyncSession = Depends(get_session)):
+    p = await _require_project_owner(session, project_id, user)
+    pdict = {"id": str(p.id), "budget": float(p.budget), "title": p.title}
+    if square.is_configured():
         try:
-            intent = ziina.create_payment_intent(p)
+            intent = square.create_payment_intent(pdict)
         except Exception as e:
-            logger.error("Ziina checkout error: %s", e)
+            logger.error("Square checkout error: %s", e)
             raise HTTPException(502, "Could not start card checkout")
-        await db.projects.update_one({"id": project_id}, {"$set": {"ziina_payment_id": intent["id"]}})
-        return {"url": intent["url"], "provider": "ziina", "test_mode": ziina.ZIINA_TEST}
+        await _set_setting(session, f"payintent:{p.id}", {"provider": "square", "id": intent["id"]})
+        await session.commit()
+        return {"url": intent["url"], "provider": "square", "test_mode": square.is_sandbox()}
     if payments.is_configured():
         try:
-            url = payments.create_checkout_session(p)
+            url = payments.create_checkout_session(pdict)
         except Exception as e:
             logger.error("Stripe checkout error: %s", e)
             raise HTTPException(502, "Could not start card checkout")
@@ -910,95 +1199,106 @@ async def create_card_checkout(project_id: str, user: dict = Depends(get_current
 
 
 @api_router.post("/projects/{project_id}/checkout/confirm")
-async def confirm_card_checkout(project_id: str, body: dict, user: dict = Depends(get_current_user)):
-    p = await _require_project_owner(project_id, user)
-    if ziina.is_configured():
-        ref = p.get("ziina_payment_id")
+async def confirm_card_checkout(project_id: str, body: dict, user: dict = Depends(get_current_user),
+                                session: AsyncSession = Depends(get_session)):
+    p = await _require_project_owner(session, project_id, user)
+    if p.funded:
+        return {"ok": True}
+    if square.is_configured():
+        setting = await _get_setting(session, f"payintent:{p.id}")
+        ref = (setting or {}).get("id") if (setting or {}).get("provider") == "square" else None
         if not ref:
-            raise HTTPException(400, "No pending Ziina payment for this project")
+            raise HTTPException(400, "No pending Square payment for this project")
         try:
-            status = ziina.get_status(ref)
+            status = square.get_status(ref)
         except Exception as e:
-            logger.error("Ziina confirm error: %s", e)
+            logger.error("Square confirm error: %s", e)
             raise HTTPException(502, "Could not verify payment")
         if status != "completed":
             raise HTTPException(402, f"Payment not completed (status: {status})")
-        await db.projects.update_one({"id": project_id}, {"$set": {"funded": True, "status": "open", "payment_method": "ziina", "tx_hash": ref}})
+        p.funded = True
+        p.status = ProjectStatus.open
+        p.payment_method = "square"
+        session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
+                                from_user=as_uuid(user["id"]), amount=_base_units(p.budget, "usd"),
+                                currency=Currency.usd, chain_sig=ref, meta={"provider": "square"}))
+        await session.commit()
         return {"ok": True}
     if payments.is_configured():
         session_id = (body or {}).get("session_id")
         if not session_id:
             raise HTTPException(400, "session_id required")
         try:
-            paid = payments.session_is_paid(session_id, project_id)
+            paid = payments.session_is_paid(session_id, str(p.id))
         except Exception as e:
             logger.error("Stripe confirm error: %s", e)
             raise HTTPException(502, "Could not verify payment")
         if not paid:
             raise HTTPException(402, "Payment not completed")
-        await db.projects.update_one({"id": project_id}, {"$set": {"funded": True, "status": "open", "payment_method": "card", "tx_hash": session_id}})
+        p.funded = True
+        p.status = ProjectStatus.open
+        p.payment_method = "card"
+        session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
+                                from_user=as_uuid(user["id"]), amount=_base_units(p.budget, "usd"),
+                                currency=Currency.usd, chain_sig=session_id, meta={"provider": "stripe"}))
+        await session.commit()
         return {"ok": True}
     raise HTTPException(503, "Card payments are not configured on this server")
+
 
 # ============================ SOLANA USDC ============================
 @api_router.get("/solana/config")
 async def solana_config():
-    """Non-secret config the frontend needs to build a USDC transfer."""
-    cfg = solpay.config_public()
-    cfg["test_mode"] = await get_test_mode()
-    return cfg
-
-
-@api_router.post("/projects/{project_id}/fund/test")
-async def fund_test(project_id: str, user: dict = Depends(get_current_user)):
-    """Simulated funding for presentations - only works while test mode is on."""
-    await _require_project_owner(project_id, user)
-    if not await get_test_mode():
-        raise HTTPException(403, "Test mode is off")
-    await db.projects.update_one({"id": project_id}, {"$set": {
-        "funded": True, "status": "open", "payment_method": "test",
-        "tx_hash": "TEST-" + uuid.uuid4().hex[:12]}})
-    return {"ok": True, "test": True}
+    return solpay.config_public()
 
 
 @api_router.get("/projects/{project_id}/solana/deposit-info")
-async def solana_deposit_info(project_id: str, user: dict = Depends(get_current_user)):
-    p = await _require_project_owner(project_id, user)
+async def solana_deposit_info(project_id: str, user: dict = Depends(get_current_user),
+                              session: AsyncSession = Depends(get_session)):
+    p = await _require_project_owner(session, project_id, user)
     if not solpay.is_configured():
         raise HTTPException(503, "Solana payments are not configured on this server")
-    budget = float(p["budget"])
+    budget = float(p.budget)
     options = {"usdc": {"amount": budget}}
     try:
         price = await asyncio.to_thread(solpay.get_sol_price_usd)
         options["sol"] = {"amount": round(budget / price, 6), "price": price}
     except Exception as e:
-        logger.warning("SOL price fetch failed: %s", e)  # USDC still offered
+        logger.warning("SOL price fetch failed: %s", e)
     return {"treasury": solpay.treasury_pubkey(), "budget": budget, "amount": budget,
             "usdc_mint": solpay.USDC_MINT_STR, "network": solpay.NETWORK,
             "decimals": solpay.DECIMALS, "options": options}
 
 
 @api_router.post("/projects/{project_id}/fund/solana")
-async def solana_fund(project_id: str, body: SolanaFundRequest, user: dict = Depends(get_current_user)):
-    p = await _require_project_owner(project_id, user)
+async def solana_fund(project_id: str, body: SolanaFundRequest, user: dict = Depends(get_current_user),
+                      session: AsyncSession = Depends(get_session)):
+    p = await _require_project_owner(session, project_id, user)
     if not solpay.is_configured():
         raise HTTPException(503, "Solana payments are not configured on this server")
     currency = "sol" if body.currency == "sol" else "usdc"
     sig = body.signature.strip()
-    # Anti-replay: a deposit signature can only fund one project.
-    if await db.projects.find_one({"solana_deposit_sig": sig}):
+    if await session.scalar(select(Transaction).where(Transaction.chain_sig == sig)):
         raise HTTPException(409, "This payment has already been used")
     try:
-        res = await asyncio.to_thread(solpay.verify_deposit, sig, float(p["budget"]), currency)
+        res = await asyncio.to_thread(solpay.verify_deposit, sig, float(p.budget), currency)
     except solpay.PaymentError as e:
         raise HTTPException(402, f"Payment not verified: {e}")
     except Exception as e:
         logger.error("Solana deposit verify error: %s", e)
         raise HTTPException(502, "Could not verify the Solana payment")
-    await db.projects.update_one({"id": project_id}, {"$set": {
-        "funded": True, "status": "open", "payment_method": f"solana_{currency}",
-        "tx_hash": sig, "solana_deposit_sig": sig,
-        "escrow_amount": res["received"], "escrow_currency": currency}})
+    p.funded = True
+    p.status = ProjectStatus.open
+    p.payment_method = f"solana_{currency}"
+    session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
+                            from_user=as_uuid(user["id"]), amount=_base_units(res["received"], currency),
+                            currency=Currency(currency), chain_sig=sig,
+                            meta={"received": res["received"], "usd_value": res.get("usd_value")}))
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "This payment has already been used")
     return {"ok": True, "received": res["received"], "currency": currency, "signature": sig}
 
 
@@ -1008,63 +1308,57 @@ async def get_payout_wallet(user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/me/payout-wallet")
-async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_current_user)):
+async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_current_user),
+                            session: AsyncSession = Depends(get_session)):
     wallet = body.wallet.strip()
     if not solpay.is_valid_pubkey(wallet):
         raise HTTPException(400, "That is not a valid Solana wallet address")
-    await db.users.update_one({"id": user["id"]}, {"$set": {"payout_wallet": wallet}})
-    # keep the public clipper profile in sync so customers can see they're payable
-    await db.clippers.update_one({"id": user["id"]}, {"$set": {"payout_wallet": wallet}})
+    row = await session.get(User, as_uuid(user["id"]))
+    row.payout_wallet = wallet
+    await session.commit()
     return {"ok": True, "wallet": wallet}
 
 
-class ClipperProfileUpdate(BaseModel):
-    name: Optional[str] = None
-    specialty: Optional[str] = None
-    price_range: Optional[str] = None
-    tools: Optional[List[str]] = None
-    bio: Optional[str] = None
-    avatar_key: Optional[str] = None   # from POST /uploads (kind=source)
-    avatar_url: Optional[str] = None   # external URL alternative
-
-
 @api_router.put("/me/clipper-profile")
-async def update_clipper_profile(body: ClipperProfileUpdate, user: dict = Depends(require_role("clipper", "admin"))):
-    await _ensure_clipper_profile(user)
-    updates = {}
+async def update_clipper_profile(body: ClipperProfileUpdate,
+                                 user: dict = Depends(require_role("clipper", "admin")),
+                                 session: AsyncSession = Depends(get_session)):
+    row = await session.get(User, as_uuid(user["id"]))
+    await _ensure_clipper_profile_row(session, row)
+    # Load with portfolio eager so the serializer never lazy-loads it.
+    prof = await session.scalar(select(ClipperProfile).options(selectinload(ClipperProfile.portfolio))
+                                .where(ClipperProfile.user_id == row.id))
     if body.name and body.name.strip():
-        updates["name"] = body.name.strip()[:60]
-        await db.users.update_one({"id": user["id"]}, {"$set": {"name": updates["name"]}})
+        row.name = body.name.strip()[:60]
     if body.specialty is not None:
-        updates["specialty"] = body.specialty.strip()[:60] or "New Clipper"
+        prof.specialty = body.specialty.strip()[:60] or "New Clipper"
     if body.price_range is not None:
-        updates["price_range"] = body.price_range.strip()[:40]
+        prof.price_min, prof.price_max = _parse_price_range(body.price_range)
     if body.tools is not None:
-        updates["tools"] = [t.strip() for t in body.tools if t.strip()][:12]
+        prof.tools = [t.strip() for t in body.tools if t.strip()][:12]
     if body.bio is not None:
-        updates["bio"] = body.bio.strip()[:600]
+        prof.bio = body.bio.strip()[:1000]
     if body.avatar_key:
-        updates["avatar_key"] = body.avatar_key            # signed on read
+        row.avatar_url = storage.sign_media_url(body.avatar_key, expires_in=365 * 24 * 3600)
     elif body.avatar_url:
-        updates["avatar"] = body.avatar_url.strip()
-        updates["avatar_key"] = None
-    if updates:
-        await db.clippers.update_one({"id": user["id"]}, {"$set": updates})
-    c = await db.clippers.find_one({"id": user["id"]}, NO_ID)
-    return _sign_clipper(c)
+        row.avatar_url = body.avatar_url.strip()
+    await session.commit()
+    return clipper_public(prof, row)
 
 
-async def _pay_contract(contract: dict) -> dict:
-    """Send the clipper's payout (in the escrow currency) for a completed contract (idempotent)."""
-    if contract.get("payout_sig"):
-        return {"already_paid": True, "signature": contract["payout_sig"]}
-    clipper = await db.users.find_one({"id": contract["clipper_id"]}, NO_ID)
-    wallet = (clipper or {}).get("payout_wallet")
+async def _pay_contract(session: AsyncSession, contract: Contract) -> dict:
+    """Send the clipper's payout for a completed contract (idempotent via the ledger)."""
+    existing = await session.scalar(select(Transaction).where(
+        Transaction.kind == TxnKind.payout, Transaction.contract_id == contract.id))
+    if existing and existing.chain_sig:
+        return {"already_paid": True, "signature": existing.chain_sig}
+    clipper = await session.get(User, contract.clipper_id)
+    wallet = clipper.payout_wallet if clipper else None
     if not wallet:
         raise HTTPException(409, "Clipper has not set a Solana payout wallet yet")
-    proj = await db.projects.find_one({"id": contract["project_id"]}, NO_ID) or {}
-    currency = proj.get("escrow_currency", "usdc")
-    split = solpay.payout_split(contract["price"])
+    proj = await session.get(Project, contract.project_id)
+    currency = "sol" if (proj and proj.payment_method == "solana_sol") else "usdc"
+    split = solpay.payout_split(float(contract.price))
     try:
         pay = await asyncio.to_thread(solpay.send_payout, wallet, split["clipper"], currency)
     except solpay.PaymentError as e:
@@ -1072,42 +1366,41 @@ async def _pay_contract(contract: dict) -> dict:
     except Exception as e:
         logger.error("Solana payout error: %s", e)
         raise HTTPException(502, "Payout failed - check treasury balance and try again")
-    await db.contracts.update_one({"id": contract["id"]}, {"$set": {
-        "payout_sig": pay["signature"], "payout_amount": split["clipper"],
-        "payout_currency": pay["currency"], "payout_sent": pay["amount"], "fee_amount": split["fee"],
-        "payout_wallet": wallet, "payout_at": now_iso()}})
+    session.add(Transaction(kind=TxnKind.payout, status=TxnStatus.confirmed, contract_id=contract.id,
+                            project_id=contract.project_id, to_user=clipper.id,
+                            amount=_base_units(pay["amount"], pay["currency"]),
+                            currency=Currency(pay["currency"]), chain_sig=pay["signature"],
+                            meta={"clipper": split["clipper"], "fee": split["fee"], "wallet": wallet,
+                                  "sent": pay["amount"], "at": now_iso()}))
+    await session.commit()
     return {"paid": True, "signature": pay["signature"], "currency": pay["currency"],
             "sent": pay["amount"], **split}
 
 
 @api_router.post("/contracts/{contract_id}/payout")
-async def contract_payout(contract_id: str, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
-    if c.get("status") != "completed":
+async def contract_payout(contract_id: str, user: dict = Depends(get_current_user),
+                          session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
+    if c.status != ContractStatus.completed:
         raise HTTPException(409, "Contract must be approved/completed before payout")
     if not solpay.is_configured():
         raise HTTPException(503, "Solana payouts are not configured on this server")
-    return await _pay_contract(c)
+    return await _pay_contract(session, c)
 
 
 @api_router.post("/contracts/{contract_id}/tip")
-async def contract_tip(contract_id: str, body: TipRequest, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
+async def contract_tip(contract_id: str, body: TipRequest, user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
     currency = "sol" if body.currency == "sol" else "usdc"
-    # Test mode: record the tip without an on-chain transfer.
-    if await get_test_mode():
-        await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
-            "sender": "customer", "text": f"💜 Tipped the clipper {body.amount} {currency.upper()} (test mode)",
-            "tip_amount": float(body.amount), "tip_currency": currency, "created_at": now_iso()})
-        return {"ok": True, "amount": float(body.amount), "currency": currency, "test": True}
     if not solpay.is_configured():
         raise HTTPException(503, "Solana payments are not configured on this server")
-    clipper = await db.users.find_one({"id": c["clipper_id"]}, NO_ID)
-    wallet = (clipper or {}).get("payout_wallet")
+    clipper = await session.get(User, c.clipper_id)
+    wallet = clipper.payout_wallet if clipper else None
     if not wallet:
         raise HTTPException(409, "Clipper has not set a Solana wallet yet")
     sig = body.signature.strip()
-    if await db.messages.find_one({"tip_sig": sig}):
+    if await session.scalar(select(Transaction).where(Transaction.chain_sig == sig)):
         raise HTTPException(409, "This tip has already been recorded")
     try:
         received = await asyncio.to_thread(solpay.verify_tip, sig, wallet, float(body.amount), currency)
@@ -1117,373 +1410,397 @@ async def contract_tip(contract_id: str, body: TipRequest, user: dict = Depends(
         logger.error("Solana tip verify error: %s", e)
         raise HTTPException(502, "Could not verify the tip")
     unit = currency.upper()
-    await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
-        "sender": "customer", "text": f"💜 Tipped the clipper {received} {unit} (no fee)",
-        "tip_sig": sig, "tip_amount": received, "tip_currency": currency, "created_at": now_iso()})
+    session.add(Transaction(kind=TxnKind.tip, status=TxnStatus.confirmed, contract_id=c.id,
+                            project_id=c.project_id, from_user=as_uuid(user["id"]), to_user=clipper.id,
+                            amount=_base_units(received, currency), currency=Currency(currency),
+                            chain_sig=sig, meta={"amount": received}))
+    session.add(Message(contract_id=c.id, sender_id=as_uuid(user["id"]), sender_role=UserRole.customer,
+                        text=f"\U0001F49C Tipped the clipper {received} {unit} (no fee)"))
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "This tip has already been recorded")
     return {"ok": True, "amount": received, "currency": currency, "signature": sig}
 # ========================== END SOLANA USDC ==========================
 
 
+# ============================ BIDS ============================
 @api_router.get("/projects/{project_id}/bids")
-async def get_bids(project_id: str, user: dict = Depends(get_current_user)):
-    # Bids (amounts, pitches, clipper identity) are competitive data: only the
-    # project owner, an admin, or a clipper who has already bid may read them.
-    proj = await db.projects.find_one({"id": project_id}, {"owner_id": 1, "_id": 0})
+async def get_bids(project_id: str, user: dict = Depends(get_current_user),
+                   session: AsyncSession = Depends(get_session)):
+    pid = as_uuid(project_id)
+    proj = await session.get(Project, pid) if pid else None
     if not proj:
         raise HTTPException(404, "Project not found")
-    if not (proj.get("owner_id") == user["id"] or "admin" in user_roles(user)
-            or await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"]}, {"_id": 1})):
+    is_owner = str(proj.owner_id) == user["id"]
+    has_bid = await session.scalar(select(Bid.id).where(
+        Bid.project_id == pid, Bid.clipper_id == as_uuid(user["id"])))
+    if not (is_owner or "admin" in user_roles(user) or has_bid):
         raise HTTPException(403, "Not authorized to view bids for this project")
-    bids = await db.bids.find({"project_id": project_id}, NO_ID).sort("created_at", -1).to_list(100)
-    return await attach_clipper(bids)
+    rows = list(await session.scalars(
+        select(Bid).where(Bid.project_id == pid).order_by(Bid.created_at.desc()).limit(100)))
+    return await attach_clipper(session, [bid_public(b) for b in rows])
+
 
 @api_router.get("/me/bids")
-async def my_bids(user: dict = Depends(get_current_user)):
+async def my_bids(user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     """The signed-in clipper's own bids across all projects, newest first, each
-    annotated with its project's title/status/deadline so the dashboard can list
-    pending bids without N extra fetches."""
-    bids = await db.bids.find({"clipper_id": user["id"]}, NO_ID).sort("created_at", -1).to_list(200)
-    ids = list({b["project_id"] for b in bids})
-    projects = await db.projects.find({"id": {"$in": ids}}, NO_ID).to_list(len(ids) or 1)
-    pmap = {p["id"]: p for p in projects}
-    for b in bids:
-        p = pmap.get(b["project_id"]) or {}
-        b["project_title"] = p.get("title", "Project")
-        b["project_status"] = p.get("status")
-        b["project_budget"] = p.get("budget")
-    return bids
+    annotated with its project's title/status/budget."""
+    rows = list(await session.scalars(select(Bid).where(
+        Bid.clipper_id == as_uuid(user["id"])).order_by(Bid.created_at.desc()).limit(200)))
+    pids = {b.project_id for b in rows}
+    pmap = {p.id: p for p in await session.scalars(select(Project).where(Project.id.in_(pids)))} if pids else {}
+    out = []
+    for b in rows:
+        d = bid_public(b)
+        p = pmap.get(b.project_id)
+        d["project_title"] = p.title if p else "Project"
+        d["project_status"] = p.status.value if p else None
+        d["project_budget"] = float(p.budget) if p else None
+        out.append(d)
+    return out
+
 
 @api_router.post("/projects/{project_id}/bids")
-async def create_bid(project_id: str, body: BidCreate, user: dict = Depends(require_role("clipper", "admin"))):
-    project = await db.projects.find_one({"id": project_id}, NO_ID)
+async def create_bid(project_id: str, body: BidCreate,
+                     user: dict = Depends(require_role("clipper", "admin")),
+                     session: AsyncSession = Depends(get_session)):
+    pid = as_uuid(project_id)
+    project = await session.get(Project, pid) if pid else None
     if not project:
         raise HTTPException(404, "Project not found")
-    if project.get("status") not in ("open", None):
+    if project.status != ProjectStatus.open:
         raise HTTPException(409, "This project is not accepting bids")
-    if await db.bids.find_one({"project_id": project_id, "clipper_id": user["id"], "status": "pending"}, {"_id": 1}):
+    uid = as_uuid(user["id"])
+    dupe = await session.scalar(select(Bid.id).where(
+        Bid.project_id == pid, Bid.clipper_id == uid, Bid.status == BidStatus.pending))
+    if dupe:
         raise HTTPException(409, "You already have a pending bid on this project")
-    await _ensure_clipper_profile(user)
-    doc = body.model_dump()
-    doc.update({
-        "id": str(uuid.uuid4()), "project_id": project_id,
-        "clipper_id": user["id"],  # identity comes from the token, never the request body
-        "bond_required": bond_for(body.amount), "status": "pending", "created_at": now_iso(),
-    })
-    await db.bids.insert_one(dict(doc))
-    await db.projects.update_one({"id": project_id}, {"$inc": {"bids_count": 1}})
-    doc.pop("_id", None)
-    return (await attach_clipper([doc]))[0]
-
-DEMO_PITCHES = [
-    "Hook locked in the first 1.5 seconds. Let's go.",
-    "This is exactly my lane. Check my last three clips.",
-    "I can start right now. First cut well under deadline.",
-    "Punch-ins, sound design, captions on point. Done it 200 times.",
-    "Your audience will not scroll past this. Guaranteed pacing.",
-    "Clean premium edit, beat-synced cuts, delivered early.",
-]
-
-
-@api_router.post("/projects/{project_id}/demo-bids")
-async def demo_bids(project_id: str, count: int = 2, user: dict = Depends(get_current_user)):
-    """Populate a project's bid room with realistic bids from seed clippers.
-    Owner-only; available in test/demo mode (or to admins). Idempotent up to `count`."""
-    p = await _require_project_owner(project_id, user)
-    if not await get_test_mode() and "admin" not in user_roles(user):
-        raise HTTPException(403, "Demo bids are only available in test mode")
-    import random
-    existing = await db.bids.find({"project_id": project_id}, NO_ID).to_list(100)
-    have = {b["clipper_id"] for b in existing}
-    target = max(0, int(count) - len(existing))
-    if target <= 0:
-        return []
-    clippers = await db.clippers.find({"id": {"$nin": list(have)}}, NO_ID).to_list(50)
-    random.shuffle(clippers)
-    created = []
-    for c in clippers[:target]:
-        amount = max(20, round(float(p["budget"]) * (0.75 + random.random() * 0.35)))
-        doc = {"id": str(uuid.uuid4()), "project_id": project_id, "clipper_id": c["id"],
-               "amount": amount, "pitch": random.choice(DEMO_PITCHES),
-               "eta_hours": 6 + random.randint(0, 13), "bond_required": bond_for(amount),
-               "status": "pending", "created_at": now_iso()}
-        await db.bids.insert_one(dict(doc))
-        doc.pop("_id", None)
-        created.append(doc)
-    if created:
-        await db.projects.update_one({"id": project_id}, {"$inc": {"bids_count": len(created)}})
-    return await attach_clipper(created)
+    row = await session.get(User, uid)
+    await _ensure_clipper_profile_row(session, row)
+    bid = Bid(project_id=pid, clipper_id=uid, amount=body.amount, pitch=body.pitch,
+              eta_hours=body.eta_hours, bond_required=bond_for(body.amount), status=BidStatus.pending)
+    session.add(bid)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "You already have a pending bid on this project")
+    return (await attach_clipper(session, [bid_public(bid)]))[0]
 
 
 @api_router.post("/bids/{bid_id}/accept")
-async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
-    bid = await db.bids.find_one({"id": bid_id}, NO_ID)
+async def accept_bid(bid_id: str, user: dict = Depends(get_current_user),
+                     session: AsyncSession = Depends(get_session)):
+    bid = await session.get(Bid, as_uuid(bid_id)) if as_uuid(bid_id) else None
     if not bid:
         raise HTTPException(404, "Bid not found")
-    await _require_project_owner(bid["project_id"], user)
-    # Idempotent accept: only a still-pending bid can be accepted. This prevents a
-    # double-click (or replay) from creating two live contracts / two payouts.
-    claimed = await db.bids.update_one({"id": bid_id, "status": "pending"}, {"$set": {"status": "accepted"}})
-    if not claimed.modified_count:
-        existing = await db.contracts.find_one({"project_id": bid["project_id"], "clipper_id": bid["clipper_id"]}, NO_ID)
+    project = await _require_project_owner(session, str(bid.project_id), user)
+    if bid.status != BidStatus.pending:
+        existing = await session.scalar(select(Contract).where(Contract.bid_id == bid.id))
         if existing:
-            return existing
+            return (await enrich_contracts(session, [existing]))[0]
         raise HTTPException(409, "This bid has already been handled")
-    # Accepting = the deal is on: the contract goes live and the 24h clock starts,
-    # so the clipper immediately sees it on their dashboard and can deliver.
-    # (A project can accept several clippers - each gets its own live contract.)
-    proj_for_deadline = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
-    base_hours = int(proj_for_deadline.get("deadline_hours") or 24)
-    allow_extension = bool(proj_for_deadline.get("allow_extension"))
+    base_hours = int(project.deadline_hours or 24)
+    allow_extension = bool(project.allow_extension)
     started = datetime.now(timezone.utc)
     deadline = started + timedelta(hours=base_hours)
-    contract = {
-        "id": str(uuid.uuid4()), "project_id": bid["project_id"], "clipper_id": bid["clipper_id"],
-        "price": bid["amount"], "bond": bid["bond_required"], "status": "live",
-        "started_at": started.isoformat(), "deadline_at": deadline.isoformat(),
-        "base_hours": base_hours, "allow_extension": allow_extension, "extended_hours": 0,
-        "versions": [], "payment_method": "escrow", "rating_given": None,
-    }
-    await db.contracts.insert_one(dict(contract))
-    await db.projects.update_one({"id": bid["project_id"]}, {"$set": {"status": "contract_live"}})
-    # Email the accepted clipper (registered users only; never blocks acceptance).
+    bid.status = BidStatus.accepted
+    contract = Contract(bid_id=bid.id, project_id=bid.project_id, clipper_id=bid.clipper_id,
+                        price=bid.amount, bond=bid.bond_required, status=ContractStatus.live,
+                        base_hours=base_hours, extended_hours=0, allow_extension=allow_extension,
+                        started_at=started, deadline_at=deadline, payment_method="escrow")
+    session.add(contract)
+    project.status = ProjectStatus.contract_live
     try:
-        clip_user = await db.users.find_one({"id": bid["clipper_id"]}, NO_ID)
-        proj = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
-        if clip_user and clip_user.get("email"):
-            title = proj.get("title", "your project")
-            html = _acceptance_email_html(clip_user.get("name") or "there", title, bid["amount"], deadline.isoformat())
-            await asyncio.to_thread(send_email, clip_user["email"], f"You're hired: {title}", html)
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        existing = await session.scalar(select(Contract).where(Contract.bid_id == bid.id))
+        if existing:
+            return (await enrich_contracts(session, [existing]))[0]
+        raise HTTPException(409, "This bid has already been handled")
+    try:
+        clip_user = await session.get(User, bid.clipper_id)
+        if clip_user and clip_user.email:
+            title = project.title or "your project"
+            html = _acceptance_email_html(clip_user.name or "there", title, float(bid.amount), deadline.isoformat())
+            await asyncio.to_thread(send_email, clip_user.email, f"You're hired: {title}", html)
     except Exception as e:
         logger.error("acceptance email error: %s", e)
-    contract.pop("_id", None)
-    return contract
+    return (await enrich_contracts(session, [contract]))[0]
 
-async def _bid_party(bid_id: str, user: dict):
+
+async def _bid_party(session: AsyncSession, bid_id: str, user: dict):
     """A bid conversation is between the project owner and the bidding clipper."""
-    bid = await db.bids.find_one({"id": bid_id}, NO_ID)
+    bid = await session.get(Bid, as_uuid(bid_id)) if as_uuid(bid_id) else None
     if not bid:
         raise HTTPException(404, "Bid not found")
-    proj = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
-    is_owner = proj.get("owner_id") == user["id"]
-    is_clipper = bid.get("clipper_id") == user["id"]
-    if user["role"] == "admin" or is_owner or is_clipper:
+    proj = await session.get(Project, bid.project_id)
+    is_owner = proj is not None and str(proj.owner_id) == user["id"]
+    is_clipper = str(bid.clipper_id) == user["id"]
+    if "admin" in user_roles(user) or is_owner or is_clipper:
         return bid, is_owner
     raise HTTPException(403, "You are not part of this conversation")
 
 
 @api_router.get("/bids/{bid_id}/messages")
-async def get_bid_messages(bid_id: str, user: dict = Depends(get_current_user)):
-    await _bid_party(bid_id, user)
-    return await db.messages.find({"bid_id": bid_id}, NO_ID).sort("created_at", 1).to_list(300)
+async def get_bid_messages(bid_id: str, user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+    await _bid_party(session, bid_id, user)
+    rows = list(await session.scalars(select(Message).where(
+        Message.bid_id == as_uuid(bid_id)).order_by(Message.created_at.asc()).limit(300)))
+    return await serialize_messages(session, rows)
 
 
 @api_router.post("/bids/{bid_id}/messages")
-async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
-    bid, is_owner = await _bid_party(bid_id, user)
-    sender = "admin" if user["role"] == "admin" else ("customer" if is_owner else "clipper")
-    doc = {"id": str(uuid.uuid4()), "bid_id": bid_id, "project_id": bid["project_id"],
-           "sender": sender, "sender_name": user.get("name"), "text": body.text, "created_at": now_iso()}
-    await db.messages.insert_one(dict(doc))
-    doc.pop("_id", None)
-    return doc
+async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+    bid, is_owner = await _bid_party(session, bid_id, user)
+    sender = "admin" if user.get("role") == "admin" else ("customer" if is_owner else "clipper")
+    msg = Message(bid_id=bid.id, sender_id=as_uuid(user["id"]), sender_role=UserRole(sender), text=body.text)
+    session.add(msg)
+    await session.commit()
+    d = message_public(msg, user.get("name"))
+    d["project_id"] = str(bid.project_id)
+    return d
 
 
+# ============================ CONTRACTS ============================
 @api_router.get("/contracts")
-async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_current_user)):
-    q = {"status": status} if status else {}
-    contracts = await db.contracts.find(q, NO_ID).to_list(200)
+async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_current_user),
+                        session: AsyncSession = Depends(get_session)):
+    stmt = select(Contract)
+    if status and status in ContractStatus.__members__:
+        stmt = stmt.where(Contract.status == ContractStatus(status))
+    rows = list(await session.scalars(stmt.limit(300)))
     # Scope by CAPABILITY, not the active dashboard: a user sees every contract
-    # where they are the clipper OR own the project, regardless of which mode they
-    # are viewing in. Admins see everything. (Fixes contracts vanishing for
-    # multi-role accounts depending on the active role.)
+    # where they are the clipper OR own the project. Admins see everything.
     if "admin" not in user_roles(user):
-        pids = [c["project_id"] for c in contracts]
-        owned = {p["id"] for p in await db.projects.find(
-            {"id": {"$in": pids}, "owner_id": user["id"]}, {"id": 1, "_id": 0}).to_list(500)}
-        contracts = [c for c in contracts if c["clipper_id"] == user["id"] or c["project_id"] in owned]
-    contracts = await attach_clipper(contracts)
-    pids = list({c["project_id"] for c in contracts})
-    projects = await db.projects.find({"id": {"$in": pids}}, NO_ID).to_list(200)
-    pmap = {p["id"]: p for p in projects}
-    for c in contracts:
-        c["project"] = pmap.get(c["project_id"])
-        _sign_contract_media(c)
-    return contracts
+        uid = as_uuid(user["id"])
+        pids = {c.project_id for c in rows}
+        owned = set(await session.scalars(select(Project.id).where(
+            Project.id.in_(pids), Project.owner_id == uid))) if pids else set()
+        rows = [c for c in rows if c.clipper_id == uid or c.project_id in owned]
+    return await enrich_contracts(session, rows)
+
 
 @api_router.get("/contracts/{contract_id}")
-async def get_contract(contract_id: str, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user)
-    c = (await attach_clipper([c]))[0]
-    c["project"] = await db.projects.find_one({"id": c["project_id"]}, NO_ID)
-    _sign_contract_media(c)
-    return c
+async def get_contract(contract_id: str, user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user)
+    return (await enrich_contracts(session, [c]))[0]
+
 
 @api_router.post("/contracts/{contract_id}/activate")
-async def activate_contract(contract_id: str, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("clipper",))
-    # The clock is set once, at acceptance. Block re-activation so a clipper can't
-    # keep resetting the 24h deadline. Only a not-yet-started contract may activate.
-    if c.get("status") not in ("awaiting_clipper", "pending_acceptance"):
-        raise HTTPException(409, "This contract is already running.")
-    started = datetime.now(timezone.utc)
-    deadline = started + timedelta(hours=24)
-    await db.contracts.update_one({"id": contract_id}, {"$set": {
-        "status": "live", "started_at": started.isoformat(), "deadline_at": deadline.isoformat()}})
-    await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "contract_live"}})
-    return {"ok": True, "deadline_at": deadline.isoformat()}
+async def activate_contract(contract_id: str, user: dict = Depends(get_current_user),
+                            session: AsyncSession = Depends(get_session)):
+    # In the current flow a contract goes live the moment a bid is accepted, so
+    # there is no pre-live state to activate. Kept for API compatibility.
+    await _require_contract_party(session, contract_id, user, allow=("clipper",))
+    raise HTTPException(409, "This contract is already running.")
 
-EXTENSION_CAP_HOURS = 48  # total extra time a clipper may add across a single contract
+
+EXTENSION_CAP_HOURS = 48
+
 
 @api_router.post("/contracts/{contract_id}/extend")
-async def extend_contract(contract_id: str, body: ExtendRequest, user: dict = Depends(get_current_user)):
+async def extend_contract(contract_id: str, body: ExtendRequest, user: dict = Depends(get_current_user),
+                          session: AsyncSession = Depends(get_session)):
     """Clipper adds time to the deadline, but only when the creator opted in and up
     to a hard cap. Posts a note to the shared chat so the creator sees it."""
-    c = await _require_contract_party(contract_id, user, allow=("clipper",))
-    if not c.get("allow_extension"):
+    c = await _require_contract_party(session, contract_id, user, allow=("clipper",))
+    if not c.allow_extension:
         raise HTTPException(403, "The creator didn't allow deadline extensions on this job.")
-    if c.get("status") not in ("live", "revision"):
+    if c.status not in (ContractStatus.live, ContractStatus.revision):
         raise HTTPException(409, "Only an active contract can be extended.")
-    already = int(c.get("extended_hours") or 0)
+    already = int(c.extended_hours or 0)
     add = min(body.hours, EXTENSION_CAP_HOURS - already)
     if add <= 0:
         raise HTTPException(409, f"You've hit the {EXTENSION_CAP_HOURS}h extension cap on this job.")
-    new_deadline = datetime.fromisoformat(c["deadline_at"]) + timedelta(hours=add)
-    await db.contracts.update_one({"id": contract_id},
-                                  {"$set": {"deadline_at": new_deadline.isoformat()},
-                                   "$inc": {"extended_hours": add}})
-    await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id, "sender": "clipper",
-                                  "text": f"Deadline extended by {add}h (the creator allows extensions on this job).",
-                                  "created_at": now_iso()})
-    return {"ok": True, "deadline_at": new_deadline.isoformat(), "extended_hours": already + add,
+    c.deadline_at = c.deadline_at + timedelta(hours=add)
+    c.extended_hours = already + add
+    session.add(Message(contract_id=c.id, sender_id=as_uuid(user["id"]), sender_role=UserRole.clipper,
+                        text=f"Deadline extended by {add}h (the creator allows extensions on this job)."))
+    await session.commit()
+    return {"ok": True, "deadline_at": c.deadline_at.isoformat(), "extended_hours": already + add,
             "remaining_extension": EXTENSION_CAP_HOURS - (already + add)}
 
+
 @api_router.post("/contracts/{contract_id}/deliver")
-async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("clipper",))
-    if c.get("status") not in ("live", "revision"):
+async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(get_current_user),
+                  session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("clipper",))
+    if c.status not in (ContractStatus.live, ContractStatus.revision):
         raise HTTPException(409, "You can only deliver on a live or in-revision contract.")
-    version = {
-        "num": len(c.get("versions", [])) + 1,
-        "key": body.key,
-        "url": None if body.key else (body.url or "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"),
-        "thumb": None, "note": body.note or "First cut submitted.", "submitted_at": now_iso(),
-    }
-    await db.contracts.update_one({"id": contract_id}, {"$push": {"versions": version}, "$set": {"status": "delivered"}})
-    await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "delivered"}})
-    version = _sign_versions(version)
-    return version
+    existing = await session.scalar(select(func.count()).select_from(Delivery)
+                                    .where(Delivery.contract_id == c.id))
+    version_num = (existing or 0) + 1
+    d = Delivery(
+        contract_id=c.id, version=version_num, object_key=body.key,
+        url=None if body.key else (body.url or "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"),
+        thumb_url=None, note=body.note or "First cut submitted.",
+    )
+    session.add(d)
+    c.status = ContractStatus.delivered
+    proj = await session.get(Project, c.project_id)
+    if proj:
+        proj.status = ProjectStatus.delivered
+    await session.commit()
+    return _version_json(d)
+
 
 @api_router.post("/contracts/{contract_id}/revision")
-async def request_revision(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
-    if c.get("status") != "delivered":
+async def request_revision(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
+    if c.status != ContractStatus.delivered:
         raise HTTPException(409, "You can only request a revision on a delivered cut.")
-    await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "revision"}})
-    await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id,
-                                  "sender": "customer", "text": f"REVISION REQUEST: {body.text}", "created_at": now_iso()})
+    c.status = ContractStatus.revision
+    session.add(Message(contract_id=c.id, sender_id=as_uuid(user["id"]), sender_role=UserRole.customer,
+                        text=f"REVISION REQUEST: {body.text}"))
+    await session.commit()
     return {"ok": True}
 
+
 @api_router.post("/contracts/{contract_id}/approve")
-async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
-    # Approval releases payment, so it must follow an actual delivery. Guard against
-    # approving (and paying out) a contract that was never delivered, and against
-    # double-approval / double-payout on an already-completed contract.
-    if c.get("status") not in ("delivered", "revision"):
+async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_current_user),
+                  session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
+    if c.status not in (ContractStatus.delivered, ContractStatus.revision):
         raise HTTPException(409, "You can only approve a delivered cut.")
-    claimed = await db.contracts.update_one(
-        {"id": contract_id, "status": {"$in": ["delivered", "revision"]}},
-        {"$set": {"status": "completed", "rating_given": body.rating}})
-    if not claimed.modified_count:
+    # Atomic claim guards against double-approval / double-payout.
+    res = await session.execute(update(Contract).where(
+        Contract.id == c.id,
+        Contract.status.in_([ContractStatus.delivered, ContractStatus.revision])
+    ).values(status=ContractStatus.completed, rating_given=body.rating))
+    if res.rowcount == 0:
+        await session.rollback()
         raise HTTPException(409, "This contract has already been completed.")
-    await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "completed"}})
-    split = solpay.payout_split(c["price"])
-    resp = {"ok": True, "payout": split["clipper"], "fee": split["fee"], "bond_returned": c["bond"]}
-    proj = await db.projects.find_one({"id": c["project_id"]}, NO_ID) or {}
-    # Test mode (or a test-funded project): simulate the payout, no on-chain money.
-    if await get_test_mode() or proj.get("payment_method") == "test":
-        resp["paid"] = True
-        resp["test"] = True
-    # If Solana escrow funded this project, pay the clipper their USDC/SOL now.
-    elif solpay.is_configured() and str(proj.get("payment_method", "")).startswith("solana"):
+    proj = await session.get(Project, c.project_id)
+    if proj:
+        proj.status = ProjectStatus.completed
+    await session.commit()
+    split = solpay.payout_split(float(c.price))
+    resp = {"ok": True, "payout": split["clipper"], "fee": split["fee"], "bond_returned": float(c.bond or 0)}
+    # If Solana escrow funded this project, pay the clipper now.
+    if proj and solpay.is_configured() and str(proj.payment_method or "").startswith("solana"):
         try:
-            fresh = await db.contracts.find_one({"id": contract_id}, NO_ID)
-            pay = await _pay_contract(fresh)
+            fresh = await session.get(Contract, c.id)
+            pay = await _pay_contract(session, fresh)
             resp["payout_signature"] = pay.get("signature")
             resp["paid"] = True
         except HTTPException as e:
-            # Don't fail the approval if payout can't complete; surface it for retry.
             resp["paid"] = False
             resp["payout_error"] = e.detail
     return resp
 
+
 @api_router.post("/contracts/{contract_id}/rescue")
-async def trigger_rescue(contract_id: str, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
-    if c.get("status") not in ("live", "revision", "delivered"):
+async def trigger_rescue(contract_id: str, user: dict = Depends(get_current_user),
+                         session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
+    if c.status not in (ContractStatus.live, ContractStatus.revision, ContractStatus.delivered):
         raise HTTPException(409, "Only an active contract can be sent to rescue.")
-    await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "rescue"}})
-    await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "rescue"}})
-    return {"ok": True, "refund": c["price"], "bond_credit": c["bond"]}
+    c.status = ContractStatus.rescue
+    proj = await session.get(Project, c.project_id)
+    if proj:
+        proj.status = ProjectStatus.rescue
+    await session.commit()
+    return {"ok": True, "refund": float(c.price), "bond_credit": float(c.bond or 0)}
+
 
 @api_router.post("/contracts/{contract_id}/relaunch")
-async def relaunch(contract_id: str, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user, allow=("customer",))
-    if c.get("status") != "rescue":
+async def relaunch(contract_id: str, user: dict = Depends(get_current_user),
+                   session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user, allow=("customer",))
+    if c.status != ContractStatus.rescue:
         raise HTTPException(409, "Only a contract in rescue can be relaunched.")
-    await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "open", "posted_at": now_iso(), "priority": True}})
-    await db.contracts.update_one({"id": contract_id}, {"$set": {"status": "closed_rescued"}})
+    proj = await session.get(Project, c.project_id)
+    if proj:
+        proj.status = ProjectStatus.open
+    c.status = ContractStatus.closed_rescued
+    await session.commit()
     return {"ok": True}
 
+
 @api_router.get("/contracts/{contract_id}/messages")
-async def get_messages(contract_id: str, user: dict = Depends(get_current_user)):
-    await _require_contract_party(contract_id, user)
-    return await db.messages.find({"contract_id": contract_id}, NO_ID).sort("created_at", 1).to_list(200)
+async def get_messages(contract_id: str, user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
+    await _require_contract_party(session, contract_id, user)
+    rows = list(await session.scalars(select(Message).where(
+        Message.contract_id == as_uuid(contract_id)).order_by(Message.created_at.asc()).limit(200)))
+    return await serialize_messages(session, rows)
+
 
 @api_router.post("/contracts/{contract_id}/messages")
-async def post_message(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user)):
-    c = await _require_contract_party(contract_id, user)
-    # Sender is derived from this user's relationship to the contract (are they the
-    # clipper on it or the project owner), not from whichever dashboard is active.
-    sender = "clipper" if c.get("clipper_id") == user["id"] else "customer"
-    doc = {"id": str(uuid.uuid4()), "contract_id": contract_id, "sender": sender,
-           "text": body.text, "created_at": now_iso()}
-    await db.messages.insert_one(dict(doc))
-    doc.pop("_id", None)
-    return doc
+async def post_message(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user),
+                       session: AsyncSession = Depends(get_session)):
+    c = await _require_contract_party(session, contract_id, user)
+    sender = "clipper" if str(c.clipper_id) == user["id"] else "customer"
+    msg = Message(contract_id=c.id, sender_id=as_uuid(user["id"]), sender_role=UserRole(sender), text=body.text)
+    session.add(msg)
+    await session.commit()
+    return message_public(msg, user.get("name"))
 
+
+# ============================ BRAND PROFILES ============================
 @api_router.get("/brand-profiles")
-async def get_brand_profiles(user: dict = Depends(get_current_user)):
+async def get_brand_profiles(user: dict = Depends(get_current_user),
+                             session: AsyncSession = Depends(get_session)):
     if "admin" in user_roles(user):
-        return await db.brand_profiles.find({}, NO_ID).to_list(50)
-    return await db.brand_profiles.find({"owner": user["id"]}, NO_ID).to_list(20)
+        rows = await session.scalars(select(BrandProfile).limit(50))
+    else:
+        rows = await session.scalars(select(BrandProfile).where(
+            BrandProfile.owner_id == as_uuid(user["id"])).limit(20))
+    return [brand_public(bp) for bp in rows]
+
 
 @api_router.put("/brand-profiles/{profile_id}")
-async def update_brand_profile(profile_id: str, body: BrandProfileUpdate, user: dict = Depends(get_current_user)):
-    existing = await db.brand_profiles.find_one({"id": profile_id}, NO_ID)
-    if existing and "admin" not in user_roles(user) and existing.get("owner") != user["id"]:
+async def update_brand_profile(profile_id: str, body: BrandProfileUpdate,
+                               user: dict = Depends(get_current_user),
+                               session: AsyncSession = Depends(get_session)):
+    pid = as_uuid(profile_id)
+    existing = await session.get(BrandProfile, pid) if pid else None
+    if existing and "admin" not in user_roles(user) and str(existing.owner_id) != user["id"]:
         raise HTTPException(403, "You do not own this brand profile")
-    update = body.model_dump()
-    update["owner"] = existing.get("owner", user["id"]) if existing else user["id"]
-    await db.brand_profiles.update_one({"id": profile_id}, {"$set": update}, upsert=True)
-    return await db.brand_profiles.find_one({"id": profile_id}, NO_ID)
+    if existing:
+        existing.name = body.name
+        existing.description = body.description
+        existing.audience = body.audience
+        existing.caption_style = body.caption_style
+        existing.pacing = body.pacing
+        existing.cta = body.cta
+        existing.avoid = body.avoid
+        existing.fonts = body.fonts
+        bp = existing
+    else:
+        bp = BrandProfile(owner_id=as_uuid(user["id"]), name=body.name, description=body.description,
+                          audience=body.audience, caption_style=body.caption_style, pacing=body.pacing,
+                          cta=body.cta, avoid=body.avoid, fonts=body.fonts)
+        session.add(bp)
+    await session.commit()
+    return brand_public(bp)
 
+
+# ============================ ADMIN ============================
 @api_router.get("/admin/overview")
-async def admin_overview(user: dict = Depends(require_role("admin"))):
-    projects = await db.projects.find({}, NO_ID).to_list(300)
-    contracts = await db.contracts.find({}, NO_ID).to_list(300)
-    contracts = await attach_clipper(contracts)
-    pmap = {p["id"]: p for p in projects}
-    for c in contracts:
-        c["project"] = pmap.get(c["project_id"])
-        _sign_contract_media(c)
-    bids = await db.bids.find({}, NO_ID).to_list(300)
-    clippers = await db.clippers.find({}, NO_ID).to_list(100)
+async def admin_overview(user: dict = Depends(require_role("admin")),
+                         session: AsyncSession = Depends(get_session)):
+    project_rows = list(await session.scalars(
+        select(Project).options(selectinload(Project.references)).limit(300)))
+    projects = await serialize_projects(session, project_rows)
+    contract_rows = list(await session.scalars(select(Contract).limit(300)))
+    contracts = await enrich_contracts(session, contract_rows)
+    bid_rows = list(await session.scalars(select(Bid).limit(300)))
+    bids = [bid_public(b) for b in bid_rows]
+    clippers = await _list_clippers(session)
     completed = [c for c in contracts if c["status"] == "completed"]
-    total_users = await db.users.count_documents({})
+    total_users = await session.scalar(select(func.count()).select_from(User))
     return {
         "stats": {
-            "total_users": total_users,
+            "total_users": total_users or 0,
             "total_projects": len(projects),
             "open_projects": len([p for p in projects if p["status"] == "open"]),
             "live_contracts": len([c for c in contracts if c["status"] == "live"]),
@@ -1491,57 +1808,59 @@ async def admin_overview(user: dict = Depends(require_role("admin"))):
             "total_bids": len(bids),
             "clippers": len(clippers),
             "fees_earned": round(sum(c["price"] * 0.08 for c in completed), 2),
-            "bonds_locked": round(sum(c["bond"] for c in contracts if c["status"] in ("live", "delivered", "revision")), 2),
+            "bonds_locked": round(sum(c["bond"] for c in contracts
+                                      if c["status"] in ("live", "delivered", "revision")), 2),
         },
         "projects": projects, "contracts": contracts, "bids": bids, "clippers": clippers,
     }
 
 
-@api_router.get("/admin/test-mode")
-async def admin_get_test_mode(admin: dict = Depends(require_role("admin"))):
-    return {"enabled": await get_test_mode()}
-
-
-@api_router.post("/admin/test-mode")
-async def admin_set_test_mode(body: TestModeRequest, admin: dict = Depends(require_role("admin"))):
-    await set_test_mode(body.enabled)
-    return {"ok": True, "enabled": body.enabled}
-
-
 @api_router.get("/admin/users")
 async def admin_users(admin: dict = Depends(require_role("admin")),
-                      q: Optional[str] = None, role: Optional[str] = None):
-    query = {}
-    if role:
-        query["role"] = role
+                      q: Optional[str] = None, role: Optional[str] = None,
+                      session: AsyncSession = Depends(get_session)):
+    stmt = select(User).options(selectinload(User.roles))
+    if role and role in UserRole.__members__:
+        stmt = stmt.where(User.roles.any(UserRoleAssoc.role == UserRole(role)))
     if q:
-        safe = re.escape(q)  # treat the search box as a literal, not a regex (ReDoS/injection guard)
-        query["$or"] = [{"email": {"$regex": safe, "$options": "i"}},
-                        {"name": {"$regex": safe, "$options": "i"}}]
-    return await db.users.find(query, {"_id": 0, "hashed_password": 0}).sort("created_at", -1).to_list(1000)
+        safe = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{safe}%"
+        stmt = stmt.where(or_(User.email.ilike(like), User.name.ilike(like)))
+    stmt = stmt.order_by(User.created_at.desc()).limit(1000)
+    rows = await session.scalars(stmt)
+    return [_admin_user_json(u) for u in rows]
 
 
 @api_router.post("/admin/users/{user_id}/suspend")
-async def admin_suspend_user(user_id: str, admin: dict = Depends(require_role("admin"))):
-    target = await db.users.find_one({"id": user_id}, NO_ID)
+async def admin_suspend_user(user_id: str, admin: dict = Depends(require_role("admin")),
+                             session: AsyncSession = Depends(get_session)):
+    uid = as_uuid(user_id)
+    target = await session.scalar(select(User).options(selectinload(User.roles))
+                                  .where(User.id == uid)) if uid else None
     if not target:
         raise HTTPException(404, "User not found")
-    if target["id"] == admin["id"]:
+    if str(target.id) == admin["id"]:
         raise HTTPException(400, "You cannot suspend yourself")
-    if target.get("role") == "admin":
+    if "admin" in _roles_list(target):
         raise HTTPException(400, "Admin accounts cannot be suspended")
-    await db.users.update_one({"id": user_id}, {"$set": {"disabled": True}})
+    target.disabled = True
+    await session.commit()
     return {"ok": True}
 
 
 @api_router.post("/admin/users/{user_id}/restore")
-async def admin_restore_user(user_id: str, admin: dict = Depends(require_role("admin"))):
-    r = await db.users.update_one({"id": user_id}, {"$set": {"disabled": False}})
-    if not r.matched_count:
+async def admin_restore_user(user_id: str, admin: dict = Depends(require_role("admin")),
+                             session: AsyncSession = Depends(get_session)):
+    uid = as_uuid(user_id)
+    target = await session.get(User, uid) if uid else None
+    if not target:
         raise HTTPException(404, "User not found")
+    target.disabled = False
+    await session.commit()
     return {"ok": True}
 
-# ---------- AI Concierge ----------
+
+# ============================ AI CONCIERGE ============================
 CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for 24 Hour Clipping, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.
 
 Your job: through a SHORT, friendly conversation (max 4-5 questions total, ONE question per message), gather what's needed for a project brief:
@@ -1558,10 +1877,26 @@ BRIEF_SYSTEM = """You convert a conversation into a video clipping project brief
 {"title": str, "category": str (one of: Stream Highlights, Podcast Clips, TikToks, Reels, YouTube Shorts, Talking-Head, Short Ads), "description": str (2-3 sentences), "goal": str, "audience": str, "platform": str, "output_length": str, "aspect_ratio": str, "captions": str, "mood": str, "style": str, "cta": str, "budget": number (20-500), "moment_mode": "known" or "find", "source_link": str}
 Fill sensible defaults for anything not discussed. Budget must be a number."""
 
-async def get_history(session_id):
-    return await db.ai_messages.find({"session_id": session_id}, NO_ID).sort("created_at", 1).to_list(100)
+
+async def _ai_history(session: AsyncSession, session_id: str) -> list:
+    val = await _get_setting(session, f"ai:{session_id}")
+    return (val or {}).get("messages", [])
+
+
+async def _ai_append(session_id: str, sender: str, text: str):
+    async with SessionLocal() as session:
+        s = await session.get(AppSetting, f"ai:{session_id}")
+        msgs = list((s.value or {}).get("messages", [])) if s else []
+        msgs.append({"id": str(uuid.uuid4()), "sender": sender, "text": text, "created_at": now_iso()})
+        if s:
+            s.value = {"messages": msgs}
+        else:
+            session.add(AppSetting(key=f"ai:{session_id}", value={"messages": msgs}))
+        await session.commit()
+
 
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
 
 def _openai_client():
     key = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -1572,15 +1907,15 @@ def _openai_client():
 
 
 @api_router.post("/ai/chat")
-async def ai_chat(body: ChatRequest, user: dict = Depends(require_role("customer", "admin"))):
+async def ai_chat(body: ChatRequest, user: dict = Depends(require_role("customer", "admin")),
+                  session: AsyncSession = Depends(get_session)):
     client = _openai_client()
-    history = await get_history(body.session_id)
+    history = await _ai_history(session, body.session_id)
     messages = [{"role": "system", "content": CONCIERGE_SYSTEM}]
     for m in history[-12:]:
         messages.append({"role": "assistant" if m["sender"] == "ai" else "user", "content": m["text"]})
     messages.append({"role": "user", "content": body.message})
-    await db.ai_messages.insert_one({"id": str(uuid.uuid4()), "session_id": body.session_id,
-                                     "sender": "user", "text": body.message, "created_at": now_iso()})
+    await _ai_append(body.session_id, "user", body.message)
 
     async def gen():
         full = []
@@ -1597,21 +1932,24 @@ async def ai_chat(body: ChatRequest, user: dict = Depends(require_role("customer
             yield f"data: {json.dumps({'error': 'The concierge is unavailable right now.'})}\n\n"
         text = "".join(full)
         if text:
-            await db.ai_messages.insert_one({"id": str(uuid.uuid4()), "session_id": body.session_id,
-                                             "sender": "ai", "text": text, "created_at": now_iso()})
+            await _ai_append(body.session_id, "ai", text)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+
 @api_router.get("/ai/history/{session_id}")
-async def ai_history(session_id: str, user: dict = Depends(require_role("customer", "admin"))):
-    return await get_history(session_id)
+async def ai_history(session_id: str, user: dict = Depends(require_role("customer", "admin")),
+                     session: AsyncSession = Depends(get_session)):
+    return await _ai_history(session, session_id)
+
 
 @api_router.post("/ai/brief")
-async def ai_brief(body: BriefRequest, user: dict = Depends(require_role("customer", "admin"))):
+async def ai_brief(body: BriefRequest, user: dict = Depends(require_role("customer", "admin")),
+                   session: AsyncSession = Depends(get_session)):
     client = _openai_client()
-    history = await get_history(body.session_id)
+    history = await _ai_history(session, body.session_id)
     if not history:
         raise HTTPException(400, "No conversation found")
     convo = "\n".join(f"{m['sender']}: {m['text']}" for m in history)
@@ -1665,22 +2003,10 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     storage.ensure_root()
-    if os.environ.get("SEED_DEMO_DATA", "true").lower() != "false" and await db.clippers.count_documents({}) == 0:
-        await seed_db(db)
-        logger.info("Seeded demo data")
+    await init_db()
     await ensure_auth_setup()
-    # Network School showcase (hardcoded demo data). Idempotent, but gate it so a
-    # production box can turn it off (set SEED_NS_SHOWCASE=false) and stay clean
-    # after purging demo data.
-    if os.environ.get("SEED_NS_SHOWCASE", "true").lower() != "false":
-        try:
-            from seed_ns import seed_ns
-            await seed_ns(db)
-            logger.info("NS showcase seeded")
-        except Exception as e:
-            logger.error("NS seed error: %s", e)
 
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    await engine.dispose()
