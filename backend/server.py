@@ -912,9 +912,12 @@ async def ensure_auth_setup():
             row.avatar_url = _default_avatar(row.name)
         await session.commit()
         logger.info("Admin account ensured for %s", admin_email)
-        # Backfill default avatars for any pre-existing accounts created before
-        # default avatars existed, so nobody renders blank.
-        blanks = (await session.scalars(select(User).where(User.avatar_url.is_(None)))).all()
+        # Backfill/refresh default avatars: any account with no avatar, or still on
+        # an older generated-default style, gets the current neat style. Real
+        # (uploaded / Google) avatars are left untouched.
+        blanks = (await session.scalars(select(User).where(or_(
+            User.avatar_url.is_(None),
+            User.avatar_url.like("%dicebear.com/9.x/initials%"))))).all()
         for u in blanks:
             u.avatar_url = _default_avatar(u.name)
         if blanks:
@@ -924,12 +927,12 @@ async def ensure_auth_setup():
 
 # ============================ AUTH ENDPOINTS ============================
 def _default_avatar(name: str) -> str:
-    """A clean, on-brand generated avatar (lime background + black initials) so no
-    account is ever blank. Deterministic per name."""
+    """A neat illustrated character avatar (DiceBear 'notionists'), deterministic per
+    name, with a soft colored background so it reads as a proper profile picture."""
     from urllib.parse import quote
     seed = quote((name or "user").strip()[:40] or "user")
-    return (f"https://api.dicebear.com/9.x/initials/svg?seed={seed}"
-            "&backgroundColor=CCFF00&textColor=000000&fontWeight=700&radius=50")
+    return (f"https://api.dicebear.com/9.x/notionists/svg?seed={seed}"
+            "&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,cffafe&radius=50")
 
 
 @api_router.post("/auth/register")

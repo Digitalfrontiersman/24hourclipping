@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { ROLE_HOME } from "@/lib/roles";
@@ -112,6 +113,7 @@ export default function Onboarding() {
 
   const finish = async () => {
     setBusy(true);
+    const startedAt = Date.now();
     try {
       const a = answers;
       const payload = {
@@ -124,8 +126,9 @@ export default function Onboarding() {
         payout_wallet: (a.wallet || "").trim(),
       };
       const u = await completeOnboarding(payload);
-      toast.success("You're all set - welcome aboard!");
-      nav(ROLE_HOME[u.role] || "/", { replace: true });
+      // Hold the "all set" transition for a smooth minimum beat before the dashboard.
+      const wait = Math.max(0, 1500 - (Date.now() - startedAt));
+      setTimeout(() => nav(ROLE_HOME[u.role] || "/", { replace: true }), wait);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Could not finish setup");
       finished.current = false;
@@ -149,6 +152,30 @@ export default function Onboarding() {
   };
 
   const total = Math.max(queue.length, 1);
+
+  // Smooth, held transition into the dashboard instead of an abrupt hard jump.
+  if (busy) {
+    const roleLabel = answers.roles.length > 1
+      ? (answers.startRole === "clipper" ? "clipper" : "creator")
+      : (answers.roles[0] === "clipper" ? "clipper" : "creator");
+    return (
+      <motion.div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col items-center justify-center px-6 text-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 16 }}
+          className="relative w-20 h-20 rounded-3xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/25 flex items-center justify-center mb-6">
+          <span className="absolute inset-0 rounded-3xl bg-[#CCFF00]/10 blur-2xl" />
+          <Check className="w-10 h-10 text-[#CCFF00] relative" />
+        </motion.div>
+        <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
+          className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight">You're all set{firstName !== "there" ? `, ${firstName}` : ""}.</motion.h1>
+        <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.28 }}
+          className="text-zinc-500 mt-3 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#CCFF00]" /> Opening your {roleLabel} dashboard…
+        </motion.p>
+      </motion.div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
