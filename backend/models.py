@@ -73,7 +73,8 @@ class User(Base):
     auth_provider: Mapped[AuthProvider] = mapped_column(SAEnum(AuthProvider, name="auth_provider"), default=AuthProvider.local, server_default=text("'local'"), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(Text)
     credits: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
-    payout_wallet: Mapped[str | None] = mapped_column(Text)
+    payout_wallet: Mapped[str | None] = mapped_column(Text)   # Solana wallet (legacy USDC rail)
+    paypal_email: Mapped[str | None] = mapped_column(Text)    # PayPal payout destination
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     created_at: Mapped[datetime] = _created()

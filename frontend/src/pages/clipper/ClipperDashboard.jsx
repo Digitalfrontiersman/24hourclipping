@@ -44,14 +44,31 @@ export default function ClipperDashboard() {
   const [myBids, setMyBids] = useState([]);
   const [balance, setBalance] = useState(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [ppEmail, setPpEmail] = useState("");
+  const [savingPp, setSavingPp] = useState(false);
 
-  const loadBalance = () => dbAdapter.getBalance().then(setBalance).catch(() => {});
+  const loadBalance = () => dbAdapter.getBalance().then((b) => { setBalance(b); setPpEmail(b.paypal_email || ""); }).catch(() => {});
+
+  const savePaypal = async () => {
+    if (!ppEmail.trim() || savingPp) return;
+    setSavingPp(true);
+    try {
+      await dbAdapter.setPaypalEmail(ppEmail.trim());
+      notify.success("PayPal email saved");
+      loadBalance();
+    } catch (err) {
+      notify.urgent(err.response?.data?.detail || "Could not save PayPal email");
+    } finally {
+      setSavingPp(false);
+    }
+  };
+
   const withdraw = async () => {
     if (withdrawing) return;
     setWithdrawing(true);
     try {
-      const r = await dbAdapter.withdraw("usdc");
-      notify.success("Withdrawal sent", r.status === "paid" ? `$${r.amount} USDC on its way to your wallet.` : `$${r.amount} queued for payout.`);
+      const r = await dbAdapter.withdraw("paypal");
+      notify.success("Withdrawal sent", r.status === "paid" ? `$${r.amount} on its way to your PayPal.` : `$${r.amount} queued for payout.`);
       loadBalance();
     } catch (err) {
       notify.urgent(err.response?.data?.detail || "Could not withdraw");
@@ -113,29 +130,52 @@ export default function ClipperDashboard() {
           )}
         </div>
 
-        {/* Earnings balance + withdraw */}
-        <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="balance-card">
-          <span className="w-12 h-12 rounded-2xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0">
-            <Wallet className="w-6 h-6 text-[#CCFF00]" />
-          </span>
-          <div className="flex-1 min-w-48">
-            <div className="label-caps mb-1">Available balance</div>
-            <div className="font-display font-extrabold text-3xl tracking-tighter text-[#CCFF00]">
-              ${balance ? balance.available.toFixed(2) : "0.00"}
+        {/* Earnings balance + withdraw (PayPal) */}
+        <div className="card-dark p-6 mb-10" data-testid="balance-card">
+          <div className="flex items-center gap-5 flex-wrap">
+            <span className="w-12 h-12 rounded-2xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0">
+              <Wallet className="w-6 h-6 text-[#CCFF00]" />
+            </span>
+            <div className="flex-1 min-w-48">
+              <div className="label-caps mb-1">Available balance</div>
+              <div className="font-display font-extrabold text-3xl tracking-tighter text-[#CCFF00]">
+                ${balance ? balance.available.toFixed(2) : "0.00"}
+              </div>
+              <p className="text-xs text-zinc-500 mt-1">
+                Lifetime earned ${balance ? balance.lifetime_earned.toFixed(2) : "0.00"} · min withdrawal ${balance?.min_withdrawal ?? 20}
+              </p>
             </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              Lifetime earned ${balance ? balance.lifetime_earned.toFixed(2) : "0.00"} · min withdrawal ${balance?.min_withdrawal ?? 20}
-              {balance && !balance.payout_wallet && <span className="text-amber-400"> · set a payout wallet below to cash out</span>}
-            </p>
+            {balance?.paypal_email && (
+              <button
+                data-testid="withdraw-btn"
+                onClick={withdraw}
+                disabled={withdrawing || !balance || balance.available < (balance?.min_withdrawal ?? 20)}
+                className="btn-lime h-11 px-6 text-sm shrink-0"
+              >
+                <ArrowDownToLine className="w-4 h-4" /> {withdrawing ? "Sending…" : "Withdraw to PayPal"}
+              </button>
+            )}
           </div>
-          <button
-            data-testid="withdraw-btn"
-            onClick={withdraw}
-            disabled={withdrawing || !balance || balance.available < (balance?.min_withdrawal ?? 20) || !balance?.payout_wallet}
-            className="btn-lime h-11 px-6 text-sm shrink-0"
-          >
-            <ArrowDownToLine className="w-4 h-4" /> {withdrawing ? "Sending…" : "Withdraw"}
-          </button>
+          {/* PayPal destination */}
+          <div className="mt-5 pt-5 border-t border-white/[0.06] flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-zinc-500 shrink-0">Paid to PayPal</span>
+            <input
+              data-testid="paypal-email-input"
+              type="email"
+              value={ppEmail}
+              onChange={(e) => setPpEmail(e.target.value)}
+              placeholder="you@email.com"
+              className="input-dark h-10 text-sm flex-1 min-w-48"
+            />
+            <button
+              data-testid="save-paypal-btn"
+              onClick={savePaypal}
+              disabled={savingPp || !ppEmail.trim() || ppEmail.trim() === (balance?.paypal_email || "")}
+              className="btn-ghost h-10 px-5 text-sm shrink-0"
+            >
+              {savingPp ? "Saving…" : balance?.paypal_email ? "Update" : "Save"}
+            </button>
+          </div>
         </div>
 
         {/* Accountability: bond on the line */}

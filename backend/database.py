@@ -34,9 +34,22 @@ async def get_session() -> AsyncSession:
         yield session
 
 
+# Lightweight, idempotent column additions for existing tables. `create_all` only
+# creates missing TABLES, not new columns, so additive columns land here until we
+# adopt Alembic. Each is safe to re-run (ADD COLUMN IF NOT EXISTS).
+from sqlalchemy import text as _sql_text
+
+_COLUMN_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS paypal_email TEXT",
+]
+
+
 async def init_db() -> None:
-    """Create tables if they don't exist. For real migrations use Alembic; this is
-    the bootstrap path so a fresh Postgres comes up ready."""
+    """Create tables if they don't exist, then apply additive column migrations.
+    For richer migrations use Alembic; this is the bootstrap path so a fresh (or
+    lightly-evolving) Postgres comes up ready."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("PostgreSQL schema ensured (create_all)")
+        for stmt in _COLUMN_MIGRATIONS:
+            await conn.execute(_sql_text(stmt))
+    logger.info("PostgreSQL schema ensured (create_all + %d column migrations)", len(_COLUMN_MIGRATIONS))

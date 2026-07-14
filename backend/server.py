@@ -26,6 +26,7 @@ import auth
 import storage
 import payments
 import square
+import paypal
 import solana_pay as solpay
 
 from database import get_session, init_db, SessionLocal, engine
@@ -352,9 +353,12 @@ class SolanaFundRequest(BaseModel):
 class PayoutWalletRequest(BaseModel):
     wallet: str
 
+class PayoutEmailRequest(BaseModel):
+    email: str
+
 class WithdrawRequest(BaseModel):
-    method: str = "usdc"                 # "usdc" (Solana) | "paypal"
-    destination: Optional[str] = None    # wallet address / paypal email; defaults to payout_wallet
+    method: str = "paypal"               # "paypal" (default) | "usdc" (Solana)
+    destination: Optional[str] = None    # paypal email / wallet address; defaults to the saved one
 
 class TipRequest(BaseModel):
     signature: str
@@ -1323,6 +1327,18 @@ async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_
     return {"ok": True, "wallet": wallet}
 
 
+@api_router.post("/me/paypal-email")
+async def set_paypal_email(body: PayoutEmailRequest, user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+    email = body.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(400, "Enter a valid PayPal email address")
+    row = await session.get(User, as_uuid(user["id"]))
+    row.paypal_email = email
+    await session.commit()
+    return {"ok": True, "paypal_email": email}
+
+
 MIN_WITHDRAWAL_CENTS = 2000  # $20
 
 async def _clipper_balance_cents(session: AsyncSession, clipper_id) -> int:
@@ -1344,9 +1360,11 @@ async def my_balance(user: dict = Depends(get_current_user),
     total = await session.scalar(select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.kind == TxnKind.payout, Transaction.status == TxnStatus.confirmed,
         Transaction.to_user == uid, Transaction.currency == Currency.usd)) or 0
+    row = await session.get(User, uid)
     return {"available": round(cents / 100, 2), "lifetime_earned": round(int(total) / 100, 2),
             "currency": "usd", "min_withdrawal": MIN_WITHDRAWAL_CENTS / 100,
-            "payout_wallet": (await session.get(User, uid)).payout_wallet}
+            "method": "paypal", "paypal_email": row.paypal_email,
+            "payout_wallet": row.payout_wallet}
 
 
 @api_router.post("/me/withdraw")
@@ -1358,11 +1376,17 @@ async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("cli
         raise HTTPException(400, f"Minimum withdrawal is ${MIN_WITHDRAWAL_CENTS/100:.0f}. "
                                  f"Your balance is ${cents/100:.2f}.")
     row = await session.get(User, uid)
-    method = body.method if body.method in ("usdc", "paypal") else "usdc"
-    dest = (body.destination or "").strip() or (row.payout_wallet if method == "usdc" else None)
-    if not dest:
-        raise HTTPException(409, "Set a Solana payout wallet" if method == "usdc"
-                            else "Provide your PayPal email")
+    method = body.method if body.method in ("usdc", "paypal") else "paypal"
+    if method == "paypal":
+        dest = (body.destination or "").strip().lower() or (row.paypal_email or "")
+        if not dest:
+            raise HTTPException(409, "Add your PayPal email first")
+        if dest != (row.paypal_email or ""):   # remember it for next time
+            row.paypal_email = dest
+    else:  # usdc
+        dest = (body.destination or "").strip() or (row.payout_wallet or "")
+        if not dest:
+            raise HTTPException(409, "Set a Solana payout wallet first")
     usd = round(cents / 100, 2)
     # Record the withdrawal first (pending immediately reduces the available balance,
     # preventing a double-withdraw), then execute on the chosen rail.
@@ -1370,7 +1394,18 @@ async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("cli
                    destination=dest, status=WithdrawalStatus.pending)
     session.add(w)
     await session.flush()
-    if method == "usdc" and solpay.is_configured():
+    if method == "paypal" and paypal.is_configured():
+        try:
+            res = await asyncio.to_thread(paypal.send_payout, dest, usd, "24 Hour Clipping earnings")
+            w.status = WithdrawalStatus.paid
+            w.chain_sig = res.get("batch_id")
+            w.note = f"paypal batch {res.get('status')}"
+        except Exception as e:
+            w.status = WithdrawalStatus.failed
+            await session.commit()
+            logger.error("PayPal withdrawal failed for %s: %s", uid, e)
+            raise HTTPException(502, "PayPal payout failed. Check your PayPal email and try again.")
+    elif method == "usdc" and solpay.is_configured():
         try:
             pay = await asyncio.to_thread(solpay.send_payout, dest, usd, "usdc")
             w.status = WithdrawalStatus.paid
@@ -1378,10 +1413,10 @@ async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("cli
         except Exception as e:
             w.status = WithdrawalStatus.failed
             await session.commit()
-            logger.error("Withdrawal payout failed for %s: %s", uid, e)
+            logger.error("USDC withdrawal failed for %s: %s", uid, e)
             raise HTTPException(502, "Payout failed - the treasury may be low. Try again shortly.")
     else:
-        # PayPal (or Solana not configured): held as pending for batch/manual processing.
+        # Provider not configured yet: held as pending for batch/manual processing.
         w.note = "queued for payout"
     await session.commit()
     return {"ok": True, "amount": usd, "method": method, "status": w.status.value,
