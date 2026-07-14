@@ -103,7 +103,7 @@ export default function Checkout() {
                 </div>
               </div>
 
-              <button data-testid="fund-project-btn" className="btn-lime h-13 w-full text-base mt-5" disabled={paying} onClick={fund}>
+              <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base mt-5" disabled={paying} onClick={fund}>
                 {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <>Fund Project - ${p.budget} <ArrowRight className="w-4 h-4" /></>}
               </button>
 

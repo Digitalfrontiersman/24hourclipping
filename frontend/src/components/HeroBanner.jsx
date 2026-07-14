@@ -32,21 +32,10 @@ export default function HeroBanner() {
         animate="show"
         className="relative z-10 mx-auto w-full max-w-3xl px-5 sm:px-6 text-center"
       >
-        {/* live pill */}
-        <motion.div variants={fadeUp} custom={0} className="mb-7 flex justify-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[11px] font-semibold tracking-wide text-zinc-300 backdrop-blur">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#CCFF00] opacity-70" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#CCFF00]" />
-            </span>
-            Vetted clippers bidding live
-          </span>
-        </motion.div>
-
         {/* headline */}
         <motion.h1
           variants={fadeUp}
-          custom={1}
+          custom={0}
           className="font-display font-extrabold tracking-tight leading-[1.04] text-[2.6rem] sm:text-6xl lg:text-7xl"
           data-testid="hero-headline"
         >
@@ -59,7 +48,7 @@ export default function HeroBanner() {
         {/* subcopy */}
         <motion.p
           variants={fadeUp}
-          custom={2}
+          custom={1}
           className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-zinc-400 sm:text-lg"
         >
           Post the moment, pick a vetted clipper, and get a finished, ready-to-post
@@ -69,13 +58,13 @@ export default function HeroBanner() {
         {/* CTAs — stack full-width on mobile, inline on larger */}
         <motion.div
           variants={fadeUp}
-          custom={3}
+          custom={2}
           className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4"
         >
           <Link
             to="/customer/create"
             data-testid="hero-post-clip-btn"
-            className="btn-lime group relative h-13 overflow-hidden px-8 text-base sm:h-14"
+            className="btn-lime group relative h-14 w-full overflow-hidden px-8 text-base sm:w-auto"
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
               Post a Clip
@@ -86,7 +75,7 @@ export default function HeroBanner() {
           <Link
             to="/marketplace"
             data-testid="hero-browse-jobs-btn"
-            className="btn-ghost h-13 px-7 text-base sm:h-14"
+            className="btn-ghost h-14 w-full px-7 text-base sm:w-auto"
           >
             Browse Live Jobs
           </Link>
@@ -95,7 +84,7 @@ export default function HeroBanner() {
         {/* trust line */}
         <motion.div
           variants={fadeUp}
-          custom={4}
+          custom={3}
           className="mt-10 flex flex-col items-center justify-center gap-1.5 text-sm text-zinc-500 sm:flex-row sm:gap-3"
         >
           <span className="flex items-center gap-1 text-[#CCFF00]">
