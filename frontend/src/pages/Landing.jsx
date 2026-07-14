@@ -47,7 +47,7 @@ export default function Landing() {
             sub={<>Short-form clips delivered on 24 Hour Clipping - raw footage in, scroll-stopping cut out.</>}
           />
           <div className="flex flex-wrap justify-center gap-6">
-            {["/showcase/clip1.mp4", "/showcase/clip2.mp4"].map((clip) => (
+            {["/showcase/clip1.mp4", "/showcase/clip2.mp4", "/showcase/clip3.mp4"].map((clip) => (
               <div key={clip} className="relative w-[260px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
                 <video
                   src={clip}
