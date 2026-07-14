@@ -32,9 +32,9 @@ from database import get_session, init_db, SessionLocal, engine
 from models import (
     User, UserRoleAssoc, ClipperProfile, PortfolioItem, BrandProfile,
     Project, ProjectReference, Bid, Contract, Delivery, Review, Message,
-    Transaction, AppSetting,
+    Transaction, Withdrawal, AppSetting,
     AuthProvider, UserRole, ProjectStatus, BidStatus, ContractStatus,
-    Currency, TxnKind, TxnStatus,
+    Currency, TxnKind, TxnStatus, WithdrawalStatus,
 )
 
 ROOT_DIR = Path(__file__).parent
@@ -351,6 +351,10 @@ class SolanaFundRequest(BaseModel):
 
 class PayoutWalletRequest(BaseModel):
     wallet: str
+
+class WithdrawRequest(BaseModel):
+    method: str = "usdc"                 # "usdc" (Solana) | "paypal"
+    destination: Optional[str] = None    # wallet address / paypal email; defaults to payout_wallet
 
 class TipRequest(BaseModel):
     signature: str
@@ -1319,6 +1323,71 @@ async def set_payout_wallet(body: PayoutWalletRequest, user: dict = Depends(get_
     return {"ok": True, "wallet": wallet}
 
 
+MIN_WITHDRAWAL_CENTS = 2000  # $20
+
+async def _clipper_balance_cents(session: AsyncSession, clipper_id) -> int:
+    """Withdrawable USD balance (base units) = approved earnings minus withdrawals.
+    Only platform-held payouts count (tips are paid clipper-to-clipper on-chain)."""
+    credited = await session.scalar(select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+        Transaction.kind == TxnKind.payout, Transaction.status == TxnStatus.confirmed,
+        Transaction.to_user == clipper_id, Transaction.currency == Currency.usd)) or 0
+    withdrawn = await session.scalar(select(func.coalesce(func.sum(Withdrawal.amount), 0)).where(
+        Withdrawal.clipper_id == clipper_id, Withdrawal.status != WithdrawalStatus.failed)) or 0
+    return int(credited) - int(withdrawn)
+
+
+@api_router.get("/me/balance")
+async def my_balance(user: dict = Depends(get_current_user),
+                     session: AsyncSession = Depends(get_session)):
+    uid = as_uuid(user["id"])
+    cents = await _clipper_balance_cents(session, uid)
+    total = await session.scalar(select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+        Transaction.kind == TxnKind.payout, Transaction.status == TxnStatus.confirmed,
+        Transaction.to_user == uid, Transaction.currency == Currency.usd)) or 0
+    return {"available": round(cents / 100, 2), "lifetime_earned": round(int(total) / 100, 2),
+            "currency": "usd", "min_withdrawal": MIN_WITHDRAWAL_CENTS / 100,
+            "payout_wallet": (await session.get(User, uid)).payout_wallet}
+
+
+@api_router.post("/me/withdraw")
+async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("clipper", "admin")),
+                   session: AsyncSession = Depends(get_session)):
+    uid = as_uuid(user["id"])
+    cents = await _clipper_balance_cents(session, uid)
+    if cents < MIN_WITHDRAWAL_CENTS:
+        raise HTTPException(400, f"Minimum withdrawal is ${MIN_WITHDRAWAL_CENTS/100:.0f}. "
+                                 f"Your balance is ${cents/100:.2f}.")
+    row = await session.get(User, uid)
+    method = body.method if body.method in ("usdc", "paypal") else "usdc"
+    dest = (body.destination or "").strip() or (row.payout_wallet if method == "usdc" else None)
+    if not dest:
+        raise HTTPException(409, "Set a Solana payout wallet" if method == "usdc"
+                            else "Provide your PayPal email")
+    usd = round(cents / 100, 2)
+    # Record the withdrawal first (pending immediately reduces the available balance,
+    # preventing a double-withdraw), then execute on the chosen rail.
+    w = Withdrawal(clipper_id=uid, amount=cents, currency=Currency.usd, method=method,
+                   destination=dest, status=WithdrawalStatus.pending)
+    session.add(w)
+    await session.flush()
+    if method == "usdc" and solpay.is_configured():
+        try:
+            pay = await asyncio.to_thread(solpay.send_payout, dest, usd, "usdc")
+            w.status = WithdrawalStatus.paid
+            w.chain_sig = pay["signature"]
+        except Exception as e:
+            w.status = WithdrawalStatus.failed
+            await session.commit()
+            logger.error("Withdrawal payout failed for %s: %s", uid, e)
+            raise HTTPException(502, "Payout failed - the treasury may be low. Try again shortly.")
+    else:
+        # PayPal (or Solana not configured): held as pending for batch/manual processing.
+        w.note = "queued for payout"
+    await session.commit()
+    return {"ok": True, "amount": usd, "method": method, "status": w.status.value,
+            "signature": w.chain_sig, "destination": dest}
+
+
 @api_router.put("/me/clipper-profile")
 async def update_clipper_profile(body: ClipperProfileUpdate,
                                  user: dict = Depends(require_role("clipper", "admin")),
@@ -1350,8 +1419,11 @@ async def _pay_contract(session: AsyncSession, contract: Contract) -> dict:
     """Send the clipper's payout for a completed contract (idempotent via the ledger)."""
     existing = await session.scalar(select(Transaction).where(
         Transaction.kind == TxnKind.payout, Transaction.contract_id == contract.id))
-    if existing and existing.chain_sig:
-        return {"already_paid": True, "signature": existing.chain_sig}
+    if existing:
+        # Approval already credited the clipper's balance; payouts now go out via
+        # /me/withdraw, so this legacy per-contract path is a no-op.
+        return {"already_paid": True, "signature": existing.chain_sig,
+                "note": "credited to clipper balance; withdraw via /me/withdraw"}
     clipper = await session.get(User, contract.clipper_id)
     wallet = clipper.payout_wallet if clipper else None
     if not wallet:
@@ -1683,18 +1755,24 @@ async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_
         proj.status = ProjectStatus.completed
     await session.commit()
     split = solpay.payout_split(float(c.price))
-    resp = {"ok": True, "payout": split["clipper"], "fee": split["fee"], "bond_returned": float(c.bond or 0)}
-    # If Solana escrow funded this project, pay the clipper now.
-    if proj and solpay.is_configured() and str(proj.payment_method or "").startswith("solana"):
-        try:
-            fresh = await session.get(Contract, c.id)
-            pay = await _pay_contract(session, fresh)
-            resp["payout_signature"] = pay.get("signature")
-            resp["paid"] = True
-        except HTTPException as e:
-            resp["paid"] = False
-            resp["payout_error"] = e.detail
-    return resp
+    # Credit the clipper's USD balance (works for Square/fiat- and Solana-funded jobs
+    # alike). The money leaves later via /me/withdraw. Idempotent: one payout ledger
+    # row per contract.
+    existing = await session.scalar(select(Transaction.id).where(
+        Transaction.kind == TxnKind.payout, Transaction.contract_id == c.id))
+    if not existing:
+        session.add(Transaction(kind=TxnKind.payout, status=TxnStatus.confirmed,
+                                contract_id=c.id, project_id=c.project_id, to_user=c.clipper_id,
+                                amount=_base_units(split["clipper"], "usd"), currency=Currency.usd,
+                                meta={"clipper": split["clipper"], "fee": split["fee"],
+                                      "source": (proj.payment_method if proj else None), "at": now_iso()}))
+        session.add(Transaction(kind=TxnKind.fee, status=TxnStatus.confirmed,
+                                contract_id=c.id, project_id=c.project_id,
+                                amount=_base_units(split["fee"], "usd"), currency=Currency.usd,
+                                meta={"at": now_iso()}))
+        await session.commit()
+    return {"ok": True, "payout": split["clipper"], "fee": split["fee"],
+            "bond_returned": float(c.bond or 0), "credited": True}
 
 
 @api_router.post("/contracts/{contract_id}/rescue")

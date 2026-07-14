@@ -48,6 +48,9 @@ class TxnKind(str, enum.Enum):
 class TxnStatus(str, enum.Enum):
     pending = "pending"; confirmed = "confirmed"; failed = "failed"
 
+class WithdrawalStatus(str, enum.Enum):
+    pending = "pending"; paid = "paid"; failed = "failed"
+
 
 # ----------------------------- helpers -----------------------------
 def _pk() -> Mapped[uuid.UUID]:
@@ -288,6 +291,22 @@ class Transaction(Base):
     chain_sig: Mapped[str | None] = mapped_column(Text, unique=True)  # anti-replay
     meta: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False)
     created_at: Mapped[datetime] = _created()
+
+
+class Withdrawal(Base):
+    """A clipper cashing out their accrued balance on a payout rail."""
+    __tablename__ = "withdrawals"
+    id: Mapped[uuid.UUID] = _pk()
+    clipper_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[int] = mapped_column(Numeric(20, 0), nullable=False)  # base units (usd cents)
+    currency: Mapped[Currency] = mapped_column(SAEnum(Currency, name="currency", create_type=False), server_default=text("'usd'"), nullable=False)
+    method: Mapped[str] = mapped_column(Text, nullable=False)          # "usdc" | "paypal" | ...
+    destination: Mapped[str | None] = mapped_column(Text)              # wallet address / paypal email
+    status: Mapped[WithdrawalStatus] = mapped_column(SAEnum(WithdrawalStatus, name="withdrawal_status"), default=WithdrawalStatus.pending, server_default=text("'pending'"), nullable=False)
+    chain_sig: Mapped[str | None] = mapped_column(Text, unique=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created()
+    __table_args__ = (CheckConstraint("amount > 0", name="ck_withdrawal_amount_pos"),)
 
 
 class AppSetting(Base):

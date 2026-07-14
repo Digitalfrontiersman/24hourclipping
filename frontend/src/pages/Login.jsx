@@ -7,7 +7,7 @@ import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
 
 export default function Login() {
-  const { login, google, loginDemo } = useApp();
+  const { login, google } = useApp();
   const nav = useNavigate();
   const loc = useLocation();
   const [email, setEmail] = useState("");
@@ -44,17 +44,6 @@ export default function Login() {
     }
   };
 
-  const demo = async (role) => {
-    try {
-      const user = await loginDemo(role);
-      toast.success(`Demo ${role}`);
-      go(user);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Demo login unavailable");
-    }
-  };
-
-  const showDemo = process.env.REACT_APP_HIDE_DEMO_LOGIN !== "true";
 
   return (
     <div className="h-[calc(100svh-4rem)] overflow-hidden bg-[#0A0A0A] text-white grid lg:grid-cols-2">
@@ -85,14 +74,6 @@ export default function Login() {
             No account? <Link to="/register" className="text-[#CCFF00] font-semibold">Sign up</Link>
           </div>
 
-          {showDemo && (
-            <div className="mt-6 pt-6 border-t border-white/10 text-sm text-zinc-500">
-              Just exploring?{" "}
-              <button onClick={() => demo("customer")} className="text-zinc-300 font-semibold hover:text-[#CCFF00] transition-colors underline underline-offset-4">Demo Customer</button>
-              {" · "}
-              <button onClick={() => demo("clipper")} className="text-zinc-300 font-semibold hover:text-[#CCFF00] transition-colors underline underline-offset-4">Demo Clipper</button>
-            </div>
-          )}
         </div>
       </div>
 

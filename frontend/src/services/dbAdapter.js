@@ -21,6 +21,8 @@ export const dbAdapter = {
   setTestMode: (enabled) => api.post("/admin/test-mode", { enabled }).then((r) => r.data),
   getPayoutWallet: () => api.get("/me/payout-wallet").then((r) => r.data),
   setPayoutWallet: (wallet) => api.post("/me/payout-wallet", { wallet }).then((r) => r.data),
+  getBalance: () => api.get("/me/balance").then((r) => r.data),
+  withdraw: (method = "usdc", destination) => api.post("/me/withdraw", { method, destination }).then((r) => r.data),
   tipClipper: (contractId, signature, amount, currency = "usdc") => api.post(`/contracts/${contractId}/tip`, { signature, amount, currency }).then((r) => r.data),
   contractPayout: (contractId) => api.post(`/contracts/${contractId}/payout`).then((r) => r.data),
   getBids: (projectId) => api.get(`/projects/${projectId}/bids`).then((r) => r.data),

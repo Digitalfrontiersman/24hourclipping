@@ -7,9 +7,10 @@ import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
 import Footer from "@/components/Footer";
 import EmptyState from "@/components/EmptyState";
-import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film } from "lucide-react";
+import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film, Wallet, ArrowDownToLine } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
+import { notify } from "@/services/notificationAdapter";
 import SolanaPayoutWallet from "@/components/SolanaPayoutWallet";
 
 const SEEN_DEALS_KEY = "24hc_seen_deals";
@@ -41,12 +42,30 @@ export default function ClipperDashboard() {
   const [contracts, setContracts] = useState([]);
   const [newWins, setNewWins] = useState([]);
   const [myBids, setMyBids] = useState([]);
+  const [balance, setBalance] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  const loadBalance = () => dbAdapter.getBalance().then(setBalance).catch(() => {});
+  const withdraw = async () => {
+    if (withdrawing) return;
+    setWithdrawing(true);
+    try {
+      const r = await dbAdapter.withdraw("usdc");
+      notify.success("Withdrawal sent", r.status === "paid" ? `$${r.amount} USDC on its way to your wallet.` : `$${r.amount} queued for payout.`);
+      loadBalance();
+    } catch (err) {
+      notify.urgent(err.response?.data?.detail || "Could not withdraw");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   useEffect(() => {
     if (!ME) return;
     dbAdapter.getClipper(ME).then(setMe).catch(() => {});
     dbAdapter.getProjects({ status: "open" }).then(setProjects).catch(() => {});
     dbAdapter.getMyBids().then(setMyBids).catch(() => {});
+    loadBalance();
     dbAdapter.getContracts().then((cs) => {
       const mine = cs.filter((c) => c.clipper_id === ME);
       setContracts(mine);
@@ -92,6 +111,31 @@ export default function ClipperDashboard() {
               <Film className="w-4 h-4" /> Creator dashboard
             </button>
           )}
+        </div>
+
+        {/* Earnings balance + withdraw */}
+        <div className="card-dark p-6 mb-10 flex items-center gap-5 flex-wrap" data-testid="balance-card">
+          <span className="w-12 h-12 rounded-2xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0">
+            <Wallet className="w-6 h-6 text-[#CCFF00]" />
+          </span>
+          <div className="flex-1 min-w-48">
+            <div className="label-caps mb-1">Available balance</div>
+            <div className="font-display font-extrabold text-3xl tracking-tighter text-[#CCFF00]">
+              ${balance ? balance.available.toFixed(2) : "0.00"}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Lifetime earned ${balance ? balance.lifetime_earned.toFixed(2) : "0.00"} · min withdrawal ${balance?.min_withdrawal ?? 20}
+              {balance && !balance.payout_wallet && <span className="text-amber-400"> · set a payout wallet below to cash out</span>}
+            </p>
+          </div>
+          <button
+            data-testid="withdraw-btn"
+            onClick={withdraw}
+            disabled={withdrawing || !balance || balance.available < (balance?.min_withdrawal ?? 20) || !balance?.payout_wallet}
+            className="btn-lime h-11 px-6 text-sm shrink-0"
+          >
+            <ArrowDownToLine className="w-4 h-4" /> {withdrawing ? "Sending…" : "Withdraw"}
+          </button>
         </div>
 
         {/* Accountability: bond on the line */}
