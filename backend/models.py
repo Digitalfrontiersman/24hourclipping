@@ -10,7 +10,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     String, Text, Boolean, Integer, SmallInteger, Numeric, ForeignKey,
-    DateTime, Enum as SAEnum, UniqueConstraint, CheckConstraint, Index, func,
+    DateTime, Enum as SAEnum, UniqueConstraint, CheckConstraint, Index, func, text,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -67,12 +67,12 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     hashed_password: Mapped[str | None] = mapped_column(Text)
-    auth_provider: Mapped[AuthProvider] = mapped_column(SAEnum(AuthProvider, name="auth_provider"), default=AuthProvider.local, nullable=False)
+    auth_provider: Mapped[AuthProvider] = mapped_column(SAEnum(AuthProvider, name="auth_provider"), default=AuthProvider.local, server_default=text("'local'"), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(Text)
-    credits: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    credits: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
     payout_wallet: Mapped[str | None] = mapped_column(Text)
-    onboarded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    onboarded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = _updated()
 
@@ -95,12 +95,12 @@ class ClipperProfile(Base):
     price_min: Mapped[float | None] = mapped_column(Numeric(14, 2))
     price_max: Mapped[float | None] = mapped_column(Numeric(14, 2))
     badge: Mapped[str | None] = mapped_column(Text)
-    tools: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, nullable=False)
-    rating: Mapped[float] = mapped_column(Numeric(3, 2), default=0, nullable=False)
-    on_time_pct: Mapped[int] = mapped_column(SmallInteger, default=100, nullable=False)
-    completed_jobs: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    missed_deadlines: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    status: Mapped[str] = mapped_column(Text, default="approved", nullable=False)
+    tools: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default=text("'{}'"), nullable=False)
+    rating: Mapped[float] = mapped_column(Numeric(3, 2), default=0, server_default=text("0"), nullable=False)
+    on_time_pct: Mapped[int] = mapped_column(SmallInteger, default=100, server_default=text("100"), nullable=False)
+    completed_jobs: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+    missed_deadlines: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="approved", server_default=text("'approved'"), nullable=False)
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = _updated()
 
@@ -130,7 +130,7 @@ class BrandProfile(Base):
     cta: Mapped[str | None] = mapped_column(Text)
     avoid: Mapped[str | None] = mapped_column(Text)
     fonts: Mapped[str | None] = mapped_column(Text)
-    colors: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, nullable=False)
+    colors: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default=text("'{}'"), nullable=False)
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = _updated()
 
@@ -142,11 +142,11 @@ class Project(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", server_default=text("''"), nullable=False)
     budget: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
-    bond: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
-    status: Mapped[ProjectStatus] = mapped_column(SAEnum(ProjectStatus, name="project_status"), default=ProjectStatus.draft, nullable=False, index=True)
-    funded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    bond: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default=text("0"), nullable=False)
+    status: Mapped[ProjectStatus] = mapped_column(SAEnum(ProjectStatus, name="project_status"), default=ProjectStatus.draft, server_default=text("'draft'"), nullable=False, index=True)
+    funded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     output_length: Mapped[str | None] = mapped_column(Text)
     aspect_ratio: Mapped[str | None] = mapped_column(Text)
     captions: Mapped[str | None] = mapped_column(Text)
@@ -163,8 +163,8 @@ class Project(Base):
     thumbnail_url: Mapped[str | None] = mapped_column(Text)
     thumbnail_key: Mapped[str | None] = mapped_column(Text)
     quality_notes: Mapped[str | None] = mapped_column(Text)
-    deadline_hours: Mapped[int] = mapped_column(SmallInteger, default=24, nullable=False)
-    allow_extension: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deadline_hours: Mapped[int] = mapped_column(SmallInteger, default=24, server_default=text("24"), nullable=False)
+    allow_extension: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     payment_method: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     updated_at: Mapped[datetime] = _updated()
@@ -192,8 +192,8 @@ class Bid(Base):
     amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     pitch: Mapped[str] = mapped_column(Text, nullable=False)
     eta_hours: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    bond_required: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
-    status: Mapped[BidStatus] = mapped_column(SAEnum(BidStatus, name="bid_status"), default=BidStatus.pending, nullable=False)
+    bond_required: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default=text("0"), nullable=False)
+    status: Mapped[BidStatus] = mapped_column(SAEnum(BidStatus, name="bid_status"), default=BidStatus.pending, server_default=text("'pending'"), nullable=False)
     created_at: Mapped[datetime] = _created()
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_bids_amount_pos"),
@@ -211,11 +211,11 @@ class Contract(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="RESTRICT"), index=True)
     clipper_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
     price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
-    bond: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
-    status: Mapped[ContractStatus] = mapped_column(SAEnum(ContractStatus, name="contract_status"), default=ContractStatus.live, nullable=False, index=True)
-    base_hours: Mapped[int] = mapped_column(SmallInteger, default=24, nullable=False)
-    extended_hours: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
-    allow_extension: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    bond: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default=text("0"), nullable=False)
+    status: Mapped[ContractStatus] = mapped_column(SAEnum(ContractStatus, name="contract_status"), default=ContractStatus.live, server_default=text("'live'"), nullable=False, index=True)
+    base_hours: Mapped[int] = mapped_column(SmallInteger, default=24, server_default=text("24"), nullable=False)
+    extended_hours: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"), nullable=False)
+    allow_extension: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     rating_given: Mapped[int | None] = mapped_column(SmallInteger)
@@ -277,7 +277,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
     id: Mapped[uuid.UUID] = _pk()
     kind: Mapped[TxnKind] = mapped_column(SAEnum(TxnKind, name="txn_kind"), nullable=False)
-    status: Mapped[TxnStatus] = mapped_column(SAEnum(TxnStatus, name="txn_status"), default=TxnStatus.pending, nullable=False)
+    status: Mapped[TxnStatus] = mapped_column(SAEnum(TxnStatus, name="txn_status"), default=TxnStatus.pending, server_default=text("'pending'"), nullable=False)
     project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), index=True)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contracts.id"), index=True)
     from_user: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
@@ -285,7 +285,7 @@ class Transaction(Base):
     amount: Mapped[int] = mapped_column(Numeric(20, 0), nullable=False)  # base units
     currency: Mapped[Currency] = mapped_column(SAEnum(Currency, name="currency"), nullable=False)
     chain_sig: Mapped[str | None] = mapped_column(Text, unique=True)  # anti-replay
-    meta: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False)
     created_at: Mapped[datetime] = _created()
 
 
