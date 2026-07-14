@@ -8,7 +8,7 @@ import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import ChatPanel from "@/components/ChatPanel";
 import FileDropzone from "@/components/FileDropzone";
-import { Lock, FileVideo, CheckCircle2, RefreshCw } from "lucide-react";
+import { Lock, FileVideo, CheckCircle2, RefreshCw, Clock } from "lucide-react";
 
 export default function ClipperRoom() {
   const { contractId } = useParams();
@@ -28,6 +28,16 @@ export default function ClipperRoom() {
     setNote("");
     notify.success("Delivery sent", "Clock stopped - the customer has been notified.");
     load();
+  };
+
+  const extend = async () => {
+    try {
+      const r = await dbAdapter.extendContract(contractId, 24);
+      notify.success("Deadline extended", `+24h added${typeof r.remaining_extension === "number" ? ` · ${r.remaining_extension}h of extension left` : ""}.`);
+      load();
+    } catch (err) {
+      notify.urgent(err.response?.data?.detail || "Could not extend the deadline");
+    }
   };
 
   const downloadSource = async () => {
@@ -52,6 +62,11 @@ export default function ClipperRoom() {
             <>
               <Countdown deadline={c.deadline_at} size="lg" />
               <p className="label-caps mt-4">{c.status === "revision" ? "Revision requested - resubmit before the clock hits zero" : "Deliver your first cut before the clock hits zero"}</p>
+              {c.allow_extension && (
+                <button onClick={extend} data-testid="extend-deadline-btn" className="btn-ghost h-9 px-4 text-xs mt-4 mx-auto">
+                  <Clock className="w-3.5 h-3.5" /> Need more time? Extend +24h
+                </button>
+              )}
             </>
           ) : c.status === "delivered" ? (
             <div data-testid="delivered-confirmation">

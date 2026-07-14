@@ -33,6 +33,12 @@ export default function Navbar() {
 
   const profileHref = activeRole === "clipper" ? `/clippers/${user?.id}` : "/customer/brand";
 
+  const userInitial = (user?.name || "?").trim().charAt(0).toUpperCase() || "?";
+  const AvatarCircle = ({ className }) =>
+    user?.avatar
+      ? <img src={user.avatar} alt="" className={`${className} rounded-full object-cover border border-white/15`} />
+      : <span className={`${className} rounded-full bg-[#CCFF00] text-black font-display font-bold flex items-center justify-center leading-none`}>{userInitial}</span>;
+
   const doLogout = () => {
     logout();
     nav("/");
@@ -62,14 +68,19 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {isAuthed ? (
             <DropdownMenu>
-              <DropdownMenuTrigger data-testid="account-menu" className="btn-ghost h-9 px-4 text-sm">
-                                {user?.name?.split(" ")[0] || "Account"} <ChevronDown className="w-3.5 h-3.5" />
+              <DropdownMenuTrigger data-testid="account-menu" className="flex items-center gap-2 h-10 rounded-full border border-white/15 pl-1 pr-3 hover:border-white/30 hover:bg-white/[0.06] transition-colors">
+                <AvatarCircle className="w-8 h-8 text-sm" />
+                <span className="text-sm font-semibold hidden sm:block">{user?.name?.split(" ")[0] || "Account"}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#1A1A1A] border-white/10 text-white w-60">
-                <DropdownMenuLabel className="flex flex-col gap-0.5">
-                  <span className="text-sm">{user?.name}</span>
-                  <span className="text-xs text-zinc-500 font-normal flex items-center gap-1"><User className="w-3 h-3" /> {user?.email}</span>
-                  {onboarded && <span className="text-[10px] mt-1 text-[#CCFF00] font-bold uppercase tracking-wide">Viewing as {ROLE_NOUN[activeRole]}</span>}
+              <DropdownMenuContent className="bg-[#1A1A1A] border-white/10 text-white w-64">
+                <DropdownMenuLabel className="flex items-center gap-3 p-3">
+                  <AvatarCircle className="w-11 h-11 text-lg" />
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold truncate">{user?.name}</span>
+                    <span className="text-xs text-zinc-500 font-normal truncate">{user?.email}</span>
+                    {onboarded && <span className="text-[10px] text-[#CCFF00] font-bold uppercase tracking-wide">Viewing as {ROLE_NOUN[activeRole]}</span>}
+                  </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
 

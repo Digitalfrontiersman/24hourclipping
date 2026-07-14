@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2, MessageCircle } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import BidChat from "@/components/BidChat";
 
@@ -72,6 +72,32 @@ export default function JobDetails() {
                   <div key={l} className="bg-black/40 rounded-lg p-3"><span className="text-zinc-500 block">{l}</span><span className="font-bold">{v}</span></div>
                 ))}
               </div>
+
+              {p.quality_notes && (
+                <div className="mt-5">
+                  <div className="label-caps mb-2 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-[#CCFF00]" /> Quality bar & taste</div>
+                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line bg-black/30 rounded-xl p-4">{p.quality_notes}</p>
+                </div>
+              )}
+
+              {p.references?.length > 0 && (
+                <div className="mt-5">
+                  <div className="label-caps mb-2">Reference clips the creator loves</div>
+                  <div className="space-y-1.5">
+                    {p.references.map((r, i) => (
+                      <a key={i} href={r} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-[#CCFF00] hover:underline">
+                        <Link2 className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{r}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {p.allow_extension && (
+                <div className="mt-5 flex items-center gap-2 text-xs text-[#CCFF00] bg-[#CCFF00]/[0.06] border border-[#CCFF00]/20 rounded-xl px-3 py-2.5">
+                  <Clock className="w-4 h-4 shrink-0" /> Flexible deadline - the creator lets you extend if you need more time.
+                </div>
+              )}
             </div>
           </div>
 

@@ -24,6 +24,7 @@ export default function CreateProject() {
     goal: "Grow my audience", audience: "", mood: "Hype", style: "Fast cuts, punch-ins",
     platform: "TikTok", output_length: "30-60s", aspect_ratio: "9:16",
     captions: "Bold captions", cta: "Follow for more", budget: 100, description: "",
+    references: "", quality_notes: "", allow_extension: false,
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -54,7 +55,8 @@ export default function CreateProject() {
     if (!f.title) return notify.urgent("Give your project a title");
     setSaving(true);
     try {
-      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), source_key: uploaded?.key, thumbnail_key: thumb?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
+      const references = f.references.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+      const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), references, source_key: uploaded?.key, thumbnail_key: thumb?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
       nav(`/customer/checkout/${p.id}`);
     } catch {
       notify.urgent("Could not create project");
@@ -167,6 +169,16 @@ export default function CreateProject() {
               <label className="label-caps block mb-2">Captions</label>
               <div className="flex flex-wrap gap-2">{["Bold captions", "Clean subtitles", "Karaoke style", "No captions"].map((c) => <button key={c} className={chip(f.captions === c)} onClick={() => set("captions", c)}>{c}</button>)}</div>
             </div>
+            <div>
+              <label className="label-caps block mb-2">Reference clips you love <span className="normal-case tracking-normal text-zinc-600">- paste links, one per line</span></label>
+              <textarea data-testid="references-input" className="input-dark h-24 py-3 text-sm" placeholder={"https://tiktok.com/@creator/video/...\nhttps://youtube.com/shorts/..."} value={f.references} onChange={(e) => set("references", e.target.value)} />
+              <p className="text-xs text-zinc-600 mt-1.5">Show the clipper the style, pacing, and edits you want to match.</p>
+            </div>
+            <div>
+              <label className="label-caps block mb-2">Your quality bar & taste</label>
+              <textarea data-testid="quality-notes-input" className="input-dark h-24 py-3 text-sm" placeholder="e.g. Punchy first frame, zero dead air, clean sound design, no cheap zoom transitions. Premium feel over quantity." value={f.quality_notes} onChange={(e) => set("quality_notes", e.target.value)} />
+              <p className="text-xs text-zinc-600 mt-1.5">Describe what a great cut looks like to you, and what to avoid.</p>
+            </div>
             <div className="flex gap-3">
               <button className="btn-ghost h-12 px-6" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4" /> Back</button>
               <button data-testid="step2-next" className="btn-lime h-12 flex-1" onClick={() => setStep(3)}>Continue <ArrowRight className="w-4 h-4" /></button>
@@ -190,6 +202,17 @@ export default function CreateProject() {
               <input data-testid="budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />
               <div className="flex justify-between text-xs text-zinc-600 mt-2 font-mono"><span>$20</span><span>$500</span></div>
               <div className="mt-4 text-xs text-zinc-400 bg-black/40 rounded-xl p-3">Clipper's Deadline Bond at this budget: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(f.budget))}</span> - locked behind your deadline.</div>
+            </div>
+            <div className="card-dark p-5">
+              <button type="button" data-testid="allow-extension-toggle" onClick={() => set("allow_extension", !f.allow_extension)} className="w-full flex items-center gap-4 text-left">
+                <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${f.allow_extension ? "bg-[#CCFF00]" : "bg-white/15"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black transition-transform ${f.allow_extension ? "translate-x-5" : ""}`} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold">Allow the clipper to extend the deadline</span>
+                  <span className="block text-xs text-zinc-500 mt-0.5">Off = a hard 24-hour clock. On = the clipper can add time if they need it (up to +48h), so it's not locked to 24 hours.</span>
+                </span>
+              </button>
             </div>
             <div>
               <label className="label-caps block mb-2">Call to action</label>

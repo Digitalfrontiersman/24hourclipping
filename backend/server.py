@@ -119,14 +119,36 @@ def _email_base_url() -> str:
 
 
 def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
-                 cta_label: str, cta_href: str, extra_html: str = "",
+                 cta_label: str, cta_href: str, highlights=None, extra_html: str = "",
                  footer_note: str = "") -> str:
     """Responsive, client-safe transactional email built on nested tables with
     inline styles and a bulletproof button, so it renders in Gmail, Apple Mail,
-    and Outlook alike. Content is passed in; the branded shell stays consistent."""
+    and Outlook alike. Content is passed in; the branded shell stays consistent.
+    `highlights` is an optional list of (title, description) rendered as numbered steps."""
     base = _email_base_url()
     footer_note = footer_note or ("This is an automated message from a send-only address, "
                                   "so please do not reply to it.")
+    highlights_html = ""
+    if highlights:
+        rows = ""
+        for i, (t, d) in enumerate(highlights, 1):
+            rows += (
+                '<tr>'
+                '<td valign="top" style="padding:0 14px 16px 0;width:36px;">'
+                f'<div style="width:30px;height:30px;border-radius:999px;background:#CCFF00;color:#0A0A0A;'
+                f'font-family:Arial,sans-serif;font-weight:800;font-size:14px;line-height:30px;text-align:center;">{i}</div>'
+                '</td>'
+                '<td valign="top" style="padding:0 0 16px 0;font-family:Arial,sans-serif;">'
+                f'<div style="color:#ffffff;font-size:15px;font-weight:700;line-height:1.4;">{t}</div>'
+                f'<div style="color:#a1a1aa;font-size:14px;line-height:1.55;margin-top:3px;">{d}</div>'
+                '</td></tr>'
+            )
+        highlights_html = (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 2px;">'
+            '<tr><td colspan="2" style="border-top:1px solid #262626;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>'
+            '<tr><td colspan="2" style="height:24px;line-height:24px;font-size:0;">&nbsp;</td></tr>'
+            f'{rows}</table>'
+        )
     return f"""<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -153,23 +175,31 @@ def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
           <!-- Header -->
           <tr>
-            <td class="px" style="padding:4px 40px 20px;font-family:Arial,Helvetica,sans-serif;">
-              <span style="display:inline-block;width:26px;height:26px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:14px;line-height:26px;text-align:center;vertical-align:middle;">24</span>
-              <span style="font-size:16px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;vertical-align:middle;padding-left:8px;">24HR<span style="color:#CCFF00;">CLIPPING</span></span>
+            <td class="px" style="padding:4px 40px 22px;font-family:Arial,Helvetica,sans-serif;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td align="left" style="vertical-align:middle;">
+                  <span style="display:inline-block;width:26px;height:26px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:14px;line-height:26px;text-align:center;vertical-align:middle;">24</span>
+                  <span style="font-size:16px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;vertical-align:middle;padding-left:8px;">24HR<span style="color:#CCFF00;">CLIPPING</span></span>
+                </td>
+                <td align="right" style="vertical-align:middle;">
+                  <span style="font-size:10px;letter-spacing:2px;color:#71717a;text-transform:uppercase;font-weight:700;">On the clock</span>
+                </td>
+              </tr></table>
             </td>
           </tr>
           <!-- Card -->
           <tr>
-            <td class="px" style="background:#141414;border:1px solid #262626;border-radius:20px;padding:40px;font-family:Arial,Helvetica,sans-serif;">
+            <td class="px" style="background:#141414;border:1px solid #262626;border-top:3px solid #CCFF00;border-radius:18px;padding:40px;font-family:Arial,Helvetica,sans-serif;">
               <div style="font-size:12px;letter-spacing:2.5px;color:#CCFF00;font-weight:700;text-transform:uppercase;">{eyebrow}</div>
-              <h1 style="margin:12px 0 14px;font-size:26px;line-height:1.25;color:#ffffff;font-weight:800;letter-spacing:-0.5px;">{headline}</h1>
+              <h1 style="margin:12px 0 14px;font-size:27px;line-height:1.22;color:#ffffff;font-weight:800;letter-spacing:-0.6px;">{headline}</h1>
               <div style="color:#a1a1aa;font-size:15px;line-height:1.65;">{body_html}</div>
               {extra_html}
+              {highlights_html}
               <!-- Bulletproof button -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 6px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 6px;">
                 <tr>
-                  <td align="center" bgcolor="#CCFF00" style="border-radius:999px;">
-                    <a href="{cta_href}" style="display:inline-block;padding:14px 34px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#0A0A0A;border-radius:999px;">{cta_label}</a>
+                  <td align="center" bgcolor="#CCFF00" style="border-radius:999px;box-shadow:0 10px 26px -10px rgba(204,255,0,0.55);">
+                    <a href="{cta_href}" style="display:inline-block;padding:15px 38px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#0A0A0A;border-radius:999px;">{cta_label} &rarr;</a>
                   </td>
                 </tr>
               </table>
@@ -224,19 +254,29 @@ def _welcome_email_html(name: str, role_hint: str) -> str:
     base = _email_base_url()
     if role_hint == "clipper":
         eyebrow, headline = "You're in", f"Welcome, {name}."
-        body = ("You're one step from your first paid clip. Finish your profile, then browse "
-                "open jobs and place a bid. Win it and the 24-hour clock starts.")
+        body = ("You're one step from your first paid clip. Here's how you start earning on "
+                "24 Hour Clipping:")
         cta_label, cta_href = "Find a job to clip", f"{base}/onboarding"
         preheader = "Finish your profile and place your first bid in one tap."
+        highlights = [
+            ("Finish your profile", "Add your specialties, tools, and a couple of sample clips so creators can find you."),
+            ("Bid on open jobs", "Browse live briefs and place a one-tap bid. Your price and ETA are prefilled."),
+            ("Deliver and get paid", "Win the job, ship your cut before the clock hits zero, and get paid on approval."),
+        ]
     else:
         eyebrow, headline = "Welcome aboard", f"Welcome, {name}."
-        body = ("Post a clip, fund it, and watch top clippers bid within minutes. Your finished "
-                "cut is delivered in under 24 hours. Let's get your first one on the clock.")
+        body = ("You're ready to get scroll-stopping clips made fast. Here's how it works on "
+                "24 Hour Clipping:")
         cta_label, cta_href = "Post your first clip", f"{base}/onboarding"
         preheader = "Post a clip and get a finished cut in under 24 hours."
+        highlights = [
+            ("Post your clip", "Describe the moment, set a budget, and upload or link your footage."),
+            ("Clippers bid in minutes", "Vetted editors compete for your job, each staking a bond behind the deadline."),
+            ("Get your cut in 24 hours", "Pick your clipper, review the cut, and approve to release payment."),
+        ]
     return _email_shell(
         preheader=preheader, eyebrow=eyebrow, headline=headline, body_html=body,
-        cta_label=cta_label, cta_href=cta_href,
+        cta_label=cta_label, cta_href=cta_href, highlights=highlights,
     )
 
 
@@ -261,6 +301,12 @@ class ProjectCreate(BaseModel):
     thumbnail: Optional[str] = None
     thumbnail_key: Optional[str] = None  # uploaded thumbnail image (object key)
     customer_name: str = "Demo Customer"
+    # --- Creative direction (creator's taste + references) ---
+    references: List[str] = Field(default_factory=list)   # links to clips the creator likes
+    quality_notes: str = Field(default="", max_length=2000)  # taste / quality bar / expectations
+    # --- Deadline policy ---
+    deadline_hours: int = Field(default=24, ge=1, le=168)   # base turnaround window
+    allow_extension: bool = False   # creator lets the clipper request more time past the base deadline
 
 class BidCreate(BaseModel):
     clipper_id: Optional[str] = None  # ignored; identity comes from the token
@@ -297,6 +343,9 @@ class TestModeRequest(BaseModel):
 
 class RateRequest(BaseModel):
     rating: int = 5
+
+class ExtendRequest(BaseModel):
+    hours: int = Field(gt=0, le=48)   # extra time requested, capped per request
 
 class BrandProfileUpdate(BaseModel):
     name: str = ""
@@ -1182,12 +1231,16 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     # Accepting = the deal is on: the contract goes live and the 24h clock starts,
     # so the clipper immediately sees it on their dashboard and can deliver.
     # (A project can accept several clippers - each gets its own live contract.)
+    proj_for_deadline = await db.projects.find_one({"id": bid["project_id"]}, NO_ID) or {}
+    base_hours = int(proj_for_deadline.get("deadline_hours") or 24)
+    allow_extension = bool(proj_for_deadline.get("allow_extension"))
     started = datetime.now(timezone.utc)
-    deadline = started + timedelta(hours=24)
+    deadline = started + timedelta(hours=base_hours)
     contract = {
         "id": str(uuid.uuid4()), "project_id": bid["project_id"], "clipper_id": bid["clipper_id"],
         "price": bid["amount"], "bond": bid["bond_required"], "status": "live",
         "started_at": started.isoformat(), "deadline_at": deadline.isoformat(),
+        "base_hours": base_hours, "allow_extension": allow_extension, "extended_hours": 0,
         "versions": [], "payment_method": "escrow", "rating_given": None,
     }
     await db.contracts.insert_one(dict(contract))
@@ -1278,6 +1331,31 @@ async def activate_contract(contract_id: str, user: dict = Depends(get_current_u
         "status": "live", "started_at": started.isoformat(), "deadline_at": deadline.isoformat()}})
     await db.projects.update_one({"id": c["project_id"]}, {"$set": {"status": "contract_live"}})
     return {"ok": True, "deadline_at": deadline.isoformat()}
+
+EXTENSION_CAP_HOURS = 48  # total extra time a clipper may add across a single contract
+
+@api_router.post("/contracts/{contract_id}/extend")
+async def extend_contract(contract_id: str, body: ExtendRequest, user: dict = Depends(get_current_user)):
+    """Clipper adds time to the deadline, but only when the creator opted in and up
+    to a hard cap. Posts a note to the shared chat so the creator sees it."""
+    c = await _require_contract_party(contract_id, user, allow=("clipper",))
+    if not c.get("allow_extension"):
+        raise HTTPException(403, "The creator didn't allow deadline extensions on this job.")
+    if c.get("status") not in ("live", "revision"):
+        raise HTTPException(409, "Only an active contract can be extended.")
+    already = int(c.get("extended_hours") or 0)
+    add = min(body.hours, EXTENSION_CAP_HOURS - already)
+    if add <= 0:
+        raise HTTPException(409, f"You've hit the {EXTENSION_CAP_HOURS}h extension cap on this job.")
+    new_deadline = datetime.fromisoformat(c["deadline_at"]) + timedelta(hours=add)
+    await db.contracts.update_one({"id": contract_id},
+                                  {"$set": {"deadline_at": new_deadline.isoformat()},
+                                   "$inc": {"extended_hours": add}})
+    await db.messages.insert_one({"id": str(uuid.uuid4()), "contract_id": contract_id, "sender": "clipper",
+                                  "text": f"Deadline extended by {add}h (the creator allows extensions on this job).",
+                                  "created_at": now_iso()})
+    return {"ok": True, "deadline_at": new_deadline.isoformat(), "extended_hours": already + add,
+            "remaining_extension": EXTENSION_CAP_HOURS - (already + add)}
 
 @api_router.post("/contracts/{contract_id}/deliver")
 async def deliver(contract_id: str, body: DeliveryCreate, user: dict = Depends(get_current_user)):

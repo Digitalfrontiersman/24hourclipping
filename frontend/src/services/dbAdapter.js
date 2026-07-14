@@ -38,6 +38,7 @@ export const dbAdapter = {
   approve: (id, rating) => api.post(`/contracts/${id}/approve`, { rating }).then((r) => r.data),
   triggerRescue: (id) => api.post(`/contracts/${id}/rescue`).then((r) => r.data),
   relaunch: (id) => api.post(`/contracts/${id}/relaunch`).then((r) => r.data),
+  extendContract: (id, hours) => api.post(`/contracts/${id}/extend`, { hours }).then((r) => r.data),
   getMessages: (contractId) => api.get(`/contracts/${contractId}/messages`).then((r) => r.data),
   sendMessage: (contractId, sender, text) => api.post(`/contracts/${contractId}/messages`, { sender, text }).then((r) => r.data),
   getBrandProfiles: () => api.get("/brand-profiles").then((r) => r.data),
