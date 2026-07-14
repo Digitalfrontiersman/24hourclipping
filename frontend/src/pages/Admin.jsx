@@ -6,7 +6,11 @@ import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import Avatar from "@/components/Avatar";
-import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus } from "lucide-react";
+import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 const ALL_ROLES = ["customer", "clipper", "admin"];
 
@@ -19,6 +23,8 @@ const ROLE_COLORS = {
 export default function Admin() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadUsers = () => dbAdapter.adminUsers().then(setUsers).catch(() => {});
   const load = () => {
@@ -32,6 +38,16 @@ export default function Admin() {
     fn(u.id)
       .then(() => { notify[u.disabled ? "success" : "urgent"](u.disabled ? `${u.name} restored` : `${u.name} suspended`); loadUsers(); })
       .catch((e) => notify.urgent(e.response?.data?.detail || "Action failed"));
+  };
+
+  const confirmDelete = () => {
+    const u = pendingDelete;
+    if (!u) return;
+    setDeleting(true);
+    dbAdapter.deleteUser(u.id)
+      .then((r) => { notify.success(`${r.deleted || u.name || "User"} deleted`); setPendingDelete(null); loadUsers(); })
+      .catch((e) => notify.urgent(e.response?.data?.detail || "Could not delete user"))
+      .finally(() => setDeleting(false));
   };
 
   const toggleRole = (u, role) => {
@@ -111,10 +127,17 @@ export default function Admin() {
                     })}
                   </div>
                   {!(u.roles || []).includes("admin") && (
-                    <button data-testid={`admin-user-toggle-${u.id}`} className={`h-9 px-4 text-xs font-bold rounded-full transition-colors ${u.disabled ? "bg-[#CCFF00] text-black" : "border border-[#FF4500]/40 text-[#FF4500] hover:bg-[#FF4500]/10"}`}
-                      onClick={() => userAction(u)}>
-                      {u.disabled ? <><RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore</> : <><Ban className="w-3.5 h-3.5 inline mr-1" />Suspend</>}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button data-testid={`admin-user-toggle-${u.id}`} className={`h-9 px-4 text-xs font-bold rounded-full transition-colors ${u.disabled ? "bg-[#CCFF00] text-black" : "border border-[#FF4500]/40 text-[#FF4500] hover:bg-[#FF4500]/10"}`}
+                        onClick={() => userAction(u)}>
+                        {u.disabled ? <><RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore</> : <><Ban className="w-3.5 h-3.5 inline mr-1" />Suspend</>}
+                      </button>
+                      <button data-testid={`admin-user-delete-${u.id}`} title="Delete user permanently"
+                        className="h-9 w-9 flex items-center justify-center rounded-full border border-white/10 text-zinc-500 hover:text-[#FF4500] hover:border-[#FF4500]/40 transition-colors"
+                        onClick={() => setPendingDelete(u)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -181,6 +204,25 @@ export default function Admin() {
 
         </Tabs>
       </div>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => { if (!o) setPendingDelete(null); }}>
+        <AlertDialogContent className="bg-[#141414] border border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete {pendingDelete?.name || "this user"}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              This permanently removes <span className="text-zinc-200">{pendingDelete?.email}</span> and their bids and messages. It can't be undone.
+              Accounts with projects, contracts or payment history can't be deleted - suspend those instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-white/15 text-white hover:bg-white/5">Cancel</AlertDialogCancel>
+            <AlertDialogAction data-testid="admin-user-delete-confirm" disabled={deleting}
+              className="bg-[#FF4500] text-white hover:bg-[#E63E00]" onClick={confirmDelete}>
+              {deleting ? "Deleting…" : "Delete user"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

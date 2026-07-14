@@ -51,6 +51,7 @@ export const dbAdapter = {
   suspendUser: (id) => api.post(`/admin/users/${id}/suspend`).then((r) => r.data),
   restoreUser: (id) => api.post(`/admin/users/${id}/restore`).then((r) => r.data),
   setUserRoles: (id, roles) => api.post(`/admin/users/${id}/roles`, { roles }).then((r) => r.data),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`).then((r) => r.data),
   resetDemo: () => api.post("/demo/reset").then((r) => r.data),
 };
 

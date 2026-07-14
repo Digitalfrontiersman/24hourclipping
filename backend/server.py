@@ -2062,6 +2062,43 @@ async def admin_set_roles(user_id: str, body: SetRolesRequest,
     return {"ok": True, "roles": sorted(wanted)}
 
 
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, admin: dict = Depends(require_role("admin")),
+                            session: AsyncSession = Depends(get_session)):
+    """Permanently remove a user. Only allowed when the account has no
+    entangling history (owned projects, contracts, or money ledger rows) -
+    those FKs are RESTRICT so the DB would refuse anyway. For accounts with
+    history, suspend instead (keeps the audit trail intact)."""
+    uid = as_uuid(user_id)
+    target = await session.scalar(select(User).options(selectinload(User.roles))
+                                  .where(User.id == uid)) if uid else None
+    if not target:
+        raise HTTPException(404, "User not found")
+    if str(target.id) == admin["id"]:
+        raise HTTPException(400, "You cannot delete your own account")
+    if "admin" in _roles_list(target):
+        raise HTTPException(400, "Admin accounts cannot be deleted")
+
+    # Pre-flight so we can return a clear reason instead of a raw DB error.
+    owned = await session.scalar(select(func.count()).select_from(Project).where(Project.owner_id == uid))
+    as_clipper = await session.scalar(select(func.count()).select_from(Contract).where(Contract.clipper_id == uid))
+    money = await session.scalar(select(func.count()).select_from(Transaction)
+                                 .where(or_(Transaction.from_user == uid, Transaction.to_user == uid)))
+    if owned or as_clipper or money:
+        raise HTTPException(409, "This user has projects, contracts or payment history and can't be "
+                                 "deleted. Suspend them instead to preserve the record.")
+
+    name = target.name
+    try:
+        await session.delete(target)   # cascades bids/messages/reviews/withdrawals/roles/profile
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "This user still has linked records and can't be deleted. "
+                                 "Suspend them instead.")
+    return {"ok": True, "deleted": name}
+
+
 # ============================ AI CONCIERGE ============================
 CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for 24 Hour Clipping, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.
 
