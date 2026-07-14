@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Timer, Shield, Zap, Play, Mic2, Video, Briefcase, TrendingUp } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap, Play, Mic2, Video, Briefcase, TrendingUp, LifeBuoy } from "lucide-react";
 import Footer from "@/components/Footer";
 import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
@@ -105,31 +105,55 @@ export default function Landing() {
 
       {/* 24H GUARANTEE */}
       <section className="py-20 border-t border-white/10 bg-[#121212]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
             <SectionHeading
-              className="mb-6"
+              className="mb-8"
               eyebrow="The accountability guarantee"
               title={<>24 hours. On the clock. <span className="text-[#FF4500]">Or your money back.</span></>}
             />
-            <ul className="space-y-4 text-zinc-300">
+            <ul className="space-y-5">
               {[
-                ["Deadline Bond", "Every clipper locks real money behind your deadline before the clock starts."],
-                ["Contract Live", "Funded, accepted, footage ready - the visible 24-hour countdown begins."],
-                ["Rescue Mode", "Deadline missed? Full refund plus the clipper's bond credited to you. Relaunch as a priority job instantly."],
-              ].map(([t, d]) => (
+                [ShieldCheck, "Deadline Bond", "Every clipper locks real money behind your deadline before the clock starts."],
+                [Zap, "Contract Live", "Funded, accepted, footage ready - the visible 24-hour countdown begins."],
+                [LifeBuoy, "Rescue Mode", "Miss the deadline and you get a full refund plus the clipper's bond, and can relaunch as a priority job instantly."],
+              ].map(([Icon, t, d]) => (
                 <li key={t} className="flex gap-4">
-                  <Shield className="w-5 h-5 text-[#CCFF00] shrink-0 mt-0.5" />
-                  <div><span className="font-bold text-white">{t}.</span> <span className="text-zinc-400">{d}</span></div>
+                  <span className="w-10 h-10 rounded-xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-[#CCFF00]" />
+                  </span>
+                  <div>
+                    <div className="font-display font-bold text-white">{t}</div>
+                    <p className="text-sm text-zinc-400 leading-relaxed mt-0.5">{d}</p>
+                  </div>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="card-dark p-8 text-center">
-            <span className="label-caps">Demo countdown</span>
-            <div className="my-6 flex justify-center"><Countdown size="lg" deadline={guaranteeDeadline} /></div>
-            <div className="flex justify-center gap-8 text-xs text-zinc-500 uppercase tracking-widest"><span>Hours</span><span>Minutes</span><span>Seconds</span></div>
-            <div className="mt-6 badge-live mx-auto w-fit"><Timer className="w-3.5 h-3.5" /> CONTRACT LIVE</div>
+
+          {/* Live contract widget */}
+          <div className="relative card-dark p-8 overflow-hidden shadow-[0_0_0_1px_rgba(204,255,0,0.14),0_30px_80px_-30px_rgba(204,255,0,0.18)]">
+            <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-[#CCFF00]/[0.06] blur-[90px]" aria-hidden="true" />
+            <div className="relative z-10 flex items-center justify-between mb-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CCFF00]/30 bg-[#CCFF00]/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#CCFF00]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" /> Contract Live
+              </span>
+              <span className="text-xs text-zinc-600 font-mono">#CLIP-2481</span>
+            </div>
+            <div className="relative z-10 text-center">
+              <Countdown size="lg" deadline={guaranteeDeadline} />
+              <p className="label-caps mt-4 text-zinc-500">Left to deliver the first cut</p>
+            </div>
+            <div className="relative z-10 mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-widest text-zinc-600">Deadline bond</div>
+                <div className="font-mono font-bold text-[#CCFF00] mt-0.5">$120 locked</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[11px] uppercase tracking-widest text-zinc-600">If it's missed</div>
+                <div className="font-bold text-[#FF4500] mt-0.5">Refund + bond to you</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
