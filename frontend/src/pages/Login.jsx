@@ -57,9 +57,9 @@ export default function Login() {
   const showDemo = process.env.REACT_APP_HIDE_DEMO_LOGIN !== "true";
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white grid lg:grid-cols-2">
+    <div className="h-[calc(100svh-4rem)] overflow-hidden bg-[#0A0A0A] text-white grid lg:grid-cols-2">
       {/* LEFT - form */}
-      <div className="relative flex items-center justify-center px-4 py-12 overflow-hidden grain">
+      <div className="relative flex items-center justify-center px-4 py-8 overflow-hidden grain">
         {/* radial lime glow so the form doesn't float on pure black */}
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-md">
