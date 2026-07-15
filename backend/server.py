@@ -153,24 +153,25 @@ def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
     base = _email_base_url()
     footer_note = footer_note or ("This is an automated message from a send-only address, "
                                   "so please do not reply to it.")
+    font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
     highlights_html = ""
     if highlights:
         rows = ""
         for i, (t, d) in enumerate(highlights, 1):
             rows += (
                 '<tr>'
-                '<td valign="top" style="padding:0 14px 16px 0;width:36px;">'
-                f'<div style="width:30px;height:30px;border-radius:999px;background:#CCFF00;color:#0A0A0A;'
-                f'font-family:Arial,sans-serif;font-weight:800;font-size:14px;line-height:30px;text-align:center;">{i}</div>'
+                '<td valign="top" style="padding:0 16px 18px 0;width:34px;">'
+                f'<div style="width:28px;height:28px;border-radius:999px;background:#0A0A0A;color:#CCFF00;'
+                f'font-family:{font};font-weight:800;font-size:13px;line-height:28px;text-align:center;">{i}</div>'
                 '</td>'
-                '<td valign="top" style="padding:0 0 16px 0;font-family:Arial,sans-serif;">'
-                f'<div style="color:#ffffff;font-size:15px;font-weight:700;line-height:1.4;">{t}</div>'
-                f'<div style="color:#a1a1aa;font-size:14px;line-height:1.55;margin-top:3px;">{d}</div>'
+                f'<td valign="top" style="padding:0 0 18px 0;font-family:{font};">'
+                f'<div style="color:#111827;font-size:15px;font-weight:700;line-height:1.4;">{t}</div>'
+                f'<div style="color:#6b7280;font-size:14px;line-height:1.6;margin-top:3px;">{d}</div>'
                 '</td></tr>'
             )
         highlights_html = (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 2px;">'
-            '<tr><td colspan="2" style="border-top:1px solid #262626;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 4px;">'
+            '<tr><td colspan="2" style="border-top:1px solid #eceef1;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>'
             '<tr><td colspan="2" style="height:24px;line-height:24px;font-size:0;">&nbsp;</td></tr>'
             f'{rows}</table>'
         )
@@ -180,66 +181,66 @@ def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="color-scheme" content="dark">
-  <meta name="supported-color-schemes" content="dark">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>24 Hour Clipping</title>
+  <!--[if mso]><style>.btn{{padding:0 !important;}}</style><![endif]-->
   <style>
-    body{{margin:0;padding:0;background:#0A0A0A;}}
+    body{{margin:0;padding:0;background:#eef0f4;}}
     a{{text-decoration:none;}}
     @media only screen and (max-width:600px){{
       .container{{width:100% !important;}}
-      .px{{padding-left:24px !important;padding-right:24px !important;}}
+      .px{{padding-left:26px !important;padding-right:26px !important;}}
     }}
   </style>
 </head>
-<body style="margin:0;padding:0;background:#0A0A0A;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0A0A0A;font-size:1px;line-height:1px;">{preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0A0A0A;">
+<body style="margin:0;padding:0;background:#eef0f4;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#eef0f4;font-size:1px;line-height:1px;">{preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef0f4;">
     <tr>
-      <td align="center" style="padding:32px 16px;">
+      <td align="center" style="padding:40px 16px;">
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-          <!-- Header -->
+          <!-- Logo -->
           <tr>
-            <td class="px" style="padding:4px 40px 22px;font-family:Arial,Helvetica,sans-serif;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td align="left" style="vertical-align:middle;">
-                  <span style="display:inline-block;width:26px;height:26px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:14px;line-height:26px;text-align:center;vertical-align:middle;">24</span>
-                  <span style="font-size:16px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;vertical-align:middle;padding-left:8px;">24HR<span style="color:#CCFF00;">CLIPPING</span></span>
-                </td>
-                <td align="right" style="vertical-align:middle;">
-                  <span style="font-size:10px;letter-spacing:2px;color:#71717a;text-transform:uppercase;font-weight:700;">On the clock</span>
-                </td>
-              </tr></table>
+            <td align="center" style="padding:0 40px 26px;font-family:{font};">
+              <span style="display:inline-block;width:30px;height:30px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:15px;line-height:30px;text-align:center;vertical-align:middle;">24</span>
+              <span style="font-size:17px;font-weight:800;letter-spacing:-0.5px;color:#111827;vertical-align:middle;padding-left:9px;">24HR CLIPPING</span>
             </td>
           </tr>
           <!-- Card -->
           <tr>
-            <td class="px" style="background:#141414;border:1px solid #262626;border-top:3px solid #CCFF00;border-radius:18px;padding:40px;font-family:Arial,Helvetica,sans-serif;">
-              <div style="font-size:12px;letter-spacing:2.5px;color:#CCFF00;font-weight:700;text-transform:uppercase;">{eyebrow}</div>
-              <h1 style="margin:12px 0 14px;font-size:27px;line-height:1.22;color:#ffffff;font-weight:800;letter-spacing:-0.6px;">{headline}</h1>
-              <div style="color:#a1a1aa;font-size:15px;line-height:1.65;">{body_html}</div>
+            <td class="px" style="background:#ffffff;border:1px solid #e6e8ec;border-radius:16px;padding:44px 44px 40px;font-family:{font};box-shadow:0 8px 24px -12px rgba(16,24,40,0.12);">
+              <span style="display:inline-block;background:#0A0A0A;color:#CCFF00;font-size:11px;letter-spacing:1.5px;font-weight:800;text-transform:uppercase;padding:5px 12px;border-radius:999px;">{eyebrow}</span>
+              <h1 style="margin:18px 0 14px;font-size:26px;line-height:1.25;color:#111827;font-weight:800;letter-spacing:-0.5px;">{headline}</h1>
+              <div style="color:#4b5563;font-size:16px;line-height:1.65;">{body_html}</div>
               {extra_html}
               {highlights_html}
               <!-- Bulletproof button -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 6px;">
-                <tr>
-                  <td align="center" bgcolor="#CCFF00" style="border-radius:999px;box-shadow:0 10px 26px -10px rgba(204,255,0,0.55);">
-                    <a href="{cta_href}" style="display:inline-block;padding:15px 38px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#0A0A0A;border-radius:999px;">{cta_label} &rarr;</a>
-                  </td>
-                </tr>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:30px 0 6px;">
+                <tr><td align="left">
+                  <!--[if mso]>
+                  <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{cta_href}" style="height:50px;v-text-anchor:middle;width:250px;" arcsize="50%" fillcolor="#CCFF00" stroke="f">
+                    <center style="color:#0A0A0A;font-family:{font};font-size:15px;font-weight:bold;">{cta_label}</center>
+                  </v:roundrect>
+                  <![endif]-->
+                  <!--[if !mso]><!-->
+                  <a class="btn" href="{cta_href}" style="display:inline-block;background:#CCFF00;color:#0A0A0A;font-family:{font};font-size:15px;font-weight:800;line-height:50px;text-align:center;padding:0 40px;border-radius:999px;">{cta_label} &rarr;</a>
+                  <!--<![endif]-->
+                </td></tr>
               </table>
+              <p style="margin:22px 0 0;color:#9ca3af;font-size:13px;line-height:1.6;">Or copy this link into your browser:<br><a href="{cta_href}" style="color:#6b7280;word-break:break-all;">{cta_href}</a></p>
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td class="px" style="padding:24px 40px;font-family:Arial,Helvetica,sans-serif;">
-              <p style="margin:0 0 8px;color:#71717a;font-size:12px;line-height:1.6;">
-                <a href="{base}/docs" style="color:#a1a1aa;">Docs</a> &nbsp;&bull;&nbsp;
-                <a href="{base}/terms" style="color:#a1a1aa;">Terms</a> &nbsp;&bull;&nbsp;
-                <a href="{base}/privacy" style="color:#a1a1aa;">Privacy</a>
+            <td class="px" style="padding:26px 44px;font-family:{font};">
+              <p style="margin:0 0 8px;color:#9ca3af;font-size:12px;line-height:1.6;">
+                <a href="{base}/docs" style="color:#6b7280;font-weight:600;">Docs</a> &nbsp;&bull;&nbsp;
+                <a href="{base}/terms" style="color:#6b7280;font-weight:600;">Terms</a> &nbsp;&bull;&nbsp;
+                <a href="{base}/privacy" style="color:#6b7280;font-weight:600;">Privacy</a>
               </p>
-              <p style="margin:0;color:#52525b;font-size:12px;line-height:1.6;">
-                24 Hour Clipping - the marketplace for short-form clips, on the clock.<br>
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                24 Hour Clipping - short-form clips, made in 24 hours.<br>
                 {footer_note}
               </p>
             </td>
