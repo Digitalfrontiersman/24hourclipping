@@ -52,14 +52,13 @@ export default function Navbar() {
           <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
         </Link>
 
-        <div className="hidden md:flex items-center h-16 gap-2">
+        <div className="hidden md:flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
           {links.map((l) => {
             const active = loc.pathname === l.to;
             return (
               <Link key={l.label} to={l.to} data-testid={`nav-link-${l.label.toLowerCase().replace(" ", "-")}`}
-                className={`relative h-16 flex items-center px-4 text-sm font-medium transition-colors ${active ? "text-white" : "text-zinc-400 hover:text-white"}`}>
+                className={`h-9 flex items-center px-4 rounded-full text-sm font-semibold transition-colors ${active ? "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]" : "text-zinc-400 hover:text-white hover:bg-white/[0.05]"}`}>
                 {l.label}
-                {active && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#CCFF00]" />}
               </Link>
             );
           })}
@@ -134,11 +133,15 @@ export default function Navbar() {
       </div>
       {open && (
         <div className="md:hidden border-t border-white/10 px-4 py-3 flex flex-col gap-1 bg-[#0A0A0A]">
-          {links.map((l) => (
-            <Link key={l.label} to={l.to} onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-zinc-300 hover:bg-white/5">
-              {l.label}
-            </Link>
-          ))}
+          {links.map((l) => {
+            const active = loc.pathname === l.to;
+            return (
+              <Link key={l.label} to={l.to} onClick={() => setOpen(false)}
+                className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${active ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}>
+                {l.label}
+              </Link>
+            );
+          })}
           {isAuthed && otherRoles.map((r) => (
             <button key={r} onClick={() => { setOpen(false); switchTo(r); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-[#CCFF00] hover:bg-white/5">
               Switch to {ROLE_NOUN[r]}
