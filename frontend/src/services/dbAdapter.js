@@ -54,6 +54,7 @@ export const dbAdapter = {
   deleteUser: (id) => api.delete(`/admin/users/${id}`).then((r) => r.data),
   fundProjectFree: (id) => api.post(`/admin/projects/${id}/fund-free`).then((r) => r.data),
   hideProject: (id, hidden) => api.post(`/admin/projects/${id}/hide`, { hidden }).then((r) => r.data),
+  updateProject: (id, data) => api.patch(`/admin/projects/${id}`, data).then((r) => r.data),
   deleteProject: (id) => api.delete(`/admin/projects/${id}`).then((r) => r.data),
   generateBlogPost: () => api.post("/admin/blog/generate").then((r) => r.data),
   exportCsv: async (entity) => {

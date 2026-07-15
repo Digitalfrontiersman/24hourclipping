@@ -6,11 +6,14 @@ import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import Avatar from "@/components/Avatar";
-import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus, Trash2, Zap, Eye, EyeOff } from "lucide-react";
+import { LifeBuoy, Ban, RotateCcw, AlertTriangle, RefreshCw, Plus, Trash2, Zap, Eye, EyeOff, Pencil } from "lucide-react";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
+const EDIT_FIELDS = ["title", "category", "budget", "platform", "output_length", "aspect_ratio", "captions", "deadline_hours", "allow_extension", "description"];
 
 const ALL_ROLES = ["customer", "clipper", "admin"];
 
@@ -27,6 +30,9 @@ export default function Admin() {
   const [deleting, setDeleting] = useState(false);
   const [pendingProjectDelete, setPendingProjectDelete] = useState(null);
   const [deletingProject, setDeletingProject] = useState(false);
+  const [editing, setEditing] = useState(null); // project being edited
+  const [editForm, setEditForm] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadUsers = () => dbAdapter.adminUsers().then(setUsers).catch(() => {});
   const load = () => {
@@ -70,6 +76,23 @@ export default function Admin() {
 
   const doExport = (entity) => {
     dbAdapter.exportCsv(entity).catch(() => notify.urgent("Export failed"));
+  };
+
+  const openEdit = (p) => {
+    const f = {};
+    EDIT_FIELDS.forEach((k) => { f[k] = p[k] ?? (k === "allow_extension" ? false : ""); });
+    setEditForm(f);
+    setEditing(p);
+  };
+  const setEf = (k, v) => setEditForm((f) => ({ ...f, [k]: v }));
+  const saveEdit = () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    const payload = { ...editForm, budget: Number(editForm.budget), deadline_hours: Number(editForm.deadline_hours) };
+    dbAdapter.updateProject(editing.id, payload)
+      .then(() => { notify.success("Project updated"); setEditing(null); load(); })
+      .catch((e) => notify.urgent(e.response?.data?.detail || "Could not update project"))
+      .finally(() => setSavingEdit(false));
   };
 
   const toggleRole = (u, role) => {
@@ -211,6 +234,11 @@ export default function Admin() {
                       <Zap className="w-3.5 h-3.5" /> Publish free
                     </button>
                   )}
+                  <button data-testid={`admin-project-edit-${p.id}`} title="Edit project"
+                    className="h-9 px-3 text-xs font-bold rounded-full border border-white/10 text-zinc-400 hover:text-white hover:border-white/30 transition-colors inline-flex items-center gap-1.5"
+                    onClick={() => openEdit(p)}>
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
                   <button data-testid={`admin-project-hide-${p.id}`} title={p.hidden ? "Show on public marketplace" : "Hide from public marketplace"}
                     className="h-9 px-3 text-xs font-bold rounded-full border border-white/10 text-zinc-400 hover:text-white hover:border-white/30 transition-colors inline-flex items-center gap-1.5"
                     onClick={() => toggleHide(p)}>
@@ -291,6 +319,70 @@ export default function Admin() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent className="bg-[#141414] border-white/10 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="font-display font-extrabold text-lg">Edit project</DialogTitle>
+          <div className="space-y-3 mt-1">
+            <div>
+              <label className="label-caps block mb-1.5">Title</label>
+              <input data-testid="edit-title" className="input-dark h-11" value={editForm.title || ""} onChange={(e) => setEf("title", e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-caps block mb-1.5">Category</label>
+                <input className="input-dark h-11" value={editForm.category || ""} onChange={(e) => setEf("category", e.target.value)} />
+              </div>
+              <div>
+                <label className="label-caps block mb-1.5">Budget ($)</label>
+                <input data-testid="edit-budget" type="number" min="20" max="100000" className="input-dark h-11 font-mono" value={editForm.budget ?? ""} onChange={(e) => setEf("budget", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-caps block mb-1.5">Platform</label>
+                <input className="input-dark h-11" value={editForm.platform || ""} onChange={(e) => setEf("platform", e.target.value)} />
+              </div>
+              <div>
+                <label className="label-caps block mb-1.5">Output length</label>
+                <input className="input-dark h-11" value={editForm.output_length || ""} onChange={(e) => setEf("output_length", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-caps block mb-1.5">Aspect ratio</label>
+                <input className="input-dark h-11" value={editForm.aspect_ratio || ""} onChange={(e) => setEf("aspect_ratio", e.target.value)} />
+              </div>
+              <div>
+                <label className="label-caps block mb-1.5">Captions</label>
+                <input className="input-dark h-11" value={editForm.captions || ""} onChange={(e) => setEf("captions", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <div>
+                <label className="label-caps block mb-1.5">Deadline (hours)</label>
+                <input type="number" min="1" max="168" className="input-dark h-11 font-mono" value={editForm.deadline_hours ?? ""} onChange={(e) => setEf("deadline_hours", e.target.value)} />
+              </div>
+              <button type="button" onClick={() => setEf("allow_extension", !editForm.allow_extension)} className="h-11 flex items-center gap-3 text-left">
+                <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${editForm.allow_extension ? "bg-[#CCFF00]" : "bg-white/15"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black transition-transform ${editForm.allow_extension ? "translate-x-5" : ""}`} />
+                </span>
+                <span className="text-xs text-zinc-400">Allow deadline extension</span>
+              </button>
+            </div>
+            <div>
+              <label className="label-caps block mb-1.5">Description</label>
+              <textarea className="input-dark h-24 py-2 text-sm" value={editForm.description || ""} onChange={(e) => setEf("description", e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button className="btn-ghost h-11 px-5 flex-1" onClick={() => setEditing(null)}>Cancel</button>
+            <button data-testid="edit-save" className="btn-lime h-11 px-5 flex-1" disabled={savingEdit || !editForm.title?.trim()} onClick={saveEdit}>
+              {savingEdit ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

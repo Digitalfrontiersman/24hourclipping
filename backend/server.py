@@ -345,6 +345,28 @@ class ProjectCreate(BaseModel):
     customer_name: str = "Demo Customer"
     references: List[str] = Field(default_factory=list)
     quality_notes: str = Field(default="", max_length=2000)
+
+
+class AdminProjectUpdate(BaseModel):
+    """All fields optional; only provided ones are applied (admin project edit)."""
+    title: Optional[str] = Field(default=None, min_length=1, max_length=140)
+    category: Optional[str] = Field(default=None, max_length=60)
+    description: Optional[str] = Field(default=None, max_length=4000)
+    budget: Optional[float] = Field(default=None, gt=0, le=100000)
+    output_length: Optional[str] = None
+    aspect_ratio: Optional[str] = None
+    captions: Optional[str] = None
+    platform: Optional[str] = None
+    moment_mode: Optional[str] = None
+    goal: Optional[str] = None
+    audience: Optional[str] = None
+    mood: Optional[str] = None
+    style: Optional[str] = None
+    cta: Optional[str] = None
+    source_link: Optional[str] = None
+    quality_notes: Optional[str] = Field(default=None, max_length=2000)
+    deadline_hours: Optional[int] = Field(default=None, ge=1, le=168)
+    allow_extension: Optional[bool] = None
     deadline_hours: int = Field(default=24, ge=1, le=168)
     allow_extension: bool = False
 
@@ -2276,6 +2298,26 @@ async def admin_delete_project(project_id: str, admin: dict = Depends(require_ro
         await session.rollback()
         raise HTTPException(409, "This project has linked records and can't be deleted. Hide it instead.")
     return {"ok": True, "deleted": title}
+
+
+@api_router.patch("/admin/projects/{project_id}")
+async def admin_update_project(project_id: str, body: AdminProjectUpdate,
+                               admin: dict = Depends(require_role("admin")),
+                               session: AsyncSession = Depends(get_session)):
+    """Edit a project's fields. Only supplied fields change; changing the budget
+    recomputes the deadline bond."""
+    pid = as_uuid(project_id)
+    p = await session.scalar(select(Project).options(selectinload(Project.references))
+                             .where(Project.id == pid)) if pid else None
+    if not p:
+        raise HTTPException(404, "Project not found")
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(p, k, v)
+    if "budget" in data and p.budget is not None:
+        p.bond = bond_for(float(p.budget))
+    await session.commit()
+    return await serialize_project(session, p)
 
 
 @api_router.get("/admin/export/{entity}.csv")
