@@ -34,7 +34,7 @@ from database import get_session, init_db, SessionLocal, engine
 from models import (
     User, UserRoleAssoc, ClipperProfile, PortfolioItem, BrandProfile,
     Project, ProjectReference, Bid, Contract, Delivery, Review, Message,
-    Transaction, Withdrawal, AppSetting, BlogPost,
+    Transaction, Withdrawal, AppSetting, BlogPost, Wish, WishVote, WishStatus,
     AuthProvider, UserRole, ProjectStatus, BidStatus, ContractStatus,
     Currency, TxnKind, TxnStatus, WithdrawalStatus,
 )
@@ -2503,6 +2503,105 @@ async def ai_brief(body: BriefRequest, user: dict = Depends(require_role("custom
     brief["budget"] = max(20, min(500, float(brief.get("budget", 100))))
     brief["bond"] = bond_for(brief["budget"])
     return brief
+
+
+# ============================ WISHLIST ============================
+class WishCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    description: str = Field(default="", max_length=2000)
+
+
+class WishStatusUpdate(BaseModel):
+    status: str
+
+
+@api_router.get("/wishes")
+async def list_wishes(sort: str = "top", user: Optional[dict] = Depends(get_current_user_optional),
+                      session: AsyncSession = Depends(get_session)):
+    counts = dict((wid, int(c)) for wid, c in (await session.execute(
+        select(WishVote.wish_id, func.count()).group_by(WishVote.wish_id))).all())
+    voted = set()
+    if user:
+        voted = set((await session.scalars(
+            select(WishVote.wish_id).where(WishVote.user_id == as_uuid(user["id"])))).all())
+    rows = (await session.scalars(select(Wish))).all()
+    author_ids = {w.author_id for w in rows if w.author_id}
+    names = {}
+    if author_ids:
+        for u in (await session.scalars(select(User).where(User.id.in_(author_ids)))).all():
+            names[u.id] = u.name
+    out = [{
+        "id": str(w.id), "title": w.title, "description": w.description,
+        "status": w.status.value, "votes": counts.get(w.id, 0),
+        "voted": w.id in voted, "author": names.get(w.author_id) or "Someone",
+        "created_at": w.created_at.isoformat() if w.created_at else None,
+    } for w in rows]
+    if sort == "new":
+        out.sort(key=lambda x: x["created_at"] or "", reverse=True)
+    else:
+        out.sort(key=lambda x: (x["votes"], x["created_at"] or ""), reverse=True)
+    return out
+
+
+@api_router.post("/wishes")
+async def create_wish(body: WishCreate, request: Request, user: dict = Depends(get_current_user),
+                      session: AsyncSession = Depends(get_session)):
+    if not auth.rate_limit(f"wish:{client_ip(request)}", 12, 3600):
+        raise HTTPException(429, "Too many submissions. Please try again later.")
+    uid = as_uuid(user["id"])
+    w = Wish(title=body.title.strip(), description=(body.description or "").strip(), author_id=uid)
+    session.add(w)
+    await session.flush()
+    session.add(WishVote(wish_id=w.id, user_id=uid))   # auto-upvote your own idea
+    await session.commit()
+    return {"id": str(w.id), "votes": 1, "voted": True}
+
+
+@api_router.post("/wishes/{wish_id}/vote")
+async def vote_wish(wish_id: str, user: dict = Depends(get_current_user),
+                    session: AsyncSession = Depends(get_session)):
+    wid = as_uuid(wish_id)
+    uid = as_uuid(user["id"])
+    w = await session.get(Wish, wid) if wid else None
+    if not w:
+        raise HTTPException(404, "Wish not found")
+    existing = await session.get(WishVote, {"wish_id": wid, "user_id": uid})
+    if existing:
+        await session.delete(existing)
+        voted = False
+    else:
+        session.add(WishVote(wish_id=wid, user_id=uid))
+        voted = True
+    await session.commit()
+    count = await session.scalar(select(func.count()).select_from(WishVote).where(WishVote.wish_id == wid)) or 0
+    return {"votes": int(count), "voted": voted}
+
+
+@api_router.patch("/admin/wishes/{wish_id}")
+async def admin_update_wish(wish_id: str, body: WishStatusUpdate,
+                            admin: dict = Depends(require_role("admin")),
+                            session: AsyncSession = Depends(get_session)):
+    if body.status not in WishStatus.__members__:
+        raise HTTPException(400, "Invalid status")
+    wid = as_uuid(wish_id)
+    w = await session.get(Wish, wid) if wid else None
+    if not w:
+        raise HTTPException(404, "Wish not found")
+    w.status = WishStatus(body.status)
+    await session.commit()
+    return {"ok": True, "status": w.status.value}
+
+
+@api_router.delete("/admin/wishes/{wish_id}")
+async def admin_delete_wish(wish_id: str, admin: dict = Depends(require_role("admin")),
+                            session: AsyncSession = Depends(get_session)):
+    wid = as_uuid(wish_id)
+    w = await session.get(Wish, wid) if wid else None
+    if not w:
+        raise HTTPException(404, "Wish not found")
+    await session.delete(w)
+    await session.commit()
+    return {"ok": True}
 
 
 app.include_router(api_router)

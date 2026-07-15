@@ -24,6 +24,7 @@ import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import VerifyEmail from "@/pages/VerifyEmail";
+import Wishlist from "@/pages/Wishlist";
 import Docs from "@/pages/Docs";
 import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/legal/Privacy";
@@ -53,6 +54,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/docs" element={<Docs />} />
+            <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/cookies" element={<Cookies />} />
             <Route path="/terms" element={<Terms />} />

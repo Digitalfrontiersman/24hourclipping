@@ -323,6 +323,29 @@ class AppSetting(Base):
     value: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
 
+class WishStatus(str, enum.Enum):
+    open = "open"; planned = "planned"; in_progress = "in_progress"; shipped = "shipped"; declined = "declined"
+
+
+class Wish(Base):
+    """A community feature request / wishlist item."""
+    __tablename__ = "wishes"
+    id: Mapped[uuid.UUID] = _pk()
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", server_default=text("''"), nullable=False)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    status: Mapped[WishStatus] = mapped_column(SAEnum(WishStatus, name="wish_status"), default=WishStatus.open, server_default=text("'open'"), nullable=False)
+    created_at: Mapped[datetime] = _created()
+
+
+class WishVote(Base):
+    """One upvote per user per wish."""
+    __tablename__ = "wish_votes"
+    wish_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("wishes.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = _created()
+
+
 class BlogPost(Base):
     """SEO/AEO blog article, server-rendered as static HTML at /blog. Posts are
     seeded and then auto-generated daily (OpenAI) targeting clipping/creator keywords."""

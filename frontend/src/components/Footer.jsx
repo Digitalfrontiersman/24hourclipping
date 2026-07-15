@@ -16,6 +16,7 @@ export default function Footer() {
           <Link to="/marketplace" className="hover:text-white transition-colors">Live Jobs</Link>
           <Link to="/clippers" className="hover:text-white transition-colors">Clippers</Link>
           <a href="/blog" className="hover:text-white transition-colors">Blog</a>
+          <Link to="/wishlist" className="hover:text-white transition-colors">Wishlist</Link>
           <Link to="/docs" className="hover:text-white transition-colors">Docs</Link>
           <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
           <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>

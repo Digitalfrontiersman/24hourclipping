@@ -16,6 +16,7 @@ export default function Navbar() {
   const links = [
     { to: "/marketplace", label: "Live Jobs" },
     { to: "/clippers", label: "Clippers" },
+    { to: "/wishlist", label: "Wishlist" },
     { to: dashboardHref, label: "Dashboard" },
   ];
 
