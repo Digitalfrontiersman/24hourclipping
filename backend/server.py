@@ -345,6 +345,8 @@ class ProjectCreate(BaseModel):
     customer_name: str = "Demo Customer"
     references: List[str] = Field(default_factory=list)
     quality_notes: str = Field(default="", max_length=2000)
+    deadline_hours: int = Field(default=24, ge=1, le=168)
+    allow_extension: bool = False
 
 
 class AdminProjectUpdate(BaseModel):
@@ -367,8 +369,7 @@ class AdminProjectUpdate(BaseModel):
     quality_notes: Optional[str] = Field(default=None, max_length=2000)
     deadline_hours: Optional[int] = Field(default=None, ge=1, le=168)
     allow_extension: Optional[bool] = None
-    deadline_hours: int = Field(default=24, ge=1, le=168)
-    allow_extension: bool = False
+
 
 class BidCreate(BaseModel):
     clipper_id: Optional[str] = None
