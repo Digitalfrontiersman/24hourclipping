@@ -4,7 +4,30 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#0A0A0A" />
-        <meta name="description" content="Turn your best moments into finished clips in 24 hours." />
+
+        <!-- Primary SEO -->
+        <title>24 Hour Clipping - Get short-form clips made in 24 hours</title>
+        <meta name="description" content="24 Hour Clipping is a marketplace where creators post footage and vetted clippers compete to deliver a finished, ready-to-post short-form clip (TikTok, Reels, Shorts) within 24 hours - backed by a money-back deadline guarantee. Free to post, 8% success fee." />
+        <meta name="keywords" content="video clipping service, short form video editing, TikTok clips, Instagram Reels editor, YouTube Shorts, stream highlights, podcast clips, hire a clipper, clip marketplace, 24 hour turnaround, viral clips, content clipping" />
+        <meta name="author" content="24 Hour Clipping" />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+        <link rel="canonical" href="https://24hourclipping.com/" />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="24 Hour Clipping" />
+        <meta property="og:title" content="24 Hour Clipping - Get short-form clips made in 24 hours" />
+        <meta property="og:description" content="Post your footage, vetted clippers bid in real time, and you get a finished, ready-to-post clip within 24 hours - or your money back." />
+        <meta property="og:url" content="https://24hourclipping.com/" />
+        <meta property="og:image" content="https://24hourclipping.com/hero_streamer_a.png" />
+        <meta property="og:locale" content="en_US" />
+
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="24 Hour Clipping - Get short-form clips made in 24 hours" />
+        <meta name="twitter:description" content="Post footage, vetted clippers bid live, finished clip back in 24 hours - or your money back. Free to post, 8% success fee." />
+        <meta name="twitter:image" content="https://24hourclipping.com/hero_streamer_a.png" />
+
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -14,37 +37,155 @@
         <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
 
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>24 Hour Clipping</title>
+        <!-- Structured data for search + answer engines (AEO) -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://24hourclipping.com/#organization",
+              "name": "24 Hour Clipping",
+              "url": "https://24hourclipping.com/",
+              "logo": "https://24hourclipping.com/favicon.svg",
+              "description": "A marketplace connecting content creators with vetted short-form video clippers who deliver finished clips within 24 hours."
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://24hourclipping.com/#website",
+              "url": "https://24hourclipping.com/",
+              "name": "24 Hour Clipping",
+              "publisher": { "@id": "https://24hourclipping.com/#organization" },
+              "inLanguage": "en"
+            },
+            {
+              "@type": "Service",
+              "@id": "https://24hourclipping.com/#service",
+              "name": "24-hour short-form video clipping",
+              "serviceType": "Short-form video editing and clipping",
+              "provider": { "@id": "https://24hourclipping.com/#organization" },
+              "areaServed": "Worldwide",
+              "description": "Creators post long footage (streams, VODs, podcasts) and vetted clippers compete to deliver a finished, ready-to-post short-form clip for TikTok, Instagram Reels, and YouTube Shorts within 24 hours, backed by a money-back deadline guarantee.",
+              "offers": {
+                "@type": "Offer",
+                "description": "Free to post a job and receive bids. An 8% success fee applies only when you approve the finished clip.",
+                "priceCurrency": "USD"
+              },
+              "audience": {
+                "@type": "Audience",
+                "audienceType": "Streamers, podcasters, creators, influencers, founders and businesses"
+              }
+            },
+            {
+              "@type": "WebApplication",
+              "@id": "https://24hourclipping.com/#app",
+              "name": "24 Hour Clipping",
+              "url": "https://24hourclipping.com/",
+              "applicationCategory": "MultimediaApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            },
+            {
+              "@type": "FAQPage",
+              "@id": "https://24hourclipping.com/#faq",
+              "mainEntity": [
+                {
+                  "@type": "Question",
+                  "name": "What is 24 Hour Clipping?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "24 Hour Clipping is an online marketplace where content creators post footage and vetted video clippers compete in real time to deliver a finished, ready-to-post short-form clip (for TikTok, Instagram Reels, or YouTube Shorts) within 24 hours."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How fast do I get my clip?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "You get your first cut within 24 hours of the contract going live. Every clipper stakes a deadline bond, so if they miss the 24-hour deadline you get a full refund plus the bond."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How much does it cost?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Posting a job and receiving bids is free. You set your own budget and clippers bid at or under it. 24 Hour Clipping charges a single 8% success fee, applied only when you approve the finished clip."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How does the bidding work?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "You post your footage and budget, then vetted clippers bid live with their price, turnaround time and pitch. You pick the clipper by rating, speed and fit, and the 24-hour clock starts once the contract is funded."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "Who is it for?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "It is built for streamers, podcasters, creators and influencers, and founders or businesses who need scroll-stopping short-form clips made quickly without hiring a full-time editor or agency."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "What is the 24-hour guarantee?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "When a clipper accepts your job they lock a real-money deadline bond behind the 24-hour clock. If they miss the deadline you receive a full refund plus their bond, and can relaunch the job as a priority listing instantly."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        </script>
+
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
     </head>
-    <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
-        <div id="root"></div>
-        <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <body style="margin:0;background:#0A0A0A;">
+        <!-- Crawlable fallback: real content in the initial HTML for search engines
+             and AI/agent crawlers that don't run JavaScript. React replaces this
+             the moment the app mounts. -->
+        <div id="root">
+            <main style="max-width:760px;margin:0 auto;padding:64px 24px;color:#e4e4e7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.6;">
+                <h1 style="font-size:32px;line-height:1.15;color:#fff;margin:0 0 16px;">Your best moments, clipped in 24 hours.</h1>
+                <p style="font-size:18px;color:#a1a1aa;margin:0 0 24px;">
+                    24 Hour Clipping is a marketplace where creators post footage and vetted clippers
+                    compete to deliver a finished, ready-to-post short-form clip - for TikTok, Instagram
+                    Reels and YouTube Shorts - within 24 hours, or your money back.
+                </p>
+                <h2 style="font-size:20px;color:#fff;margin:32px 0 10px;">How it works</h2>
+                <ol style="color:#a1a1aa;padding-left:20px;margin:0 0 24px;">
+                    <li>Post your footage and set a budget. Upload a file or paste a link.</li>
+                    <li>Vetted clippers bid in real time with a price, turnaround and pitch.</li>
+                    <li>Pick your clipper and get the first cut back within 24 hours - backed by a money-back deadline guarantee.</li>
+                </ol>
+                <h2 style="font-size:20px;color:#fff;margin:32px 0 10px;">Who it's for</h2>
+                <p style="color:#a1a1aa;margin:0 0 24px;">Streamers, podcasters, creators and influencers, and founders or businesses who need scroll-stopping short-form clips fast, without an agency retainer.</p>
+                <p style="color:#a1a1aa;margin:0 0 24px;">Free to post and receive bids. One simple 8% success fee, charged only when you approve the finished clip.</p>
+                <p style="margin:0;">
+                    <a href="/marketplace" style="color:#CCFF00;font-weight:700;">Browse live clipping jobs</a> &nbsp;·&nbsp;
+                    <a href="/clippers" style="color:#CCFF00;font-weight:700;">Find a clipper</a> &nbsp;·&nbsp;
+                    <a href="/register" style="color:#CCFF00;font-weight:700;">Get started</a> &nbsp;·&nbsp;
+                    <a href="/docs" style="color:#CCFF00;font-weight:700;">How it works</a>
+                </p>
+            </main>
+        </div>
+        <noscript>
+            24 Hour Clipping is a marketplace where creators post footage and vetted clippers deliver
+            finished short-form clips (TikTok, Instagram Reels, YouTube Shorts) within 24 hours, backed
+            by a money-back deadline guarantee. Free to post, 8% success fee on approval. This app needs
+            JavaScript for the full experience.
+        </noscript>
         <script>
             !(function (t, e) {
                 var o, n, p, r;

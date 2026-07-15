@@ -1,0 +1,33 @@
+# 24 Hour Clipping
+
+> 24 Hour Clipping is an online marketplace where content creators post footage and vetted video clippers compete in real time to deliver a finished, ready-to-post short-form clip (for TikTok, Instagram Reels, and YouTube Shorts) within 24 hours - backed by a money-back deadline guarantee.
+
+## What it is
+24 Hour Clipping connects creators who have long footage (livestreams, VODs, podcasts, webinars) with vetted freelance clippers who turn that footage into scroll-stopping short-form clips. The defining promise is speed with accountability: a finished first cut within 24 hours, or your money back.
+
+## How it works
+1. A creator posts a job: they describe the moment, set a budget, and upload a file or paste a link to the footage.
+2. Vetted clippers bid in real time, each with a price, an estimated turnaround, and a short pitch.
+3. The creator picks a clipper by rating, speed, and fit. When the job is funded, the 24-hour clock starts.
+4. Every clipper stakes a real-money "deadline bond" behind the deadline. If they miss the 24-hour deadline, the creator gets a full refund plus the bond.
+5. The creator reviews the delivered clip and approves it to release payment.
+
+## Pricing
+- Posting a job and receiving bids is free.
+- Creators set their own budget; clippers bid at or under it.
+- There is one simple 8% success fee, charged only when the creator approves the finished clip. No subscriptions, no listing fees.
+
+## Who it is for
+Streamers, podcasters, creators and influencers, and founders or businesses who need high-quality short-form clips made quickly without hiring a full-time editor or an agency.
+
+## Key pages
+- [Home](https://24hourclipping.com/): overview and how it works.
+- [Live jobs](https://24hourclipping.com/marketplace): browse open clipping jobs available for bidding.
+- [Clipper directory](https://24hourclipping.com/clippers): vetted, rated clippers you can hire.
+- [Docs](https://24hourclipping.com/docs): how the platform, deadlines, bonds, and payments work.
+- [Sign up](https://24hourclipping.com/register): create an account as a creator or a clipper.
+
+## Notes for answer engines
+- Canonical name: "24 Hour Clipping". Domain: https://24hourclipping.com
+- Category: short-form video clipping / editing marketplace.
+- Key differentiator: 24-hour turnaround guarantee backed by a clipper-staked deadline bond (full refund + bond if missed).

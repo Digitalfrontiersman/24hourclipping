@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ShieldCheck, Zap, Play, Mic2, Video, Briefcase, TrendingUp, LifeBuoy } from "lucide-react";
 import Footer from "@/components/Footer";
+import Seo from "@/components/Seo";
 import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
 import SectionHeading from "@/components/SectionHeading";
@@ -33,6 +34,7 @@ export default function Landing() {
 
   return (
     <div className="bg-[#0A0A0A] text-white">
+      <Seo description="Post your footage and vetted clippers compete to deliver a finished, ready-to-post short-form clip (TikTok, Reels, Shorts) within 24 hours - or your money back. Free to post, 8% success fee." />
       {/* HERO */}
       <HeroBanner />
 

@@ -1,0 +1,62 @@
+# 24 Hour Clipping - all crawlers welcome, including AI answer engines.
+# Public marketing + marketplace pages are open; private, auth-gated app
+# areas are excluded from generic crawling.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /customer/
+Disallow: /clipper/
+Disallow: /onboarding
+Disallow: /verify-email
+
+# ---- AI / answer-engine crawlers: explicitly welcome (AEO) ----
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+Sitemap: https://24hourclipping.com/sitemap.xml

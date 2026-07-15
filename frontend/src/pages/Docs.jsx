@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Footer from "@/components/Footer";
+import Seo from "@/components/Seo";
 import { Film, Scissors, Clock, Wallet, ShieldCheck, BookOpen, ArrowRight } from "lucide-react";
 
 const NAV = [
@@ -28,6 +29,7 @@ function Section({ id, icon: Icon, title, children }) {
 export default function Docs() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      <Seo title="How it works" path="/docs" description="How 24 Hour Clipping works: post footage, get live bids from vetted clippers, and receive a finished short-form clip within 24 hours backed by a deadline bond. Deadlines, bonds, and payments explained." />
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 flex-1 flex gap-10">
         {/* Sidebar */}
         <aside className="hidden lg:block w-56 shrink-0">

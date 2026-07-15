@@ -5,6 +5,7 @@ import { dbAdapter } from "@/services/dbAdapter";
 import JobCard from "@/components/JobCard";
 import JobCardSkeleton from "@/components/JobCardSkeleton";
 import Footer from "@/components/Footer";
+import Seo from "@/components/Seo";
 import { useApp } from "@/context/AppContext";
 import { CATEGORIES } from "@/data/demoVideos";
 import { LayoutGrid, List, Shield, Clock } from "lucide-react";
@@ -59,6 +60,7 @@ export default function Marketplace() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      <Seo title="Live clipping jobs" path="/marketplace" description="Browse open short-form clipping jobs from creators and place your bid. Vetted clippers deliver finished clips within 24 hours on 24 Hour Clipping." />
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
         <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>

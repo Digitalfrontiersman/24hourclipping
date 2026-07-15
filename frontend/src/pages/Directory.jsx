@@ -4,6 +4,7 @@ import ClipperCard from "@/components/ClipperCard";
 import ClipperCardSkeleton from "@/components/ClipperCardSkeleton";
 import EmptyState from "@/components/EmptyState";
 import Footer from "@/components/Footer";
+import Seo from "@/components/Seo";
 import { Users } from "lucide-react";
 
 export default function Directory() {
@@ -15,6 +16,7 @@ export default function Directory() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      <Seo title="Clipper directory" path="/clippers" description="Browse vetted, rated short-form video clippers on 24 Hour Clipping. Every clipper is manually vetted - hire by rating, on-time percentage and specialty." />
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
         <span className="label-caps">Founding roster</span>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mt-2 mb-2">Clipper Directory</h1>
