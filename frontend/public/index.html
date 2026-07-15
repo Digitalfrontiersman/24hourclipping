@@ -38,6 +38,13 @@
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
+        <!-- The #seo-fallback content exists only for crawlers/agents that don't run
+             JS. Hide it from real (JS) visitors so it never flashes before React
+             mounts; it stays in the HTML source for source-reading crawlers, and
+             no-JS clients still get it via the rule below. -->
+        <style>#seo-fallback{display:none!important}</style>
+        <noscript><style>#seo-fallback{display:block!important}</style></noscript>
+
         <!-- Structured data for search + answer engines (AEO) -->
         <script type="application/ld+json">
         {

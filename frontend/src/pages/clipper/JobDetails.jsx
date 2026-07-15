@@ -63,17 +63,32 @@ export default function JobDetails() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold">{p.category}</span>
+                  <span className="rounded-full bg-black/70 backdrop-blur px-3 py-1 text-xs font-bold">{p.category}</span>
                   {p.official && <span title="Verified platform listing" className="inline-flex items-center gap-1 rounded-full bg-[#CCFF00] px-2.5 py-1 text-[10px] font-extrabold text-black"><BadgeCheck className="w-3 h-3" /> VERIFIED</span>}
                 </div>
-                <h1 className="font-display font-extrabold text-2xl tracking-tight mt-2">{p.title}</h1>
+                <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight leading-tight mt-2">{p.title}</h1>
               </div>
             </div>
             <div className="p-6">
-              <p className="text-sm text-zinc-400 mb-5">{p.description}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                {[["Budget", `$${p.budget}`], ["Source", p.source_length], ["Output", p.output_length], ["Ratio", p.aspect_ratio], ["Captions", p.captions], ["Moment", p.timestamp_provided ? "Timestamps given" : "Find best moment"]].map(([l, v]) => (
-                  <div key={l} className="bg-black/40 rounded-lg p-3"><span className="text-zinc-500 block">{l}</span><span className="font-bold">{v}</span></div>
+              {p.description && <p className="text-sm text-zinc-400 leading-relaxed mb-6">{p.description}</p>}
+
+              <div className="flex items-center justify-between rounded-2xl border border-[#CCFF00]/20 bg-[#CCFF00]/[0.05] px-5 py-4 mb-5">
+                <div>
+                  <div className="label-caps">Budget</div>
+                  <div className="font-mono font-extrabold text-3xl text-[#CCFF00] mt-0.5">${p.budget}</div>
+                </div>
+                <div className="text-right text-xs text-zinc-400 space-y-1.5">
+                  <div className="flex items-center gap-1.5 justify-end"><Shield className="w-3.5 h-3.5 text-[#CCFF00]" /> Bond ${p.bond}</div>
+                  <div className="flex items-center gap-1.5 justify-end"><Clock className="w-3.5 h-3.5" /> {p.deadline_hours || 24}h to deliver</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {[["Output", p.output_length], ["Aspect", p.aspect_ratio], ["Captions", p.captions], ["Source", p.source_length], ["Platform", p.platform], ["Moment", p.moment_mode === "known" ? "Timestamps given" : "Find best moment"]].map(([l, v]) => (
+                  <div key={l} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 min-w-0">
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{l}</div>
+                    <div className="text-sm font-bold truncate" title={v || "-"}>{v || "-"}</div>
+                  </div>
                 ))}
               </div>
 

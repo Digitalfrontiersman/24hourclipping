@@ -2316,18 +2316,21 @@ async def admin_delete_project(project_id: str, admin: dict = Depends(require_ro
     p = await session.get(Project, pid) if pid else None
     if not p:
         raise HTTPException(404, "Project not found")
+    # Only a real contract (a clipper was hired) blocks deletion - hide those
+    # instead. Free/comp/escrow deposits on an un-contracted project are cleaned
+    # up so the listing can be removed.
     contracts = await session.scalar(select(func.count()).select_from(Contract).where(Contract.project_id == pid))
-    txns = await session.scalar(select(func.count()).select_from(Transaction).where(Transaction.project_id == pid))
-    if contracts or txns:
-        raise HTTPException(409, "This project has contracts or payment history and can't be deleted. "
+    if contracts:
+        raise HTTPException(409, "This project has an active contract and can't be deleted. "
                                  "Hide it from the public page instead.")
     title = p.title
     try:
+        await session.execute(delete(Transaction).where(Transaction.project_id == pid))
         await session.delete(p)   # cascades bids + references
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise HTTPException(409, "This project has linked records and can't be deleted. Hide it instead.")
+        raise HTTPException(409, "This project still has linked records and can't be deleted. Hide it instead.")
     return {"ok": True, "deleted": title}
 
 
@@ -2394,16 +2397,22 @@ async def admin_export_csv(entity: str, admin: dict = Depends(require_role("admi
 
 
 # ============================ AI CONCIERGE ============================
-CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for 24 Hour Clipping, a marketplace where customers post short-form video clipping projects and trusted clippers deliver a first cut within 24 hours.
+CONCIERGE_SYSTEM = """You are the AI Clipping Concierge for 24 Hour Clipping, a marketplace where creators post short-form video clipping jobs and vetted clippers deliver a first cut within 24 hours.
 
-Your job: through a SHORT, friendly conversation (max 4-5 questions total, ONE question per message), gather what's needed for a project brief:
-- What footage they have (link or upload) and whether they know the exact moment or want the clipper to find the best moment
-- Project goal + target audience
-- Platform (TikTok / Reels / Shorts), output length (15-90s), aspect ratio (9:16 default)
-- Mood, editing style, caption preference, call to action
-- Budget ($20-$500)
+Your goal: run a genuinely helpful discovery chat that gathers enough real context to write a strong project brief. Ask ONE focused question per message, briefly acknowledge their answer, then ask the next. Do NOT rush to the end.
 
-Rules: Be energetic and concise (2-3 sentences max per reply). Never use emojis. Ask ONE question at a time. When you have enough info, say "I have everything I need - hit Generate Brief and I'll build your one-page project brief."
+Cover ALL of these before you finish (adapt the order to the conversation, and ask a short follow-up whenever an answer is vague or generic):
+1. The footage - what is it (stream VOD, podcast, talking-head, gameplay, product demo...), do they have a link or a file to upload, and do they know the exact moment to clip or want the clipper to find the best one?
+2. The goal + audience - the outcome they want (grow followers, drive sales, build authority, go viral) and who it's for.
+3. The format - platform (TikTok / Reels / Shorts), output length (15-90s), aspect ratio (9:16 default).
+4. The vibe - mood/tone, editing style (fast cuts, clean, meme-y, cinematic), caption style, and any call to action.
+5. The budget - a number between $20 and $500. If they're unsure, suggest a sensible range based on what they described and ask them to confirm.
+
+Rules:
+- Warm, sharp, concise: 2-3 sentences max, ONE question at a time. No emojis.
+- Never invent their answers. If they skip or say "you decide", note a sensible default out loud and move on - but STILL ask the remaining topics.
+- Only after you have meaningfully covered footage, goal+audience, format, vibe, AND budget: give a one-line recap of the brief, then end with exactly this sentence - "I've got what I need - hit Generate Brief and I'll build your one-page project brief."
+- Never say that closing sentence early. If anything important is still missing, keep asking instead.
 """
 
 BRIEF_SYSTEM = """You convert a conversation into a video clipping project brief. Reply ONLY with valid JSON, no markdown fences, with exactly these keys:

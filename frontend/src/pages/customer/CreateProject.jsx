@@ -134,6 +134,20 @@ export default function CreateProject() {
               </div>
             </div>
 
+            <div>
+              <label className="label-caps block mb-2">Thumbnail <span className="normal-case tracking-normal text-zinc-600">- optional cover shown in the marketplace</span></label>
+              <label data-testid="express-thumbnail-label" className="card-dark p-4 flex items-center gap-4 cursor-pointer hover:border-[#CCFF00]/40 transition-colors">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center shrink-0">
+                  {thumb?.preview ? <img src={thumb.preview} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-zinc-600" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">{thumb ? "Thumbnail set - click to change" : "Upload a thumbnail image"}</p>
+                  <p className="text-xs text-zinc-500">{thumbPct !== null ? `Uploading… ${thumbPct}%` : "JPG or PNG · gives your job a custom cover"}</p>
+                </div>
+                <input data-testid="express-thumbnail-input" type="file" accept="image/*" className="hidden" onChange={(e) => uploadThumb(e.target.files?.[0])} />
+              </label>
+            </div>
+
             <div className="card-dark p-6">
               <label className="label-caps block mb-4">Budget - <span className="font-mono text-[#CCFF00] text-base">${f.budget}</span></label>
               <input data-testid="express-budget-slider" type="range" min="20" max="500" step="5" value={f.budget} onChange={(e) => set("budget", e.target.value)} className="w-full accent-[#CCFF00]" />
