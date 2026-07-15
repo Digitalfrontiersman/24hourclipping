@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { dbAdapter } from "@/services/dbAdapter";
+import { solanaAdapter } from "@/services/solanaAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, CreditCard, Loader2, CheckCircle2, ArrowRight, Lock } from "lucide-react";
+import { Shield, CreditCard, Loader2, CheckCircle2, ArrowRight, Lock, Coins } from "lucide-react";
 
 export default function Checkout() {
   const { projectId } = useParams();
@@ -10,6 +11,12 @@ export default function Checkout() {
   const [p, setP] = useState(null);
   const [paying, setPaying] = useState(false);
   const [funded, setFunded] = useState(false);
+  const [method, setMethod] = useState("card"); // card | usdc
+  const [usdcOk, setUsdcOk] = useState(false);
+
+  useEffect(() => {
+    dbAdapter.getSolanaConfig().then((c) => setUsdcOk(!!c?.configured)).catch(() => setUsdcOk(false));
+  }, []);
 
   useEffect(() => {
     dbAdapter.getProject(projectId).then((proj) => { setP(proj); if (proj.funded) setFunded(true); }).catch(() => {});
@@ -43,6 +50,23 @@ export default function Checkout() {
       window.location.href = url;
     } catch (err) {
       notify.urgent(err.response?.data?.detail || "Card payments aren't available right now");
+      setPaying(false);
+    }
+  };
+
+  const payUsdc = async () => {
+    setPaying(true);
+    try {
+      const info = await dbAdapter.getSolanaDepositInfo(projectId);
+      if (!solanaAdapter.isInstalled()) throw new Error("Phantom wallet not found - install it from phantom.app");
+      notify.info("Confirm in Phantom", `Sending ${info.amount} USDC to escrow`);
+      await solanaAdapter.connect();
+      const sig = await solanaAdapter.sendUsdc({ toAddress: info.treasury, amountUsd: info.amount, mint: info.usdc_mint });
+      await dbAdapter.fundSolana(projectId, sig, "usdc");
+      setFunded(true);
+      notify.success("USDC payment confirmed", "Your project is now live in the marketplace.");
+    } catch (err) {
+      notify.urgent(err.response?.data?.detail || err.message || "USDC payment couldn't be completed");
       setPaying(false);
     }
   };
@@ -95,20 +119,36 @@ export default function Checkout() {
 
           {!funded ? (
             <>
-              <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0"><CreditCard className="w-4 h-4 text-[#CCFF00]" /></span>
-                <div className="min-w-0">
-                  <div className="font-bold text-sm">Pay by card</div>
-                  <div className="text-xs text-zinc-500 truncate">Visa, Mastercard, Amex, Apple Pay &amp; Google Pay</div>
-                </div>
+              <div className="mt-5 space-y-2">
+                <button type="button" data-testid="method-card" onClick={() => setMethod("card")}
+                  className={`w-full text-left rounded-xl border p-4 flex items-center gap-3 transition-colors ${method === "card" ? "border-[#CCFF00] bg-[#CCFF00]/[0.06]" : "border-white/10 bg-black/30 hover:border-white/25"}`}>
+                  <span className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0"><CreditCard className="w-4 h-4 text-[#CCFF00]" /></span>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm">Pay by card</div>
+                    <div className="text-xs text-zinc-500 truncate">Visa, Mastercard, Amex, Apple Pay &amp; Google Pay</div>
+                  </div>
+                </button>
+                {usdcOk && (
+                  <button type="button" data-testid="method-usdc" onClick={() => setMethod("usdc")}
+                    className={`w-full text-left rounded-xl border p-4 flex items-center gap-3 transition-colors ${method === "usdc" ? "border-[#CCFF00] bg-[#CCFF00]/[0.06]" : "border-white/10 bg-black/30 hover:border-white/25"}`}>
+                    <span className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0"><Coins className="w-4 h-4 text-[#CCFF00]" /></span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm">Pay with USDC</div>
+                      <div className="text-xs text-zinc-500 truncate">Solana · Phantom wallet · on-chain escrow</div>
+                    </div>
+                  </button>
+                )}
               </div>
 
-              <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base mt-5" disabled={paying} onClick={fund}>
-                {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <>Fund Project - ${p.budget} <ArrowRight className="w-4 h-4" /></>}
+              <button data-testid="fund-project-btn" className="btn-lime h-14 w-full text-base mt-5" disabled={paying}
+                onClick={method === "usdc" ? payUsdc : fund}>
+                {paying ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                  : method === "usdc" ? <>Pay ${p.budget} in USDC <ArrowRight className="w-4 h-4" /></>
+                  : <>Fund Project - ${p.budget} <ArrowRight className="w-4 h-4" /></>}
               </button>
 
               <p className="text-[11px] text-zinc-600 text-center mt-3 flex items-center justify-center gap-1.5">
-                <Lock className="w-3 h-3" /> Secured by Square. Released to the clipper only when you approve.
+                <Lock className="w-3 h-3" /> {method === "usdc" ? "On-chain escrow. Released to the clipper only when you approve." : "Secured by Square. Released to the clipper only when you approve."}
               </p>
             </>
           ) : (
