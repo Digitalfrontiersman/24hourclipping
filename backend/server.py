@@ -200,16 +200,17 @@ def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
     <tr>
       <td align="center" style="padding:40px 16px;">
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-          <!-- Logo -->
+          <!-- Logo lockup: hosted PNG mark (survives SVG-stripping) + HTML
+               wordmark (survives image-blocking) -->
           <tr>
-            <td align="center" style="padding:0 40px 26px;font-family:{font};">
-              <span style="display:inline-block;width:30px;height:30px;background:#CCFF00;border-radius:999px;color:#0A0A0A;font-weight:800;font-size:15px;line-height:30px;text-align:center;vertical-align:middle;">24</span>
-              <span style="font-size:17px;font-weight:800;letter-spacing:-0.5px;color:#111827;vertical-align:middle;padding-left:9px;">24HR CLIPPING</span>
+            <td align="center" style="padding:2px 40px 28px;font-family:{font};">
+              <img src="{base}/email-logo.png" width="38" height="38" alt="24 Hour Clipping" style="vertical-align:middle;border:0;outline:none;display:inline-block;">
+              <span style="font-size:19px;font-weight:800;letter-spacing:-0.5px;color:#111827;vertical-align:middle;padding-left:11px;">24HR CLIPPING</span>
             </td>
           </tr>
           <!-- Card -->
           <tr>
-            <td class="px" style="background:#ffffff;border:1px solid #e6e8ec;border-radius:16px;padding:44px 44px 40px;font-family:{font};box-shadow:0 8px 24px -12px rgba(16,24,40,0.12);">
+            <td class="px" style="background:#ffffff;border:1px solid #e6e8ec;border-top:3px solid #CCFF00;border-radius:16px;padding:42px 44px 40px;font-family:{font};box-shadow:0 8px 24px -12px rgba(16,24,40,0.12);">
               <span style="display:inline-block;background:#0A0A0A;color:#CCFF00;font-size:11px;letter-spacing:1.5px;font-weight:800;text-transform:uppercase;padding:5px 12px;border-radius:999px;">{eyebrow}</span>
               <h1 style="margin:18px 0 14px;font-size:26px;line-height:1.25;color:#111827;font-weight:800;letter-spacing:-0.5px;">{headline}</h1>
               <div style="color:#4b5563;font-size:16px;line-height:1.65;">{body_html}</div>
