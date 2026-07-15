@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, MessagesSquare, Shield, Crop, Captions, Film } from "lucide-react";
+import { Clock, MessagesSquare, Shield, Crop, Captions, Film, BadgeCheck } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
@@ -10,8 +10,13 @@ export default function JobCard({ project, ctaTo, ctaLabel = "Bid Now" }) {
       <div className="relative aspect-video overflow-hidden">
         <img src={project.thumbnail} alt={project.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
           <span className="rounded-full bg-black/70 backdrop-blur px-3 py-1 text-xs font-bold text-white">{project.category}</span>
+          {project.official && (
+            <span title="Verified platform listing" className="inline-flex items-center gap-1 rounded-full bg-[#CCFF00] px-2.5 py-1 text-[10px] font-extrabold text-black">
+              <BadgeCheck className="w-3 h-3" /> VERIFIED
+            </span>
+          )}
           {project.priority && <span className="badge-urgent bg-black/70">PRIORITY</span>}
         </div>
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">

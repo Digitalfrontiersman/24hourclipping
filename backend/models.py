@@ -157,6 +157,8 @@ class Project(Base):
     funded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     # Admin-controlled: hide a project from the public marketplace without deleting it.
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    # True when created by an admin -> shown as a "Verified platform listing".
+    official: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     output_length: Mapped[str | None] = mapped_column(Text)
     aspect_ratio: Mapped[str | None] = mapped_column(Text)
     captions: Mapped[str | None] = mapped_column(Text)

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, Zap, SlidersHorizontal } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, Zap, SlidersHorizontal, BadgeCheck } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import BidChat from "@/components/BidChat";
 
@@ -61,8 +61,11 @@ export default function JobDetails() {
             <div className="relative aspect-video">
               <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-              <div className="absolute bottom-4 left-4">
-                <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold">{p.category}</span>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold">{p.category}</span>
+                  {p.official && <span title="Verified platform listing" className="inline-flex items-center gap-1 rounded-full bg-[#CCFF00] px-2.5 py-1 text-[10px] font-extrabold text-black"><BadgeCheck className="w-3 h-3" /> VERIFIED</span>}
+                </div>
                 <h1 className="font-display font-extrabold text-2xl tracking-tight mt-2">{p.title}</h1>
               </div>
             </div>

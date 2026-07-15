@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import { useApp } from "@/context/AppContext";
 import { CATEGORIES } from "@/data/demoVideos";
-import { LayoutGrid, List, Shield, Clock } from "lucide-react";
+import { LayoutGrid, List, Shield, Clock, BadgeCheck } from "lucide-react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -132,6 +132,7 @@ export default function Marketplace() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-display font-bold text-sm sm:text-base truncate">{p.title}</h3>
+                    {p.official && <span title="Verified platform listing" className="inline-flex items-center gap-1 rounded-full bg-[#CCFF00] px-2 py-0.5 text-[9px] font-extrabold text-black"><BadgeCheck className="w-3 h-3" /> VERIFIED</span>}
                     {p.priority && <span className="badge-urgent text-[9px] px-2 py-0.5">PRIORITY</span>}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-400 mt-1 flex-wrap">
