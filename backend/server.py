@@ -1248,11 +1248,15 @@ async def get_media(key: str, exp: Optional[int] = None, sig: Optional[str] = No
         from fastapi.responses import RedirectResponse
         if not storage.object_exists(key):
             raise HTTPException(404, "Not found")
-        return RedirectResponse(storage.presign_get(key, 3600))
+        # Cache the redirect for less than the presigned URL's lifetime so the
+        # browser reuses the same S3 URL (and its cached bytes) on repeat views.
+        resp = RedirectResponse(storage.presign_get(key, 3600))
+        resp.headers["Cache-Control"] = "public, max-age=3000"
+        return resp
     path = storage.safe_path(key)
     if path is None or not path.exists():
         raise HTTPException(404, "Not found")
-    return FileResponse(path)
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @api_router.get("/projects/{project_id}/source-url")

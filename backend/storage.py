@@ -85,8 +85,12 @@ def presign_put(key: str, content_type: str, expires_in: int = 3600) -> str:
 
 
 def presign_get(key: str, expires_in: int = 3600) -> str:
+    # ResponseCacheControl makes the browser cache the fetched object (media is
+    # immutable per key), so repeat views serve from cache.
     return _s3().generate_presigned_url(
-        "get_object", Params={"Bucket": S3_BUCKET, "Key": key}, ExpiresIn=expires_in)
+        "get_object",
+        Params={"Bucket": S3_BUCKET, "Key": key, "ResponseCacheControl": "public, max-age=86400"},
+        ExpiresIn=expires_in)
 
 
 def object_exists(key: str) -> bool:
