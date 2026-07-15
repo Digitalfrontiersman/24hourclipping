@@ -3,7 +3,6 @@ import { dbAdapter } from "@/services/dbAdapter";
 import ClipperCard from "@/components/ClipperCard";
 import ClipperCardSkeleton from "@/components/ClipperCardSkeleton";
 import EmptyState from "@/components/EmptyState";
-import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import { Users } from "lucide-react";
 
@@ -31,7 +30,6 @@ export default function Directory() {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

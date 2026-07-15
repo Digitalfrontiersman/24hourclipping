@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ShieldCheck, Zap, Play, Mic2, Video, Briefcase, TrendingUp, LifeBuoy } from "lucide-react";
-import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
@@ -236,7 +235,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-      <Footer />
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { dbAdapter } from "@/services/dbAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
-import Footer from "@/components/Footer";
 import EmptyState from "@/components/EmptyState";
 import { Plus, Sparkles, Wallet, ArrowRight, LifeBuoy, Scissors, Timer } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -169,7 +168,6 @@ export default function CustomerDashboard() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

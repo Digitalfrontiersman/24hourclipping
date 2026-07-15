@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { dbAdapter } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import Footer from "@/components/Footer";
 import { Sparkles, Save, Plus, X, Palette } from "lucide-react";
 
 const GROUPS = [
@@ -137,7 +136,6 @@ export default function BrandProfile() {
           <p className="text-sm text-zinc-400"><span className="text-white font-bold">Auto-fill in action:</span> post your next project and the builder pre-loads your caption style, pacing, CTA and avoid-list - briefs take seconds, not minutes.</p>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

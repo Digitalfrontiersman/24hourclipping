@@ -5,7 +5,6 @@ import { dbAdapter } from "@/services/dbAdapter";
 import Countdown from "@/components/Countdown";
 import StatusBadge from "@/components/StatusBadge";
 import JobCard from "@/components/JobCard";
-import Footer from "@/components/Footer";
 import EmptyState from "@/components/EmptyState";
 import { Timer, TrendingUp, ArrowRight, Trophy, X, Search, ShieldAlert, Film, Wallet, ArrowDownToLine } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -319,7 +318,6 @@ export default function ClipperDashboard() {
           {projects.slice(0, 3).map((p) => <JobCard key={p.id} project={p} ctaTo={`/clipper/job/${p.id}`} />)}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

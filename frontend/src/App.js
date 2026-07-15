@@ -32,6 +32,7 @@ import Cookies from "@/pages/legal/Cookies";
 import Terms from "@/pages/legal/Terms";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
+import SiteFooter from "@/components/SiteFooter";
 
 const Customer = ({ children }) => <ProtectedRoute roles={["customer", "admin"]}>{children}</ProtectedRoute>;
 const Clipper = ({ children }) => <ProtectedRoute roles={["clipper", "admin"]}>{children}</ProtectedRoute>;
@@ -84,6 +85,7 @@ function App() {
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <SiteFooter />
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#1A1A1A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
         </AppProvider>
       </BrowserRouter>

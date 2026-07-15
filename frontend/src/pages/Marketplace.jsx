@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import JobCard from "@/components/JobCard";
 import JobCardSkeleton from "@/components/JobCardSkeleton";
-import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import { useApp } from "@/context/AppContext";
 import { CATEGORIES } from "@/data/demoVideos";
@@ -155,7 +154,6 @@ export default function Marketplace() {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { dbAdapter } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
 import { useApp } from "@/context/AppContext";
-import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import EmptyState from "@/components/EmptyState";
 import { ChevronUp, Plus, Loader2, Trash2, Lightbulb, X } from "lucide-react";
@@ -142,7 +141,6 @@ export default function Wishlist() {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

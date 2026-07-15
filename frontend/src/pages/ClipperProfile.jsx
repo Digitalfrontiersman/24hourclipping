@@ -4,7 +4,6 @@ import { dbAdapter } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
-import Footer from "@/components/Footer";
 import { Star, BadgeCheck, Timer, Play, ArrowLeft, Pencil, Camera, X, Loader2, Check } from "lucide-react";
 
 const TOOL_OPTIONS = ["Premiere Pro", "CapCut", "After Effects", "DaVinci Resolve", "Final Cut", "Photoshop", "Motion"];
@@ -116,7 +115,6 @@ export default function ClipperProfile() {
       </div>
 
       {editing && <EditProfile clipper={c} onClose={() => setEditing(false)} onSaved={(u) => { setC(u); setEditing(false); }} />}
-      <Footer />
     </div>
   );
 }

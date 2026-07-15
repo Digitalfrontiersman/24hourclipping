@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import { Film, Scissors, Clock, Wallet, ShieldCheck, BookOpen, ArrowRight } from "lucide-react";
 
@@ -102,7 +101,6 @@ export default function Docs() {
           </Section>
         </main>
       </div>
-      <Footer />
     </div>
   );
 }

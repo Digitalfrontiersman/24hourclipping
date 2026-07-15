@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { dbAdapter } from "@/services/dbAdapter";
 import { fmtUSD } from "@/lib/money";
 import EmptyState from "@/components/EmptyState";
-import Footer from "@/components/Footer";
 import { Receipt, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 
 const KIND_LABEL = {
@@ -78,7 +77,6 @@ export default function Billing() {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

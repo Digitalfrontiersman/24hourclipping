@@ -254,25 +254,48 @@ def _email_shell(*, preheader: str, eyebrow: str, headline: str, body_html: str,
 </html>"""
 
 
+def _email_stat_card(label: str, value: str, note: str = "") -> str:
+    """A light, on-brand stat block for the (now light) email template."""
+    font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+    note_html = f'<div style="color:#6b7280;font-size:13px;margin-top:6px;">{note}</div>' if note else ""
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin:22px 0 4px;background:#f7f8fa;border:1px solid #e6e8ec;border-radius:14px;">'
+        f'<tr><td style="padding:16px 18px;font-family:{font};">'
+        f'<div style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;">{label}</div>'
+        f'<div style="color:#111827;font-size:24px;font-weight:800;margin-top:4px;">{value}</div>'
+        f'{note_html}</td></tr></table>'
+    )
+
+
 def _acceptance_email_html(name: str, title: str, amount, deadline_iso: str) -> str:
     base = _email_base_url()
-    body = (f"A creator just picked you to clip <b style=\"color:#ffffff;\">&ldquo;{title}&rdquo;</b>. "
-            "Your deal is live and the 24-hour clock has started. Head to your dashboard to grab the "
-            "footage and ship your first cut before it hits zero.")
-    extra = (
-        "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
-        "style=\"margin:22px 0 4px;background:#0A0A0A;border:1px solid #262626;border-radius:14px;\">"
-        "<tr><td style=\"padding:16px 18px;font-family:Arial,Helvetica,sans-serif;\">"
-        "<div style=\"color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;\">Payout on approval</div>"
-        f"<div style=\"color:#CCFF00;font-size:24px;font-weight:800;margin-top:4px;\">${amount}</div>"
-        "</td></tr></table>"
-    )
+    body = (f"A creator just picked you to clip <b style=\"color:#111827;\">&ldquo;{title}&rdquo;</b>. "
+            "Your deal is live and the 24-hour clock has started - grab the footage and ship your "
+            "first cut before it hits zero.")
+    extra = _email_stat_card("Payout on approval", f"${amount}", "Released when the creator approves your cut.")
     return _email_shell(
         preheader=f"You're hired to clip “{title}” - the 24-hour clock has started.",
         eyebrow="You're hired", headline=f"Nice one {name}, your bid was accepted.",
         body_html=body, extra_html=extra,
         cta_label="Open your dashboard", cta_href=f"{base}/clipper",
         footer_note="Deliver before the clock hits zero to protect your bond and your streak.",
+    )
+
+
+def _hire_confirmation_email_html(name: str, clipper_name: str, title: str, amount) -> str:
+    """Sent to the CREATOR when they accept a bid - confirmation their clip is in progress."""
+    base = _email_base_url()
+    body = (f"You hired <b style=\"color:#111827;\">{clipper_name}</b> to clip "
+            f"<b style=\"color:#111827;\">&ldquo;{title}&rdquo;</b>. The contract is live and the "
+            "24-hour clock has started - your first cut will be back before it hits zero.")
+    extra = _email_stat_card("Agreed price", f"${amount}", "Held securely and released only when you approve the final cut.")
+    return _email_shell(
+        preheader=f"{clipper_name} is on the clock for “{title}”.",
+        eyebrow="Contract live", headline=f"You're all set, {name}.",
+        body_html=body, extra_html=extra,
+        cta_label="Track your project", cta_href=f"{base}/customer",
+        footer_note="We'll email you the moment your first cut is delivered.",
     )
 
 
@@ -1862,10 +1885,17 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user),
         raise HTTPException(409, "This bid has already been handled")
     try:
         clip_user = await session.get(User, bid.clipper_id)
+        title = project.title or "your project"
+        clipper_name = (clip_user.name if clip_user else None) or "your clipper"
+        # Clipper: "You're hired". Fire-and-forget so the response isn't blocked.
         if clip_user and clip_user.email:
-            title = project.title or "your project"
             html = _acceptance_email_html(clip_user.name or "there", title, float(bid.amount), deadline.isoformat())
-            await asyncio.to_thread(send_email, clip_user.email, f"You're hired: {title}", html)
+            asyncio.create_task(asyncio.to_thread(send_email, clip_user.email, f"You're hired: {title}", html))
+        # Creator: hire confirmation.
+        creator_email = user.get("email")
+        if creator_email:
+            chtml = _hire_confirmation_email_html(user.get("name") or "there", clipper_name, title, float(bid.amount))
+            asyncio.create_task(asyncio.to_thread(send_email, creator_email, f"Your clip is in progress: {title}", chtml))
     except Exception as e:
         logger.error("acceptance email error: %s", e)
     return (await enrich_contracts(session, [contract]))[0]
