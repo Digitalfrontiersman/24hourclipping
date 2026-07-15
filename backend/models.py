@@ -155,6 +155,8 @@ class Project(Base):
     bond: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default=text("0"), nullable=False)
     status: Mapped[ProjectStatus] = mapped_column(SAEnum(ProjectStatus, name="project_status"), default=ProjectStatus.draft, server_default=text("'draft'"), nullable=False, index=True)
     funded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    # Admin-controlled: hide a project from the public marketplace without deleting it.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     output_length: Mapped[str | None] = mapped_column(Text)
     aspect_ratio: Mapped[str | None] = mapped_column(Text)
     captions: Mapped[str | None] = mapped_column(Text)

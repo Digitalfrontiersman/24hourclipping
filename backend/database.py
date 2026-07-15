@@ -44,6 +44,7 @@ _COLUMN_MIGRATIONS = [
     # Default true grandfathers all existing rows + Google users; new local
     # signups are set false in code until they verify their email.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true",
+    "ALTER TABLE projects ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false",
 ]
 
 

@@ -682,6 +682,7 @@ def project_public(p: Project, customer_name: Optional[str] = None, bids_count: 
         "bond": float(p.bond or 0),
         "status": p.status.value,
         "funded": bool(p.funded),
+        "hidden": bool(p.hidden),
         "output_length": p.output_length,
         "aspect_ratio": p.aspect_ratio,
         "captions": p.captions,
@@ -1269,6 +1270,11 @@ async def get_projects(status: Optional[str] = None, category: Optional[str] = N
         if not user:
             raise HTTPException(401, "Not authenticated")
         stmt = stmt.where(Project.owner_id == as_uuid(user["id"]))
+    # Hidden projects are excluded from the public marketplace; owners (mine) and
+    # admins still see them.
+    is_admin = bool(user and "admin" in user_roles(user))
+    if not mine and not is_admin:
+        stmt = stmt.where(Project.hidden.is_(False))
     stmt = stmt.order_by(Project.created_at.desc()).limit(200)
     rows = list(await session.scalars(stmt))
     return await serialize_projects(session, rows)
@@ -2226,6 +2232,90 @@ async def admin_fund_free(project_id: str, admin: dict = Depends(require_role("a
                             meta={"provider": "admin_comp"}))
     await session.commit()
     return {"ok": True}
+
+
+class HideRequest(BaseModel):
+    hidden: bool = True
+
+
+@api_router.post("/admin/projects/{project_id}/hide")
+async def admin_hide_project(project_id: str, body: HideRequest,
+                             admin: dict = Depends(require_role("admin")),
+                             session: AsyncSession = Depends(get_session)):
+    """Hide/unhide a project from the public marketplace (non-destructive)."""
+    pid = as_uuid(project_id)
+    p = await session.get(Project, pid) if pid else None
+    if not p:
+        raise HTTPException(404, "Project not found")
+    p.hidden = bool(body.hidden)
+    await session.commit()
+    return {"ok": True, "hidden": p.hidden}
+
+
+@api_router.delete("/admin/projects/{project_id}")
+async def admin_delete_project(project_id: str, admin: dict = Depends(require_role("admin")),
+                               session: AsyncSession = Depends(get_session)):
+    """Permanently delete a project (and its bids/references). Blocked when it has
+    contracts or payment history - hide it instead to keep the record."""
+    pid = as_uuid(project_id)
+    p = await session.get(Project, pid) if pid else None
+    if not p:
+        raise HTTPException(404, "Project not found")
+    contracts = await session.scalar(select(func.count()).select_from(Contract).where(Contract.project_id == pid))
+    txns = await session.scalar(select(func.count()).select_from(Transaction).where(Transaction.project_id == pid))
+    if contracts or txns:
+        raise HTTPException(409, "This project has contracts or payment history and can't be deleted. "
+                                 "Hide it from the public page instead.")
+    title = p.title
+    try:
+        await session.delete(p)   # cascades bids + references
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "This project has linked records and can't be deleted. Hide it instead.")
+    return {"ok": True, "deleted": title}
+
+
+@api_router.get("/admin/export/{entity}.csv")
+async def admin_export_csv(entity: str, admin: dict = Depends(require_role("admin")),
+                           session: AsyncSession = Depends(get_session)):
+    """Download users / projects / contracts / bids as CSV."""
+    import csv, io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    if entity == "users":
+        w.writerow(["id", "email", "name", "roles", "auth_provider", "email_verified", "disabled", "created_at"])
+        rows = await session.scalars(select(User).options(selectinload(User.roles)).order_by(User.created_at.desc()))
+        for u in rows:
+            w.writerow([u.id, u.email, u.name, "|".join(_roles_list(u)),
+                        getattr(u.auth_provider, "value", u.auth_provider), u.email_verified,
+                        u.disabled, u.created_at.isoformat() if u.created_at else ""])
+    elif entity == "projects":
+        w.writerow(["id", "title", "category", "budget", "status", "funded", "hidden", "owner_id", "payment_method", "created_at"])
+        rows = await session.scalars(select(Project).order_by(Project.created_at.desc()))
+        for p in rows:
+            w.writerow([p.id, p.title, p.category, p.budget, getattr(p.status, "value", p.status),
+                        p.funded, p.hidden, p.owner_id, p.payment_method or "",
+                        p.created_at.isoformat() if p.created_at else ""])
+    elif entity == "contracts":
+        w.writerow(["id", "project_id", "clipper_id", "price", "bond", "status", "deadline_at", "created_at"])
+        rows = await session.scalars(select(Contract).order_by(Contract.created_at.desc()))
+        for c in rows:
+            w.writerow([c.id, c.project_id, c.clipper_id, c.price, c.bond,
+                        getattr(c.status, "value", c.status),
+                        c.deadline_at.isoformat() if c.deadline_at else "",
+                        c.created_at.isoformat() if c.created_at else ""])
+    elif entity == "bids":
+        w.writerow(["id", "project_id", "clipper_id", "amount", "eta_hours", "status", "created_at"])
+        rows = await session.scalars(select(Bid).order_by(Bid.created_at.desc()))
+        for b in rows:
+            w.writerow([b.id, b.project_id, b.clipper_id, b.amount, b.eta_hours,
+                        getattr(b.status, "value", b.status),
+                        b.created_at.isoformat() if b.created_at else ""])
+    else:
+        raise HTTPException(404, "Unknown export. Use users, projects, contracts or bids.")
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="24hc-{entity}.csv"'})
 
 
 # ============================ AI CONCIERGE ============================
