@@ -57,6 +57,31 @@ def decode_access_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
 
+# ---- Email-verification tokens (short-lived, purpose-scoped) ----
+EMAIL_VERIFY_EXPIRE_HOURS = int(os.environ.get("EMAIL_VERIFY_EXPIRE_HOURS", "24"))
+
+
+def create_verification_token(subject: str, hint: str = "") -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": subject,
+        "purpose": "verify_email",
+        "hint": hint or "",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=EMAIL_VERIFY_EXPIRE_HOURS)).timestamp()),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_verification_token(token: str) -> dict:
+    """Return the validated payload (with `sub` and `hint`) from a verification
+    token, or raise (jwt errors / ValueError for the wrong purpose)."""
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("purpose") != "verify_email":
+        raise ValueError("wrong_token_purpose")
+    return payload
+
+
 # ---- Google OAuth (lazy import; only needed when configured) ----
 def verify_google_credential(credential: str) -> dict:
     """Return the verified Google identity claims, or raise ValueError."""

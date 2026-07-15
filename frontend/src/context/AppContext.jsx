@@ -27,10 +27,17 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const register = useCallback(async (data) => {
-    const u = await authAdapter.register(data);
+    // Local signup does NOT start a session - user verifies email first.
+    return await authAdapter.register(data);
+  }, []);
+
+  const verifyEmail = useCallback(async (token) => {
+    const u = await authAdapter.verifyEmail(token);
     setUser(u);
     return u;
   }, []);
+
+  const resendVerification = useCallback((email) => authAdapter.resendVerification(email), []);
 
   const google = useCallback(async (payload) => {
     const u = await authAdapter.google(payload);
@@ -75,6 +82,8 @@ export const AppProvider = ({ children }) => {
         isAuthed: !!user,
         login,
         register,
+        verifyEmail,
+        resendVerification,
         google,
         loginDemo,
         logout,

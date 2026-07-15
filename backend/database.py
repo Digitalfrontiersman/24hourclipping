@@ -41,6 +41,9 @@ from sqlalchemy import text as _sql_text
 
 _COLUMN_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS paypal_email TEXT",
+    # Default true grandfathers all existing rows + Google users; new local
+    # signups are set false in code until they verify their email.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true",
 ]
 
 

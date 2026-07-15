@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, MailCheck } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
 
 export default function Register() {
-  const { register, google } = useApp();
+  const { register, resendVerification, google } = useApp();
   const nav = useNavigate();
   const [params] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
   // Optional ?role=clipper|customer hint (default customer). When present we know
   // the side, so we forward it to onboarding to skip the "which side?" question.
@@ -34,13 +35,21 @@ export default function Register() {
     }
     setBusy(true);
     try {
-      const user = await register({ name, email, password, role });
-      toast.success(`Welcome, ${user.name.split(" ")[0]}!`);
-      go(user); // → onboarding
+      const res = await register({ name, email, password, role });
+      if (res?.verification_required) setSent(true);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Sign up failed");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    try {
+      await resendVerification(email);
+      toast.success("Verification email re-sent");
+    } catch {
+      toast.error("Could not resend right now, try again shortly");
     }
   };
 
@@ -60,23 +69,41 @@ export default function Register() {
       <div className="relative flex items-center justify-center px-4 py-10 overflow-hidden grain">
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-sm">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-1">Create your account</h1>
-          <p className="text-sm text-zinc-500 mb-6">One account. Set up as a creator, a clipper, or both in a few quick steps.</p>
+          {sent ? (
+            <div data-testid="verify-sent">
+              <span className="w-14 h-14 rounded-2xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center mb-5">
+                <MailCheck className="w-7 h-7 text-[#CCFF00]" />
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-2">Check your email</h1>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-1">We sent a verification link to</p>
+              <p className="text-sm font-bold text-white mb-6 break-words">{email}</p>
+              <p className="text-sm text-zinc-500 leading-relaxed mb-6">Click the link to activate your account. It expires in 24 hours. Don't forget to check spam.</p>
+              <button data-testid="resend-verification" onClick={resend} className="btn-ghost h-11 w-full text-sm mb-3">Resend email</button>
+              <div className="text-sm text-zinc-500 text-center">
+                Wrong address? <button onClick={() => setSent(false)} className="text-[#CCFF00] font-semibold">Go back</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-1">Create your account</h1>
+              <p className="text-sm text-zinc-500 mb-6">One account. Set up as a creator, a clipper, or both in a few quick steps.</p>
 
-          <form onSubmit={submit} className="space-y-3">
-            <input data-testid="register-name" className="input-dark" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <input data-testid="register-email" className="input-dark" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input data-testid="register-password" className="input-dark" type="password" placeholder="Password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button data-testid="register-submit" disabled={busy} className="btn-lime w-full h-12 justify-center">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
-            </button>
-          </form>
+              <form onSubmit={submit} className="space-y-3">
+                <input data-testid="register-name" className="input-dark" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
+                <input data-testid="register-email" className="input-dark" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input data-testid="register-password" className="input-dark" type="password" placeholder="Password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button data-testid="register-submit" disabled={busy} className="btn-lime w-full h-12 justify-center">
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create account"}
+                </button>
+              </form>
 
-          <div className="my-5"><GoogleButton onCredential={onGoogle} /></div>
+              <div className="my-5"><GoogleButton onCredential={onGoogle} /></div>
 
-          <div className="text-sm text-zinc-500">
-            Already have an account? <Link to="/login" className="text-[#CCFF00] font-semibold">Log in</Link>
-          </div>
+              <div className="text-sm text-zinc-500">
+                Already have an account? <Link to="/login" className="text-[#CCFF00] font-semibold">Log in</Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -23,6 +23,7 @@ import ClipperRoom from "@/pages/clipper/ClipperRoom";
 import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import VerifyEmail from "@/pages/VerifyEmail";
 import Docs from "@/pages/Docs";
 import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/legal/Privacy";
@@ -50,6 +51,7 @@ function App() {
             <Route path="/clippers/:id" element={<ClipperProfile />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/cookies" element={<Cookies />} />

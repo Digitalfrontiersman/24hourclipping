@@ -3,9 +3,19 @@ import { api, setToken, clearToken, getToken } from "./api";
 
 export const authAdapter = {
   async register({ email, password, name, role }) {
+    // Local signups are NOT logged in here - they must verify their email first.
+    // Returns { verification_required, email }.
     const { data } = await api.post("/auth/register", { email, password, name, role });
+    return data;
+  },
+  async verifyEmail(token) {
+    const { data } = await api.post("/auth/verify-email", { token });
     setToken(data.access_token);
     return data.user;
+  },
+  async resendVerification(email) {
+    const { data } = await api.post("/auth/resend-verification", { email });
+    return data;
   },
   async login({ email, password }) {
     const { data } = await api.post("/auth/login", { email, password });

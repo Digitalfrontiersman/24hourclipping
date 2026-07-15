@@ -304,6 +304,20 @@ def _welcome_email_html(name: str, role_hint: str) -> str:
     )
 
 
+def _verification_email_html(name: str, verify_url: str) -> str:
+    """Sent to new email/password signups to confirm their address before the
+    account is usable."""
+    body = ("Welcome to 24 Hour Clipping. Confirm this email address to activate your "
+            "account and get started. For your security, this link expires in 24 hours.")
+    return _email_shell(
+        preheader="Confirm your email to activate your 24 Hour Clipping account.",
+        eyebrow="Verify your email", headline=f"Confirm your email, {name}.",
+        body_html=body,
+        cta_label="Verify my email", cta_href=verify_url,
+        footer_note="If you didn't create this account, you can safely ignore this email.",
+    )
+
+
 # ============================ REQUEST MODELS ============================
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=140)
@@ -403,6 +417,12 @@ class LoginRequest(BaseModel):
 class GoogleAuthRequest(BaseModel):
     credential: str
     role: Optional[str] = None
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
 
 class SwitchRoleRequest(BaseModel):
     role: str
@@ -918,7 +938,8 @@ async def ensure_auth_setup():
         # (uploaded / Google) avatars are left untouched.
         blanks = (await session.scalars(select(User).where(or_(
             User.avatar_url.is_(None),
-            User.avatar_url.like("%dicebear.com/9.x/initials%"))))).all()
+            User.avatar_url.like("%dicebear.com/9.x/initials%"),
+            User.avatar_url.like("%dicebear.com/9.x/notionists%"))))).all()
         for u in blanks:
             u.avatar_url = _default_avatar(u.name)
         if blanks:
@@ -928,12 +949,12 @@ async def ensure_auth_setup():
 
 # ============================ AUTH ENDPOINTS ============================
 def _default_avatar(name: str) -> str:
-    """A neat illustrated character avatar (DiceBear 'notionists'), deterministic per
-    name, with a soft colored background so it reads as a proper profile picture."""
+    """A clean, auto-generated geometric avatar (DiceBear 'shapes'), deterministic
+    per name so every account looks distinct by default. Not fancy - just a
+    colorful tile. Swap the style word below to change the whole app's default."""
     from urllib.parse import quote
     seed = quote((name or "user").strip()[:40] or "user")
-    return (f"https://api.dicebear.com/9.x/notionists/svg?seed={seed}"
-            "&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,cffafe&radius=50")
+    return f"https://api.dicebear.com/9.x/shapes/svg?seed={seed}"
 
 
 @api_router.post("/auth/register")
@@ -944,18 +965,63 @@ async def register(body: RegisterRequest, request: Request, session: AsyncSessio
     email = body.email.lower()
     if await session.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "An account with this email already exists")
+    # Local signups start UNVERIFIED and get no session until they confirm their
+    # email (compliance). Google accounts are verified by the provider.
     row = User(email=email, name=body.name.strip(), hashed_password=auth.hash_password(body.password),
                auth_provider=AuthProvider.local, avatar_url=_default_avatar(body.name),
-               credits=0, onboarded=False, disabled=False)
+               credits=0, onboarded=False, disabled=False, email_verified=False)
     session.add(row)
     await session.commit()
+    _send_verification_email(row, hint)
+    return {"verification_required": True, "email": email}
+
+
+def _send_verification_email(row: User, hint: str) -> None:
+    """Fire-and-forget a verification email with a signed 24h link."""
     try:
-        html = _welcome_email_html(row.name or "there", hint)
-        asyncio.create_task(asyncio.to_thread(send_email, email, "Welcome to 24 Hour Clipping", html))
+        token = auth.create_verification_token(str(row.id), hint)
+        verify_url = f"{_email_base_url()}/verify-email?token={token}"
+        html = _verification_email_html(row.name or "there", verify_url)
+        asyncio.create_task(asyncio.to_thread(
+            send_email, row.email, "Verify your email - 24 Hour Clipping", html))
     except Exception as e:
-        logger.error("Welcome email dispatch failed: %s", e)
-    # Brand-new account: no capabilities yet (roles chosen in onboarding).
-    return await _issue(_user_to_dict(row, active_role=hint, roles=[]))
+        logger.error("Verification email dispatch failed: %s", e)
+
+
+@api_router.post("/auth/verify-email")
+async def verify_email(body: VerifyEmailRequest, session: AsyncSession = Depends(get_session)):
+    try:
+        payload = auth.decode_verification_token(body.token)
+    except Exception:
+        raise HTTPException(400, "This verification link is invalid or has expired. "
+                                 "Request a new one from the login page.")
+    uid = as_uuid(payload.get("sub"))
+    row = await session.scalar(select(User).options(selectinload(User.roles)).where(User.id == uid)) if uid else None
+    if not row:
+        raise HTTPException(404, "Account not found")
+    if row.disabled:
+        raise HTTPException(403, "Account disabled")
+    if not row.email_verified:
+        row.email_verified = True
+        await session.commit()
+    # Verified: log them in so they can go straight into onboarding.
+    roles = _roles_list(row)
+    hint = payload.get("hint") or "customer"
+    return await _issue(_user_to_dict(row, active_role=hint if not roles else None, roles=roles))
+
+
+@api_router.post("/auth/resend-verification")
+async def resend_verification(body: ResendVerificationRequest, request: Request,
+                              session: AsyncSession = Depends(get_session)):
+    if not auth.rate_limit(f"resend:{client_ip(request)}", 5, 3600):
+        raise HTTPException(429, "Too many requests. Please try again later.")
+    email = body.email.lower()
+    row = await session.scalar(select(User).where(User.email == email))
+    # Only resend for a real, local, still-unverified account - but always return
+    # a generic success so we never reveal whether an email is registered.
+    if row and row.auth_provider == AuthProvider.local and not row.email_verified and not row.disabled:
+        _send_verification_email(row, "customer")
+    return {"ok": True}
 
 
 @api_router.post("/auth/login")
@@ -968,6 +1034,9 @@ async def login(body: LoginRequest, request: Request, session: AsyncSession = De
         raise HTTPException(401, "Invalid email or password")
     if row.disabled:
         raise HTTPException(403, "Account disabled")
+    if row.auth_provider == AuthProvider.local and not row.email_verified:
+        # Distinct code so the client can offer a "resend link" action.
+        raise HTTPException(403, "email_not_verified")
     return await _issue(_user_to_dict(row))
 
 

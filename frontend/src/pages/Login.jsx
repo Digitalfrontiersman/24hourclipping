@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, Zap } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
 
 export default function Login() {
-  const { login, google } = useApp();
+  const { login, resendVerification, google } = useApp();
   const nav = useNavigate();
   const loc = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unverified, setUnverified] = useState(false);
 
   const go = (user) => {
     // Unonboarded users always go through the wizard first.
@@ -28,9 +29,23 @@ export default function Login() {
       toast.success(`Welcome back, ${user.name.split(" ")[0]}`);
       go(user);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Login failed");
+      const detail = err.response?.data?.detail;
+      if (err.response?.status === 403 && detail === "email_not_verified") {
+        setUnverified(true);
+      } else {
+        toast.error(typeof detail === "string" ? detail : "Login failed");
+      }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    try {
+      await resendVerification(email);
+      toast.success("Verification email sent");
+    } catch {
+      toast.error("Could not resend right now, try again shortly");
     }
   };
 
@@ -52,8 +67,22 @@ export default function Login() {
         {/* radial lime glow so the form doesn't float on pure black */}
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-sm">
+          {/* brand lockup - mobile only (the right brand panel is hidden below lg) */}
+          <Link to="/" className="lg:hidden inline-flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter mb-8">
+            <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
+            <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
+          </Link>
+
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-1">Log in</h1>
           <p className="text-sm text-zinc-500 mb-6">Welcome back. Pick up where you left off.</p>
+
+          {unverified && (
+            <div data-testid="login-unverified" className="mb-4 rounded-xl border border-[#FF4500]/30 bg-[#FF4500]/[0.06] p-4">
+              <p className="text-sm font-bold text-white mb-1">Verify your email first</p>
+              <p className="text-xs text-zinc-400 mb-3">We sent a link to {email}. Click it to activate your account, then log in.</p>
+              <button type="button" onClick={resend} data-testid="login-resend" className="btn-ghost h-9 px-4 text-xs">Resend verification email</button>
+            </div>
+          )}
 
           <form onSubmit={submit} className="space-y-3">
             <input data-testid="login-email" className="input-dark" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />

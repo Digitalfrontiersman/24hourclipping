@@ -77,6 +77,9 @@ class User(Base):
     paypal_email: Mapped[str | None] = mapped_column(Text)    # PayPal payout destination
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    # Defaults TRUE so existing accounts and OAuth (Google) users are verified;
+    # new local (email/password) signups are inserted as False until they confirm.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = _updated()
 
