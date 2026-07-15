@@ -1099,8 +1099,11 @@ async def complete_onboarding(body: OnboardingRequest, user: dict = Depends(get_
     row.onboarded = True
     if "customer" in roles and "customer" not in prev and not row.credits:
         row.credits = 150
-    if body.payout_wallet.strip():
-        row.payout_wallet = body.payout_wallet.strip()
+    # Save the Solana payout wallet only if it's valid; an invalid entry is
+    # ignored (they can fix it on the dashboard) so onboarding never fails on it.
+    _wallet = body.payout_wallet.strip()
+    if _wallet and solpay.is_valid_pubkey(_wallet):
+        row.payout_wallet = _wallet
 
     if "customer" in roles and (body.brand_name or body.niche or body.content_type):
         exists = await session.scalar(select(BrandProfile.id).where(BrandProfile.owner_id == uid))

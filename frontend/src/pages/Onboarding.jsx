@@ -11,9 +11,9 @@ const TOOLS = ["Premiere Pro", "CapCut", "After Effects", "DaVinci Resolve", "Fi
 
 // The question set. Which ones appear depends on the role.
 // A conversational flow (Vellum §7): one question per turn, streamed in.
-// Creators are asked nothing beyond the role split (none of it fed the builder,
-// so it was dead weight). Clippers keep only the two answers their directory
-// card needs - samples/wallet are deferred to profile editing.
+// Creators are asked nothing beyond the role split. Clippers give their
+// specialties + tools (for the directory card) and an optional Solana payout
+// wallet; samples and wallet edits still live in profile editing too.
 const ROLE_Q = {
   id: "roles", kind: "choice",
   prompt: (n) => `Hey ${n} - first things first. Which side are you on?`,
@@ -26,6 +26,9 @@ const ROLE_Q = {
 const CLIPPER_QS = [
   { id: "specialties", kind: "multi", prompt: () => "What do you specialize in?", options: CATEGORIES },
   { id: "tools", kind: "multi", prompt: () => "Which tools do you edit in?", options: TOOLS },
+  { id: "wallet", kind: "text", optional: true,
+    prompt: () => "Last one - your Solana (USDC) payout wallet? It's where you'll get paid. You can add or change it anytime in your profile.",
+    placeholder: "Your Solana wallet address (optional)" },
 ];
 const START_Q = {
   id: "startRole", kind: "choice",
