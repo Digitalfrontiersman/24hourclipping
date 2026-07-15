@@ -15,6 +15,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 sm:flex sm:gap-8 gap-x-8 gap-y-2 text-sm text-zinc-400">
           <Link to="/marketplace" className="hover:text-white transition-colors">Live Jobs</Link>
           <Link to="/clippers" className="hover:text-white transition-colors">Clippers</Link>
+          <a href="/blog" className="hover:text-white transition-colors">Blog</a>
           <Link to="/docs" className="hover:text-white transition-colors">Docs</Link>
           <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
           <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>

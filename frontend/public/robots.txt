@@ -60,3 +60,4 @@ User-agent: YouBot
 Allow: /
 
 Sitemap: https://24hourclipping.com/sitemap.xml
+Sitemap: https://24hourclipping.com/blog/sitemap.xml

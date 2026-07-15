@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import auth
+import blog
 import storage
 import payments
 import square
@@ -33,7 +34,7 @@ from database import get_session, init_db, SessionLocal, engine
 from models import (
     User, UserRoleAssoc, ClipperProfile, PortfolioItem, BrandProfile,
     Project, ProjectReference, Bid, Contract, Delivery, Review, Message,
-    Transaction, Withdrawal, AppSetting,
+    Transaction, Withdrawal, AppSetting, BlogPost,
     AuthProvider, UserRole, ProjectStatus, BidStatus, ContractStatus,
     Currency, TxnKind, TxnStatus, WithdrawalStatus,
 )
@@ -2367,11 +2368,146 @@ app.add_middleware(
 )
 
 
+# ============================ BLOG (SEO/AEO) ============================
+async def _platform_stats(session: AsyncSession) -> dict:
+    """Real, current numbers to season the auto-generated articles with."""
+    clippers = await session.scalar(select(func.count()).select_from(ClipperProfile)) or 0
+    open_jobs = await session.scalar(select(func.count()).select_from(Project).where(Project.status == ProjectStatus.open)) or 0
+    total_jobs = await session.scalar(select(func.count()).select_from(Project)) or 0
+    avg_budget = await session.scalar(select(func.avg(Project.budget)))
+    completed = await session.scalar(select(func.count()).select_from(Contract).where(Contract.status == ContractStatus.completed)) or 0
+    return {
+        "vetted clippers on the platform": int(clippers) or None,
+        "open jobs right now": int(open_jobs) or None,
+        "total jobs posted": int(total_jobs) or None,
+        "average job budget (USD)": round(float(avg_budget)) if avg_budget else None,
+        "clips completed": int(completed) or None,
+        "turnaround guarantee": "24 hours",
+        "platform fee": "8% on approval",
+    }
+
+
+async def _generate_and_store_post(session: AsyncSession):
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        logger.info("blog: OPENAI_API_KEY unset, skipping generation")
+        return None
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=key)
+    count = await session.scalar(select(func.count()).select_from(BlogPost)) or 0
+    topic = blog.pick_topic(count, datetime.now(timezone.utc).year)
+    stats = await _platform_stats(session)
+    try:
+        resp = await client.chat.completions.create(
+            model=OPENAI_MODEL, temperature=0.7,
+            response_format={"type": "json_object"},
+            messages=blog.build_messages(topic, stats))
+        data = json.loads(resp.choices[0].message.content or "{}")
+    except Exception as e:
+        logger.error("blog generation failed: %s", e)
+        return None
+    title = (data.get("title") or topic).strip()[:140]
+    body_html = blog.sanitize_html(data.get("body_html") or "")
+    if not body_html or len(body_html) < 200:
+        logger.warning("blog: generated body too short, skipping")
+        return None
+    base_slug = blog.slugify(data.get("slug") or title)
+    slug, n = base_slug, 1
+    while await session.scalar(select(BlogPost.id).where(BlogPost.slug == slug)):
+        n += 1
+        slug = f"{base_slug}-{n}"
+    post = BlogPost(
+        slug=slug, title=title,
+        description=(data.get("description") or "").strip()[:300],
+        keywords=(data.get("keywords") or "").strip()[:400],
+        category=(data.get("category") or "Insights").strip()[:60],
+        body_html=body_html, read_minutes=blog.read_minutes(body_html), source="ai",
+    )
+    session.add(post)
+    await session.commit()
+    logger.info("blog: generated post '%s'", slug)
+    return post
+
+
+async def _seed_blog_if_empty(session: AsyncSession):
+    if (await session.scalar(select(func.count()).select_from(BlogPost)) or 0):
+        return
+    seeds = blog.seed_posts()
+    for i, s in enumerate(seeds):
+        session.add(BlogPost(
+            slug=s["slug"], title=s["title"], description=s["description"],
+            keywords=s["keywords"], category=s["category"],
+            body_html=blog.sanitize_html(s["body_html"]),
+            read_minutes=blog.read_minutes(s["body_html"]), source="seed",
+            published_at=datetime.now(timezone.utc) - timedelta(days=i),
+        ))
+    await session.commit()
+    logger.info("blog: seeded %d posts", len(seeds))
+
+
+async def _blog_scheduler():
+    """Daily-ish autogen: if nothing published in ~20h, generate a fresh post.
+    DB-gated so it's idempotent across restarts (single uvicorn worker)."""
+    await asyncio.sleep(90)  # let startup settle
+    while True:
+        try:
+            async with SessionLocal() as session:
+                last = await session.scalar(select(func.max(BlogPost.published_at)))
+                now = datetime.now(timezone.utc)
+                if last is None or (now - last) > timedelta(hours=20):
+                    await _generate_and_store_post(session)
+        except Exception as e:
+            logger.error("blog scheduler error: %s", e)
+        await asyncio.sleep(3 * 3600)
+
+
+@app.get("/blog", response_class=HTMLResponse)
+async def blog_index(session: AsyncSession = Depends(get_session)):
+    posts = (await session.scalars(
+        select(BlogPost).order_by(BlogPost.published_at.desc()).limit(60))).all()
+    return HTMLResponse(blog.render_index(posts))
+
+
+@app.get("/blog/sitemap.xml")
+async def blog_sitemap(session: AsyncSession = Depends(get_session)):
+    posts = (await session.scalars(
+        select(BlogPost).order_by(BlogPost.published_at.desc()))).all()
+    return Response(content=blog.render_sitemap(posts), media_type="application/xml")
+
+
+@app.get("/blog/{slug}", response_class=HTMLResponse)
+async def blog_article(slug: str, session: AsyncSession = Depends(get_session)):
+    post = await session.scalar(select(BlogPost).where(BlogPost.slug == slug))
+    if not post:
+        return HTMLResponse("<h1>Post not found</h1><p><a href=\"/blog\">Back to the blog</a></p>", status_code=404)
+    recent = (await session.scalars(
+        select(BlogPost).order_by(BlogPost.published_at.desc()).limit(6))).all()
+    return HTMLResponse(blog.render_article(post, recent))
+
+
+# Registered on `app` (not api_router) because this block is defined after
+# app.include_router(api_router); the /api path is kept for consistency.
+@app.post("/api/admin/blog/generate")
+async def admin_blog_generate(admin: dict = Depends(require_role("admin")),
+                              session: AsyncSession = Depends(get_session)):
+    post = await _generate_and_store_post(session)
+    if not post:
+        raise HTTPException(503, "Could not generate a post (check OPENAI_API_KEY).")
+    return {"ok": True, "slug": post.slug, "title": post.title}
+
+
 @app.on_event("startup")
 async def startup():
     storage.ensure_root()
     await init_db()
     await ensure_auth_setup()
+    async with SessionLocal() as session:
+        try:
+            await _seed_blog_if_empty(session)
+        except Exception as e:
+            logger.error("blog seed error: %s", e)
+    if os.environ.get("BLOG_AUTOGEN", "true").lower() != "false":
+        asyncio.create_task(_blog_scheduler())
 
 
 @app.on_event("shutdown")

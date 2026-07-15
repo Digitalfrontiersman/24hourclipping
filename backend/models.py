@@ -317,3 +317,20 @@ class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(Text, primary_key=True)
     value: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+
+class BlogPost(Base):
+    """SEO/AEO blog article, server-rendered as static HTML at /blog. Posts are
+    seeded and then auto-generated daily (OpenAI) targeting clipping/creator keywords."""
+    __tablename__ = "blog_posts"
+    id: Mapped[uuid.UUID] = _pk()
+    slug: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", server_default=text("''"), nullable=False)
+    keywords: Mapped[str] = mapped_column(Text, default="", server_default=text("''"), nullable=False)
+    category: Mapped[str] = mapped_column(Text, default="Insights", server_default=text("'Insights'"), nullable=False)
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    read_minutes: Mapped[int] = mapped_column(SmallInteger, default=4, server_default=text("4"), nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="seed", server_default=text("'seed'"), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at: Mapped[datetime] = _created()
