@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import { realtimeAdapter } from "@/services/realtimeAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Star, Timer, MessageCircle, Check, Loader2, Zap, Play } from "lucide-react";
+import { Star, Timer, MessageCircle, Check, Loader2, Zap, Play, Shield, Sparkles, Link2, BadgeCheck, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import BidChat from "@/components/BidChat";
 
@@ -60,6 +60,17 @@ export default function BidRoom() {
   // Single-accept fast path: one tap on "Accept Bid" jumps straight to confirm.
   const acceptOne = (b) => { setSelected([b.id]); setConfirming(true); };
 
+  const copyLink = () => {
+    const url = `${window.location.origin}/clipper/job/${projectId}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => notify.success("Job link copied", "Share it with clippers to pull in bids."))
+        .catch(() => notify.info("Share this link", url));
+    } else {
+      notify.info("Share this link", url);
+    }
+  };
+
   const confirm = async () => {
     setAccepting("sending");
     try {
@@ -79,42 +90,93 @@ export default function BidRoom() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-[1fr_1.6fr] gap-8 items-start">
-        {/* Left: project */}
+        {/* Left: project summary */}
         <div className="card-dark overflow-hidden lg:sticky lg:top-24">
           <div className="relative aspect-video">
             <img src={project.thumbnail} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+            <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#CCFF00]">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#CCFF00] opacity-70" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#CCFF00]" /></span>
+                Live
+              </span>
+              {project.official && <span title="Verified platform listing" className="inline-flex items-center gap-1 rounded-full bg-[#CCFF00] px-2.5 py-1 text-[10px] font-extrabold text-black"><BadgeCheck className="w-3 h-3" /> VERIFIED</span>}
+            </div>
             <div className="absolute bottom-4 left-4 right-4">
-              <span className="badge-live mb-2">BIDDING LIVE</span>
-              <h1 className="font-display font-extrabold text-xl tracking-tight">{project.title}</h1>
+              <h1 className="font-display font-extrabold text-xl sm:text-2xl tracking-tight leading-tight">{project.title}</h1>
             </div>
           </div>
-          <div className="p-5 grid grid-cols-2 gap-2 text-xs">
-            {[["Budget", `$${project.budget}`], ["Output", project.output_length], ["Ratio", project.aspect_ratio], ["Bond required", `$${project.bond}`]].map(([l, v]) => (
-              <div key={l} className="bg-black/40 rounded-lg p-3"><span className="text-zinc-500 block">{l}</span><span className="font-mono font-bold">{v}</span></div>
-            ))}
+          <div className="p-5">
+            {project.description && <p className="text-sm text-zinc-400 leading-relaxed mb-5">{project.description}</p>}
+
+            <div className="flex items-center justify-between rounded-2xl border border-[#CCFF00]/20 bg-[#CCFF00]/[0.05] px-5 py-4 mb-4">
+              <div>
+                <div className="label-caps">Budget</div>
+                <div className="font-mono font-extrabold text-3xl text-[#CCFF00] mt-0.5">${project.budget}</div>
+              </div>
+              <div className="text-right text-xs text-zinc-400 space-y-1.5">
+                <div className="flex items-center gap-1.5 justify-end"><Shield className="w-3.5 h-3.5 text-[#CCFF00]" /> Bond ${project.bond}</div>
+                <div className="flex items-center gap-1.5 justify-end"><Timer className="w-3.5 h-3.5" /> {project.deadline_hours || 24}h to deliver</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {[["Output", project.output_length], ["Aspect", project.aspect_ratio], ["Captions", project.captions], ["Platform", project.platform], ["Source", project.source_length], ["Moment", project.moment_mode === "known" ? "Timestamps given" : "Find best moment"]].map(([l, v]) => (
+                <div key={l} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{l}</div>
+                  <div className="text-sm font-bold truncate" title={v || "-"}>{v || "-"}</div>
+                </div>
+              ))}
+            </div>
+
+            {project.quality_notes && (
+              <div className="mt-4">
+                <div className="label-caps mb-2 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-[#CCFF00]" /> Quality bar &amp; taste</div>
+                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line bg-black/30 rounded-xl p-3">{project.quality_notes}</p>
+              </div>
+            )}
+
+            {project.references?.length > 0 && (
+              <div className="mt-4">
+                <div className="label-caps mb-2">Reference clips</div>
+                <div className="space-y-1.5">
+                  {project.references.map((r, i) => (
+                    <a key={i} href={r} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-[#CCFF00] hover:underline"><Link2 className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{r}</span></a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button onClick={copyLink} className="btn-ghost h-10 w-full text-xs mt-4"><Copy className="w-3.5 h-3.5" /> Copy job link to share</button>
           </div>
         </div>
 
         {/* Right: live bids */}
         <div>
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-            <h2 className="font-display font-extrabold text-2xl tracking-tight">Live Bid Room</h2>
-            <button data-testid="multi-select-toggle" onClick={() => { setMulti((m) => !m); setSelected([]); }}
-              className={`text-xs font-bold transition-colors ${multi ? "text-[#CCFF00]" : "text-zinc-500 hover:text-white"}`}>
-              {multi ? "Done selecting" : "Accept multiple"}
-            </button>
+            <div className="flex items-baseline gap-3">
+              <h2 className="font-display font-extrabold text-2xl tracking-tight">Live Bid Room</h2>
+              <span className="text-sm text-zinc-500">{bids.length} bid{bids.length === 1 ? "" : "s"}</span>
+            </div>
+            {bids.length > 0 && (
+              <button data-testid="multi-select-toggle" onClick={() => { setMulti((m) => !m); setSelected([]); }}
+                className={`text-xs font-bold transition-colors ${multi ? "text-[#CCFF00]" : "text-zinc-500 hover:text-white"}`}>
+                {multi ? "Done selecting" : "Accept multiple"}
+              </button>
+            )}
           </div>
           {/* Sort control - transparent ranking the customer controls */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-xs text-zinc-500 mr-1">Sort by</span>
-            {[["fit", "Best fit"], ["price", "Lowest price"], ["eta", "Fastest"]].map(([k, label]) => (
-              <button key={k} data-testid={`sort-${k}`} onClick={() => setSort(k)}
-                className={`h-8 px-3.5 rounded-full text-xs font-bold border transition-colors ${sort === k ? "bg-[#CCFF00] text-black border-transparent" : "border-white/10 text-zinc-400 hover:text-white hover:border-white/25"}`}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {bids.length > 0 && (
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <span className="text-xs text-zinc-500 mr-1">Sort by</span>
+              {[["fit", "Best fit"], ["price", "Lowest price"], ["eta", "Fastest"]].map(([k, label]) => (
+                <button key={k} data-testid={`sort-${k}`} onClick={() => setSort(k)}
+                  className={`h-8 px-3.5 rounded-full text-xs font-bold border transition-colors ${sort === k ? "bg-[#CCFF00] text-black border-transparent" : "border-white/10 text-zinc-400 hover:text-white hover:border-white/25"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="space-y-4" data-testid="bid-list">
             <AnimatePresence initial={false}>
               {ranked.map((b, idx) => (
@@ -162,10 +224,25 @@ export default function BidRoom() {
               ))}
             </AnimatePresence>
             {ranked.length === 0 && (
-              <div className="card-dark p-12 text-center" data-testid="bids-empty">
-                <Loader2 className="w-6 h-6 animate-spin text-[#CCFF00] mx-auto mb-3" />
-                <p className="font-bold">Your job just went live.</p>
-                <p className="text-sm text-zinc-500">Clippers are viewing it now - first bids usually land within minutes.</p>
+              <div className="card-dark p-8 sm:p-10 text-center" data-testid="bids-empty">
+                <div className="w-14 h-14 rounded-2xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/25 flex items-center justify-center mx-auto mb-4">
+                  <span className="relative flex h-3.5 w-3.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#CCFF00] opacity-60" />
+                    <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-[#CCFF00]" />
+                  </span>
+                </div>
+                <p className="font-display font-extrabold text-xl">Your job is live</p>
+                <p className="text-sm text-zinc-400 mt-1.5 max-w-sm mx-auto">Vetted clippers can see it now. New bids appear here automatically - no need to refresh.</p>
+                <div className="grid sm:grid-cols-3 gap-3 mt-6 text-left">
+                  {[["1", "Clippers review", "They read your brief, budget and footage."], ["2", "Bids roll in", "Each with a price, ETA and pitch."], ["3", "You pick", "Accept one and the 24-hour clock starts."]].map(([n, t, d]) => (
+                    <div key={n} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+                      <div className="font-mono font-extrabold text-[#CCFF00]/50 mb-1">{n}</div>
+                      <div className="text-sm font-bold">{t}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{d}</div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={copyLink} className="btn-ghost h-11 px-6 text-sm mt-6"><Copy className="w-3.5 h-3.5" /> Copy job link to share</button>
               </div>
             )}
           </div>
