@@ -1314,6 +1314,33 @@ async def get_project(project_id: str, session: AsyncSession = Depends(get_sessi
     return await serialize_project(session, p)
 
 
+def _free_posting_on() -> bool:
+    """Temporary launch mode: creators post jobs live without paying. Flip
+    FREE_POSTING=false in the backend .env to require payment again."""
+    return os.environ.get("FREE_POSTING", "true").lower() not in ("false", "0", "no", "off")
+
+
+def _publish_project_free(session: AsyncSession, p: Project, provider: str = "free") -> None:
+    """Mark a project funded + open with a comp deposit (no real money moves).
+    Powers the no-payment posting mode and admin comps. Caller commits.
+    Requires p.id (flush first for a brand-new project)."""
+    if p.funded:
+        return
+    p.funded = True
+    p.status = ProjectStatus.open
+    p.payment_method = provider
+    session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
+                            from_user=p.owner_id, amount=_base_units(p.budget, "usd"),
+                            currency=Currency.usd, chain_sig=f"{provider}:{p.id}",
+                            meta={"provider": provider}))
+
+
+@api_router.get("/config")
+async def public_config():
+    """Public runtime flags the frontend adapts to."""
+    return {"free_posting": _free_posting_on()}
+
+
 @api_router.post("/projects")
 async def create_project(body: ProjectCreate, user: dict = Depends(require_role("customer", "admin")),
                          session: AsyncSession = Depends(get_session)):
@@ -1337,6 +1364,10 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_role(
     p.references = [ProjectReference(url=url, position=i)
                     for i, url in enumerate(body.references or [])]
     session.add(p)
+    # No-payment launch mode: post the job live for bids immediately (no checkout).
+    if _free_posting_on():
+        await session.flush()   # assign p.id for the comp deposit row
+        _publish_project_free(session, p, "free")
     await session.commit()
     return project_public(p, user.get("name") or body.customer_name, 0)
 
@@ -2247,13 +2278,7 @@ async def admin_fund_free(project_id: str, admin: dict = Depends(require_role("a
         raise HTTPException(404, "Project not found")
     if p.funded:
         return {"ok": True, "already": True}
-    p.funded = True
-    p.status = ProjectStatus.open
-    p.payment_method = "admin_comp"
-    session.add(Transaction(kind=TxnKind.deposit, status=TxnStatus.confirmed, project_id=p.id,
-                            from_user=p.owner_id, amount=_base_units(p.budget, "usd"),
-                            currency=Currency.usd, chain_sig=f"admin-comp:{p.id}",
-                            meta={"provider": "admin_comp"}))
+    _publish_project_free(session, p, "admin_comp")
     await session.commit()
     return {"ok": True}
 

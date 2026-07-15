@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
@@ -16,6 +16,11 @@ export default function CreateProject() {
   const nav = useNavigate();
   const { user } = useApp();
   const isAdmin = !!user?.roles?.includes("admin");
+  const [freePosting, setFreePosting] = useState(false);
+
+  useEffect(() => {
+    dbAdapter.getConfig().then((c) => setFreePosting(!!c?.free_posting)).catch(() => {});
+  }, []);
   // Express (one-screen, tap-and-go) is the default. "Full brief" opens the
   // 3-step wizard for people who want every knob. Smart defaults mean Express
   // only truly needs a title + budget.
@@ -64,8 +69,12 @@ export default function CreateProject() {
     try {
       const references = f.references.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
       const p = await dbAdapter.createProject({ ...f, budget: Number(f.budget), references, source_key: uploaded?.key, thumbnail_key: thumb?.key, source_link: f.source_link || uploaded?.name || "Uploaded footage" });
-      if (isAdmin) {
-        // Admins publish live at no charge - skip checkout, straight to the bid room.
+      if (p.funded || p.status === "open") {
+        // Free-posting mode (or already funded): job is live, straight to the bid room.
+        notify.success("Job posted", "Vetted clippers can bid now.");
+        nav(`/customer/bids/${p.id}`);
+      } else if (isAdmin) {
+        // Admins publish live at no charge - skip checkout.
         await dbAdapter.fundProjectFree(p.id);
         notify.success("Job published", "Live with no charge (admin). Clippers can bid now.");
         nav(`/customer/bids/${p.id}`);
@@ -321,7 +330,7 @@ export default function CreateProject() {
             </div>
             <div className="flex gap-3">
               <button className="btn-ghost h-12 px-6" onClick={() => setStep(2)}><ArrowLeft className="w-4 h-4" /> Back</button>
-              <button data-testid="create-project-submit" className="btn-lime h-12 flex-1" disabled={saving} onClick={submit}>{saving ? "Creating…" : isAdmin ? "Publish job (no charge)" : "Review brief & fund"} <ArrowRight className="w-4 h-4" /></button>
+              <button data-testid="create-project-submit" className="btn-lime h-12 flex-1" disabled={saving} onClick={submit}>{saving ? "Creating…" : (isAdmin || freePosting) ? "Post & find clippers" : "Review brief & fund"} <ArrowRight className="w-4 h-4" /></button>
             </div>
           </div>
         )}

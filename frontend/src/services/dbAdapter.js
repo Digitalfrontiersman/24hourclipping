@@ -13,6 +13,7 @@ export const dbAdapter = {
   createCardCheckout: (id) => api.post(`/projects/${id}/checkout`).then((r) => r.data),
   confirmCardCheckout: (id, sessionId) => api.post(`/projects/${id}/checkout/confirm`, { session_id: sessionId }).then((r) => r.data),
   // Solana USDC
+  getConfig: () => api.get("/config").then((r) => r.data),
   getSolanaConfig: () => api.get("/solana/config").then((r) => r.data),
   getSolanaDepositInfo: (id) => api.get(`/projects/${id}/solana/deposit-info`).then((r) => r.data),
   fundSolana: (id, signature, currency = "usdc") => api.post(`/projects/${id}/fund/solana`, { signature, currency }).then((r) => r.data),
