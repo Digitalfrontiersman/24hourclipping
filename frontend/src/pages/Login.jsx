@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Clock, Zap } from "lucide-react";
+import { Loader2, CheckCircle2, Clock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { homeFor } from "@/lib/roles";
 import GoogleButton from "@/components/GoogleButton";
@@ -67,12 +67,6 @@ export default function Login() {
         {/* radial lime glow so the form doesn't float on pure black */}
         <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-[#CCFF00]/10 blur-[120px]" aria-hidden="true" />
         <div className="relative z-10 w-full max-w-sm">
-          {/* brand lockup - mobile only (the right brand panel is hidden below lg) */}
-          <Link to="/" className="lg:hidden inline-flex items-center gap-2 font-display font-extrabold text-lg tracking-tighter mb-8">
-            <span className="w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center"><Zap className="w-4 h-4 text-black" fill="black" /></span>
-            <span>24HR<span className="text-[#CCFF00]">CLIPPING</span></span>
-          </Link>
-
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter mb-1">Log in</h1>
           <p className="text-sm text-zinc-500 mb-6">Welcome back. Pick up where you left off.</p>
 
