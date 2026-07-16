@@ -111,13 +111,8 @@ export default function Wishlist() {
             {wishes.map((w) => {
               const st = STATUS[w.status] || STATUS.open;
               return (
-                <div key={w.id} className="card-dark p-5 flex items-start gap-4" data-testid={`wish-${w.id}`}>
-                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`} aria-pressed={w.voted} title={w.voted ? "Remove your vote" : "Upvote"}
-                    className={`shrink-0 flex flex-col items-center justify-center gap-0.5 w-12 h-12 rounded-xl border transition-colors active:scale-95 ${w.voted ? "border-[#CCFF00]/60 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-white/25 hover:text-white"}`}>
-                    <ChevronUp className="w-4 h-4" strokeWidth={2.5} />
-                    <span className="font-mono font-bold text-[11px] leading-none tabular-nums">{w.votes}</span>
-                  </button>
-                  <div className="min-w-0 flex-1">
+                <div key={w.id} className="card-dark p-0 flex items-stretch overflow-hidden" data-testid={`wish-${w.id}`}>
+                  <div className="min-w-0 flex-1 p-5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-display font-bold text-white">{w.title}</h3>
                       <span className={`text-[10px] font-bold uppercase tracking-widest border rounded-full px-2 py-0.5 ${st.cls}`}>{st.label}</span>
@@ -140,6 +135,12 @@ export default function Wishlist() {
                       </div>
                     )}
                   </div>
+                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`} aria-pressed={w.voted} title={w.voted ? "Remove your vote" : "Upvote"}
+                    className={`shrink-0 w-20 sm:w-24 flex flex-col items-center justify-center gap-1 border-l transition-colors active:bg-[#CCFF00]/20 ${w.voted ? "border-[#CCFF00]/40 bg-[#CCFF00]/[0.08] text-[#CCFF00]" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05] hover:text-white"}`}>
+                    <ChevronUp className="w-5 h-5" strokeWidth={2.5} />
+                    <span className="font-mono font-extrabold text-lg leading-none tabular-nums">{w.votes}</span>
+                    <span className="text-[9px] uppercase tracking-widest font-bold opacity-70">{w.voted ? "Voted" : "Vote"}</span>
+                  </button>
                 </div>
               );
             })}
