@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 
 import auth
 import blog
+import seo
 import storage
 import payments
 import square
@@ -2860,6 +2861,10 @@ async def _generate_and_store_post(session: AsyncSession):
     session.add(post)
     await session.commit()
     logger.info("blog: generated post '%s'", slug)
+    # Instantly push the new post + blog index to Bing/Yandex (powers ChatGPT
+    # Search). Fire-and-forget so generation never blocks on the network.
+    asyncio.create_task(asyncio.to_thread(
+        seo.ping_indexnow, [f"https://{seo.SITE_HOST}/blog/{slug}", f"https://{seo.SITE_HOST}/blog"]))
     return post
 
 
@@ -2928,6 +2933,17 @@ async def admin_blog_generate(admin: dict = Depends(require_role("admin")),
     if not post:
         raise HTTPException(503, "Could not generate a post (check OPENAI_API_KEY).")
     return {"ok": True, "slug": post.slug, "title": post.title}
+
+
+@app.post("/api/admin/seo/indexnow")
+async def admin_indexnow(admin: dict = Depends(require_role("admin")),
+                         session: AsyncSession = Depends(get_session)):
+    """Push every public URL (core pages + all blog posts) to Bing/Yandex via
+    IndexNow. Run after a content change to get it crawled in minutes."""
+    slugs = list(await session.scalars(select(BlogPost.slug)))
+    urls = seo.core_urls() + [f"https://{seo.SITE_HOST}/blog/{s}" for s in slugs]
+    ok = await asyncio.to_thread(seo.ping_indexnow, urls)
+    return {"ok": ok, "submitted": len(urls)}
 
 
 @app.on_event("startup")
