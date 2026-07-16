@@ -125,6 +125,11 @@ a, button { -webkit-tap-highlight-color: transparent; }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
+/* kill the ugly native number-input spinners app-wide (we use custom steppers) */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
 /* ---- Toasts (sonner): premium dark cards, brand accent per type ---- */
 [data-sonner-toaster] {
   --width: 380px;

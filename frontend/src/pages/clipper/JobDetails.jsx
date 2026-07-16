@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, BadgeCheck } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, BadgeCheck, Minus, Plus } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import BidChat from "@/components/BidChat";
 
@@ -126,9 +126,24 @@ export default function JobDetails() {
                 <p className="text-sm text-zinc-500 mb-5">Set your price and terms - nothing locks until the creator accepts.</p>
 
                 <label className="label-caps block mb-2">Your bid price</label>
-                <div className="relative mb-1.5">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-[#CCFF00]">$</span>
-                  <input data-testid="bid-amount-input" type="number" min="20" max="500" className="input-dark pl-8 h-14 text-2xl font-mono font-extrabold" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <div className="flex items-stretch gap-2 mb-1.5">
+                  <button type="button" data-testid="bid-amount-minus" aria-label="Lower bid by $5"
+                    onClick={() => setAmount((a) => Math.max(20, (Number(a) || 20) - 5))}
+                    className="w-12 shrink-0 rounded-xl border border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25 active:scale-95 transition flex items-center justify-center">
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="relative flex-1 min-w-0">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold text-[#CCFF00] text-xl pointer-events-none">$</span>
+                    <input data-testid="bid-amount-input" type="number" inputMode="numeric" min="20" max="500"
+                      className="input-dark pl-9 h-14 text-2xl font-mono font-extrabold text-center" value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      onBlur={() => setAmount((a) => a === "" ? "" : Math.min(500, Math.max(20, Number(a) || 20)))} />
+                  </div>
+                  <button type="button" data-testid="bid-amount-plus" aria-label="Raise bid by $5"
+                    onClick={() => setAmount((a) => Math.min(500, (Number(a) || 20) + 5))}
+                    className="w-12 shrink-0 rounded-xl border border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:border-white/25 active:scale-95 transition flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
                 <p className="text-xs text-zinc-600 mb-4">Creator's budget is <span className="text-zinc-400 font-semibold">${p.budget}</span>. Bid at, under, or over it - your call.</p>
 
