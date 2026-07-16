@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { ROLE_HOME, ROLE_NOUN } from "@/lib/roles";
 import { toast } from "sonner";
-import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield, CreditCard } from "lucide-react";
+import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield, CreditCard, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -66,6 +66,12 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          {isAuthed && (
+            <Link to="/messages" data-testid="nav-messages" title="Messages" aria-label="Messages"
+              className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full border transition-colors ${loc.pathname.startsWith("/messages") ? "border-[#CCFF00]/50 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/15 text-zinc-300 hover:border-white/30 hover:bg-white/[0.06]"}`}>
+              <MessageSquare className="w-4 h-4" />
+            </Link>
+          )}
           {isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger data-testid="account-menu" className="flex items-center gap-2 h-10 rounded-full border border-white/15 pl-1 pr-3 hover:border-white/30 hover:bg-white/[0.06] transition-colors">
@@ -86,6 +92,9 @@ export default function Navbar() {
 
                 <DropdownMenuItem data-testid="menu-dashboard" className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(dashboardHref)}>
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="menu-messages" className="cursor-pointer focus:bg-white/10 focus:text-white sm:hidden" onClick={() => nav("/messages")}>
+                  <MessageSquare className="w-3.5 h-3.5" /> Messages
                 </DropdownMenuItem>
                 {onboarded && (
                   <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(profileHref)}>
@@ -143,6 +152,12 @@ export default function Navbar() {
               </Link>
             );
           })}
+          {isAuthed && (
+            <Link to="/messages" onClick={() => setOpen(false)}
+              className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${loc.pathname.startsWith("/messages") ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}>
+              Messages
+            </Link>
+          )}
           {isAuthed && otherRoles.map((r) => (
             <button key={r} onClick={() => { setOpen(false); switchTo(r); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-[#CCFF00] hover:bg-white/5">
               Switch to {ROLE_NOUN[r]}

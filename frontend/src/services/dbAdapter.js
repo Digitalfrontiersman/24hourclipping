@@ -32,6 +32,7 @@ export const dbAdapter = {
   withdraw: (method = "paypal", destination) => api.post("/me/withdraw", { method, destination }).then((r) => r.data),
   tipClipper: (contractId, signature, amount, currency = "usdc") => api.post(`/contracts/${contractId}/tip`, { signature, amount, currency }).then((r) => r.data),
   contractPayout: (contractId) => api.post(`/contracts/${contractId}/payout`).then((r) => r.data),
+  getConversations: () => api.get("/me/conversations").then((r) => r.data),
   getBids: (projectId) => api.get(`/projects/${projectId}/bids`).then((r) => r.data),
   createBid: (projectId, data) => api.post(`/projects/${projectId}/bids`, data).then((r) => r.data),
   getMyBids: () => api.get("/me/bids").then((r) => r.data),

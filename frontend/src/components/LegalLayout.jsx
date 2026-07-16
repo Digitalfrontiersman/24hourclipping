@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import Footer from "@/components/Footer";
 
 /**
  * Shared shell for policy / docs pages: consistent heading, prose styling,
- * "last updated" line, and footer. Content is passed as children.
+ * and "last updated" line. The global <SiteFooter /> (App.js) renders the
+ * footer, so this layout must not add its own or it doubles up.
  */
 export default function LegalLayout({ title, updated, intro, children }) {
   return (
@@ -18,7 +18,6 @@ export default function LegalLayout({ title, updated, intro, children }) {
           {children}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

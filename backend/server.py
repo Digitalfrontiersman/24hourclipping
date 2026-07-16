@@ -1987,6 +1987,86 @@ async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depend
     return d
 
 
+@api_router.get("/me/conversations")
+async def my_conversations(user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+    """Unified inbox: every thread the caller is part of - pre-deal bid chats
+    and active contract chats - each with the other party, project, and the
+    latest message. Sorted newest-first (Fiverr/Upwork style)."""
+    uid = as_uuid(user["id"])
+    owned_pids = list(await session.scalars(select(Project.id).where(Project.owner_id == uid)))
+
+    bid_where = [Bid.clipper_id == uid] + ([Bid.project_id.in_(owned_pids)] if owned_pids else [])
+    bids = list(await session.scalars(select(Bid).where(or_(*bid_where))))
+    con_where = [Contract.clipper_id == uid] + ([Contract.project_id.in_(owned_pids)] if owned_pids else [])
+    contracts = list(await session.scalars(select(Contract).where(or_(*con_where))))
+
+    # A bid that became a contract is shown as the contract thread (avoids dupes).
+    contracted_bids = {c.bid_id for c in contracts}
+    bids = [b for b in bids if b.id not in contracted_bids]
+
+    # Latest message per thread (DISTINCT ON the thread key).
+    last_bid, last_con = {}, {}
+    bid_ids = [b.id for b in bids]
+    con_ids = [c.id for c in contracts]
+    if bid_ids:
+        for m in await session.scalars(select(Message).where(Message.bid_id.in_(bid_ids))
+                                       .order_by(Message.bid_id, Message.created_at.desc())
+                                       .distinct(Message.bid_id)):
+            last_bid[m.bid_id] = m
+    if con_ids:
+        for m in await session.scalars(select(Message).where(Message.contract_id.in_(con_ids))
+                                       .order_by(Message.contract_id, Message.created_at.desc())
+                                       .distinct(Message.contract_id)):
+            last_con[m.contract_id] = m
+
+    pids = {b.project_id for b in bids} | {c.project_id for c in contracts}
+    projs = {p.id: p for p in await session.scalars(select(Project).where(Project.id.in_(pids)))} if pids else {}
+
+    convos, other_ids = [], set()
+    # Bid threads: only those that actually have a message (a real conversation).
+    for b in bids:
+        lm = last_bid.get(b.id)
+        if not lm:
+            continue
+        p = projs.get(b.project_id)
+        i_own = p is not None and p.owner_id == uid
+        other_id = b.clipper_id if i_own else (p.owner_id if p else None)
+        other_ids.add(other_id)
+        convos.append({"type": "bid", "id": str(b.id), "project_id": str(b.project_id),
+                       "project_title": p.title if p else "Project",
+                       "thumbnail": p.thumbnail_url if p else None,
+                       "context": "Negotiating", "me_role": "customer" if i_own else "clipper",
+                       "_other_id": other_id, "last_text": lm.text,
+                       "_last_at": lm.created_at, "last_sender": lm.sender_role.value})
+    # Contract threads: an active deal is a conversation even before the first message.
+    for c in contracts:
+        lm = last_con.get(c.id)
+        p = projs.get(c.project_id)
+        i_own = p is not None and p.owner_id == uid
+        other_id = c.clipper_id if i_own else (p.owner_id if p else None)
+        other_ids.add(other_id)
+        convos.append({"type": "contract", "id": str(c.id), "project_id": str(c.project_id),
+                       "project_title": p.title if p else "Project",
+                       "thumbnail": p.thumbnail_url if p else None,
+                       "context": c.status.value.replace("_", " ").title(),
+                       "me_role": "customer" if i_own else "clipper",
+                       "_other_id": other_id, "last_text": lm.text if lm else None,
+                       "_last_at": lm.created_at if lm else c.created_at,
+                       "last_sender": lm.sender_role.value if lm else None})
+
+    users = {u.id: u for u in await session.scalars(
+        select(User).where(User.id.in_([o for o in other_ids if o])))} if other_ids else {}
+    for cv in convos:
+        ou = users.get(cv.pop("_other_id"))
+        cv["other"] = {"id": str(ou.id) if ou else None,
+                       "name": ou.name if ou else "Unknown",
+                       "avatar": (ou.avatar_url if ou else None) or _default_avatar(ou.name if ou else "user")}
+        cv["last_at"] = cv["_last_at"].isoformat() if cv.pop("_last_at") else None
+    convos.sort(key=lambda x: x["last_at"] or "", reverse=True)
+    return convos
+
+
 # ============================ CONTRACTS ============================
 @api_router.get("/contracts")
 async def get_contracts(status: Optional[str] = None, user: dict = Depends(get_current_user),

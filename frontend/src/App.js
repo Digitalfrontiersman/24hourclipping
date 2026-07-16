@@ -25,6 +25,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import VerifyEmail from "@/pages/VerifyEmail";
 import Wishlist from "@/pages/Wishlist";
+import Messages from "@/pages/Messages";
 import Docs from "@/pages/Docs";
 import NotFound from "@/pages/NotFound";
 import Privacy from "@/pages/legal/Privacy";
@@ -62,6 +63,9 @@ function App() {
 
             {/* Onboarding (any authed user; runs before dashboards) */}
             <Route path="/onboarding" element={<ProtectedRoute skipOnboarding><Onboarding /></ProtectedRoute>} />
+
+            {/* Messages inbox (any authed user) */}
+            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
 
             {/* Customer */}
             <Route path="/customer" element={<Customer><CustomerDashboard /></Customer>} />
