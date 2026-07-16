@@ -86,7 +86,7 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
           <SiteFooter />
-          <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#1A1A1A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
+          <Toaster theme="dark" position="top-right" closeButton offset={18} gap={12} duration={4500} />
         </AppProvider>
       </BrowserRouter>
     </div>
