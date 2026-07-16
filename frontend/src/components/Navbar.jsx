@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { ROLE_HOME, ROLE_NOUN } from "@/lib/roles";
 import { toast } from "sonner";
-import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield, CreditCard, MessageSquare } from "lucide-react";
+import { Zap, ChevronDown, Menu, X, LogOut, User, LayoutDashboard, Repeat, Shield, CreditCard, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -68,8 +68,8 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {isAuthed && (
             <Link to="/messages" data-testid="nav-messages" title="Messages" aria-label="Messages"
-              className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full border transition-colors ${loc.pathname.startsWith("/messages") ? "border-[#CCFF00]/50 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/15 text-zinc-300 hover:border-white/30 hover:bg-white/[0.06]"}`}>
-              <MessageSquare className="w-4 h-4" />
+              className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full border transition-colors ${loc.pathname.startsWith("/messages") ? "border-[#CCFF00]/50 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/15 text-zinc-400 hover:text-white hover:border-white/30 hover:bg-white/[0.06]"}`}>
+              <MessageCircle className="w-[18px] h-[18px]" strokeWidth={2} />
             </Link>
           )}
           {isAuthed ? (
@@ -94,7 +94,7 @@ export default function Navbar() {
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem data-testid="menu-messages" className="cursor-pointer focus:bg-white/10 focus:text-white sm:hidden" onClick={() => nav("/messages")}>
-                  <MessageSquare className="w-3.5 h-3.5" /> Messages
+                  <MessageCircle className="w-3.5 h-3.5" /> Messages
                 </DropdownMenuItem>
                 {onboarded && (
                   <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white" onClick={() => nav(profileHref)}>
