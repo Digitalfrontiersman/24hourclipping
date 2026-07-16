@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { dbAdapter, bondFor } from "@/services/dbAdapter";
 import { notify } from "@/services/notificationAdapter";
-import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, Zap, SlidersHorizontal, BadgeCheck } from "lucide-react";
+import { Shield, ArrowLeft, CheckCircle2, MessageCircle, Link2, Clock, Sparkles, BadgeCheck } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import BidChat from "@/components/BidChat";
 
@@ -20,18 +20,17 @@ export default function JobDetails() {
   const [p, setP] = useState(null);
   const [amount, setAmount] = useState("");
   const [eta, setEta] = useState(12);
-  // Prefill a sensible pitch so "Place Bid" works in a single tap. Editing stays
-  // optional - the quick-pitch chips and the field below still overwrite it.
-  const [pitch, setPitch] = useState(QUICK_PITCHES[0]);
+  const [pitch, setPitch] = useState("");
   const [portfolioIdx, setPortfolioIdx] = useState(0);
   const [me, setMe] = useState(null);
   const [placed, setPlaced] = useState(false);
   const [placedBid, setPlacedBid] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [customize, setCustomize] = useState(false); // one-tap Quick Apply by default
 
   useEffect(() => {
-    dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(Math.round(proj.budget * 0.9)); }).catch(() => {});
+    // Prefill the amount to the posted budget as a starting point - the clipper
+    // edits it (and every other field) themselves. No hidden auto-bid.
+    dbAdapter.getProject(projectId).then((proj) => { setP(proj); setAmount(proj.budget); }).catch(() => {});
     if (ME) dbAdapter.getClipper(ME).then(setMe).catch(() => {});
   }, [projectId, ME]);
 
@@ -123,40 +122,23 @@ export default function JobDetails() {
           <div className="card-dark p-6 lg:sticky lg:top-24" data-testid="bid-form">
             {!placed ? (
               <>
-                <h2 className="font-display font-extrabold text-xl mb-5">Place your bid</h2>
+                <h2 className="font-display font-extrabold text-xl mb-1">Place your bid</h2>
+                <p className="text-sm text-zinc-500 mb-5">Set your price and terms - nothing locks until the creator accepts.</p>
 
-                {!customize ? (
-                  <div data-testid="quick-apply-panel">
-                    <p className="text-sm text-zinc-400 mb-4">One tap to bid with your smart defaults. Nothing locks until the creator accepts.</p>
-                    <div className="rounded-xl bg-black/40 p-4 mb-4 space-y-2.5">
-                      <div className="flex items-center justify-between"><span className="text-xs text-zinc-500">Your bid</span><span className="font-mono font-extrabold text-xl text-[#CCFF00]">${amount || Math.round(p.budget * 0.9)}</span></div>
-                      <div className="flex items-center justify-between"><span className="text-xs text-zinc-500">First cut in</span><span className="font-mono font-bold">{eta}h</span></div>
-                      <div className="border-t border-white/10 pt-2.5"><span className="text-xs text-zinc-500 block mb-1">Pitch</span><span className="text-sm text-zinc-300 italic">“{pitch}”</span></div>
-                    </div>
-                    <div className="bg-black/40 rounded-xl p-3 flex items-start gap-2 mb-4">
-                      <Shield className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
-                      <p className="text-xs text-zinc-400">Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> Locks only if accepted.</p>
-                    </div>
-                    <button data-testid="quick-apply-btn" disabled={submitting} className="btn-lime w-full h-14 text-base" onClick={submit}>
-                      {submitting ? "Applying…" : <>Quick Apply <Zap className="w-4 h-4" fill="black" /></>}
-                    </button>
-                    <button type="button" data-testid="customize-bid-toggle" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5 mt-3" onClick={() => setCustomize(true)}>
-                      <SlidersHorizontal className="w-3.5 h-3.5" /> Customize amount, ETA & pitch
-                    </button>
-                  </div>
-                ) : (
-                <>
-                <label className="label-caps block mb-2">Bid price</label>
-                <div className="relative mb-4">
+                <label className="label-caps block mb-2">Your bid price</label>
+                <div className="relative mb-1.5">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono font-bold text-[#CCFF00]">$</span>
-                  <input data-testid="bid-amount-input" type="number" min="20" max="500" className="input-dark pl-8 font-mono font-bold" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  <input data-testid="bid-amount-input" type="number" min="20" max="500" className="input-dark pl-8 h-14 text-2xl font-mono font-extrabold" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 </div>
+                <p className="text-xs text-zinc-600 mb-4">Creator's budget is <span className="text-zinc-400 font-semibold">${p.budget}</span>. Bid at, under, or over it - your call.</p>
+
                 <label className="label-caps block mb-2">Estimated first-cut time</label>
                 <div className="flex gap-2 mb-4">
                   {[6, 12, 18].map((h) => (
-                    <button key={h} data-testid={`eta-${h}`} onClick={() => setEta(h)} className={`flex-1 py-2.5 rounded-xl text-sm font-mono font-bold transition-colors ${eta === h ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400"}`}>{h}h</button>
+                    <button key={h} data-testid={`eta-${h}`} onClick={() => setEta(h)} className={`flex-1 py-2.5 rounded-xl text-sm font-mono font-bold transition-colors ${eta === h ? "bg-[#CCFF00] text-black" : "bg-white/5 text-zinc-400 hover:text-white"}`}>{h}h</button>
                   ))}
                 </div>
+
                 <label className="label-caps block mb-2">One-line pitch</label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {QUICK_PITCHES.map((qp, i) => (
@@ -167,24 +149,25 @@ export default function JobDetails() {
                   ))}
                 </div>
                 <input data-testid="bid-pitch-input" className="input-dark mb-4 text-sm" placeholder="Tap a suggestion above or write your own" value={pitch} onChange={(e) => setPitch(e.target.value)} maxLength={90} />
-                <label className="label-caps block mb-2">Relevant portfolio example</label>
-                <div className="flex gap-2 mb-5">
-                  {me?.portfolio?.map((port, i) => (
-                    <button key={i} onClick={() => setPortfolioIdx(i)} className={`relative w-1/3 aspect-video rounded-lg overflow-hidden border-2 transition-colors ${portfolioIdx === i ? "border-[#CCFF00]" : "border-transparent"}`}>
-                      <img src={port.thumb} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+
+                {me?.portfolio?.length > 0 && (
+                  <>
+                    <label className="label-caps block mb-2">Relevant portfolio example</label>
+                    <div className="flex gap-2 mb-5">
+                      {me.portfolio.map((port, i) => (
+                        <button key={i} onClick={() => setPortfolioIdx(i)} className={`relative w-1/3 aspect-video rounded-lg overflow-hidden border-2 transition-colors ${portfolioIdx === i ? "border-[#CCFF00]" : "border-transparent"}`}>
+                          <img src={port.thumb} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 <div className="bg-black/40 rounded-xl p-3 flex items-start gap-2 mb-5">
                   <Shield className="w-4 h-4 text-[#CCFF00] shrink-0 mt-0.5" />
                   <p className="text-xs text-zinc-400">Required Deadline Bond: <span className="font-mono font-bold text-[#CCFF00]">${bondFor(Number(amount) || p.budget)}</span> - <span className="text-white">not locked now.</span> It locks only if your bid is accepted and you confirm the project.</p>
                 </div>
                 <button data-testid="place-bid-btn" disabled={submitting} className="btn-lime w-full h-12" onClick={submit}>{submitting ? "Placing bid…" : "Place Bid"}</button>
-                <button type="button" className="w-full text-center text-sm text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5 mt-3" onClick={() => setCustomize(false)}>
-                  <Zap className="w-3.5 h-3.5" /> Back to Quick Apply
-                </button>
-                </>
-                )}
               </>
             ) : (
               <div data-testid="bid-placed-state">
