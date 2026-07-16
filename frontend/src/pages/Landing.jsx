@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ShieldCheck, Zap, Play, Mic2, Video, Briefcase, TrendingUp, LifeBuoy } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap, Mic2, Video, Briefcase, TrendingUp, LifeBuoy } from "lucide-react";
 import Seo from "@/components/Seo";
 import HeroBanner from "@/components/HeroBanner";
 import ClipperCard from "@/components/ClipperCard";
 import SectionHeading from "@/components/SectionHeading";
 import Countdown from "@/components/Countdown";
-import { DEMO_VIDEOS } from "@/data/demoVideos";
 import { dbAdapter } from "@/services/dbAdapter";
 
 const USE_CASES = [
@@ -66,28 +65,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* DEMO VIDEO CAROUSEL */}
-      <section className="py-16 border-t border-white/10 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
-          <SectionHeading eyebrow="Made on 24 Hour Clipping" title="Clips that stopped the scroll." />
-        </div>
-        <div className="flex gap-6 animate-marquee w-max px-4" data-testid="demo-video-carousel">
-          {[...DEMO_VIDEOS, ...DEMO_VIDEOS].map((v, i) => (
-            <div key={i} className="relative w-72 shrink-0 rounded-2xl overflow-hidden border border-white/10 group cursor-pointer">
-              <img src={v.thumb} alt={v.title} className="w-full aspect-video object-cover group-hover:scale-105 transition-transform duration-500" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                <div>
-                  <div className="font-display font-bold text-sm">{v.title}</div>
-                  <div className="text-xs text-[#CCFF00]">{v.stat}</div>
-                </div>
-                <span className="w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center"><Play className="w-4 h-4" fill="white" /></span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* HOW IT WORKS */}
       <section id="how-it-works" className="py-20 border-t border-white/10 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -108,19 +85,22 @@ export default function Landing() {
       <section className="py-20 border-t border-white/10 bg-[#121212]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
-            <SectionHeading
-              className="mb-8"
-              eyebrow="The accountability guarantee"
-              title={<>24 hours. On the clock. <span className="text-[#FF4500]">Or your money back.</span></>}
-            />
-            <ul className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#FF4500]/25 bg-[#FF4500]/[0.07] px-3 py-1 mb-5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#FF4500]" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#FF4500]">The accountability guarantee</span>
+            </div>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-[2.75rem] tracking-tighter leading-[1.04]">
+              24 hours. On the clock.<br /><span className="text-[#FF4500]">Or your money back.</span>
+            </h2>
+            <p className="text-zinc-400 leading-relaxed mt-4 mb-8 max-w-md">Every job is backed end-to-end. Here's exactly what keeps a clipper honest and your deadline safe.</p>
+            <ul className="space-y-3">
               {[
                 [ShieldCheck, "Deadline Bond", "Every clipper locks real money behind your deadline before the clock starts."],
                 [Zap, "Contract Live", "Funded, accepted, footage ready - the visible 24-hour countdown begins."],
                 [LifeBuoy, "Rescue Mode", "Miss the deadline and you get a full refund plus the clipper's bond, and can relaunch as a priority job instantly."],
               ].map(([Icon, t, d]) => (
-                <li key={t} className="flex gap-4">
-                  <span className="w-10 h-10 rounded-xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0">
+                <li key={t} className="group flex gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:border-[#CCFF00]/30 hover:bg-white/[0.04] transition-colors">
+                  <span className="w-11 h-11 rounded-xl bg-[#CCFF00]/[0.08] border border-[#CCFF00]/20 flex items-center justify-center shrink-0 group-hover:bg-[#CCFF00]/[0.16] transition-colors">
                     <Icon className="w-5 h-5 text-[#CCFF00]" />
                   </span>
                   <div>
