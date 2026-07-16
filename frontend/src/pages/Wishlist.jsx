@@ -5,6 +5,7 @@ import { notify } from "@/services/notificationAdapter";
 import { useApp } from "@/context/AppContext";
 import Seo from "@/components/Seo";
 import EmptyState from "@/components/EmptyState";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronUp, Plus, Loader2, Trash2, Lightbulb, X } from "lucide-react";
 
 const STATUS = {
@@ -111,10 +112,10 @@ export default function Wishlist() {
               const st = STATUS[w.status] || STATUS.open;
               return (
                 <div key={w.id} className="card-dark p-4 flex gap-4" data-testid={`wish-${w.id}`}>
-                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`}
-                    className={`shrink-0 w-14 rounded-xl border flex flex-col items-center justify-center py-2 transition-colors ${w.voted ? "border-[#CCFF00] bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/10 text-zinc-300 hover:border-white/30"}`}>
-                    <ChevronUp className="w-5 h-5" />
-                    <span className="font-mono font-extrabold text-lg leading-none mt-0.5">{w.votes}</span>
+                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`} aria-pressed={w.voted}
+                    className={`shrink-0 w-11 rounded-lg border flex flex-col items-center justify-center py-1.5 gap-0.5 transition-colors active:scale-95 ${w.voted ? "border-[#CCFF00]/60 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-white"}`}>
+                    <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.75} />
+                    <span className="font-mono font-bold text-sm leading-none tabular-nums">{w.votes}</span>
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -125,10 +126,14 @@ export default function Wishlist() {
                     <p className="text-xs text-zinc-600 mt-2">{w.author} · {w.created_at ? new Date(w.created_at).toLocaleDateString() : ""}</p>
                     {isAdmin && (
                       <div className="flex items-center gap-2 mt-3">
-                        <select value={w.status} onChange={(e) => changeStatus(w, e.target.value)}
-                          className="h-8 px-2 text-xs rounded-lg border border-white/15 bg-[#1A1A1A] text-white cursor-pointer">
-                          {STATUS_KEYS.map((k) => <option key={k} value={k}>{STATUS[k].label}</option>)}
-                        </select>
+                        <Select value={w.status} onValueChange={(v) => changeStatus(w, v)}>
+                          <SelectTrigger data-testid={`wish-status-${w.id}`} className="h-8 w-[150px] rounded-lg bg-white/[0.04] border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_KEYS.map((k) => <SelectItem key={k} value={k} className="text-xs">{STATUS[k].label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                         <button onClick={() => remove(w)} title="Delete idea" className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/10 text-zinc-500 hover:text-[#FF4500] hover:border-[#FF4500]/40 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
