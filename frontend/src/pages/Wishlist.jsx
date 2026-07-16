@@ -62,7 +62,7 @@ export default function Wishlist() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
       <Seo title="Feature wishlist" path="/wishlist" description="Suggest and vote on features you want on 24 Hour Clipping. Help shape the roadmap for the short-form clipping marketplace." />
-      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
+      <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-14 flex-1">
         <div className="mb-8">
           <div className="label-caps mb-2">Wishlist</div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tighter">Shape the roadmap</h1>
@@ -111,11 +111,11 @@ export default function Wishlist() {
             {wishes.map((w) => {
               const st = STATUS[w.status] || STATUS.open;
               return (
-                <div key={w.id} className="card-dark p-4 flex gap-4" data-testid={`wish-${w.id}`}>
-                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`} aria-pressed={w.voted}
-                    className={`shrink-0 w-11 rounded-lg border flex flex-col items-center justify-center py-1.5 gap-0.5 transition-colors active:scale-95 ${w.voted ? "border-[#CCFF00]/60 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/10 text-zinc-400 hover:border-white/25 hover:text-white"}`}>
-                    <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.75} />
-                    <span className="font-mono font-bold text-sm leading-none tabular-nums">{w.votes}</span>
+                <div key={w.id} className="card-dark p-5 flex items-start gap-4" data-testid={`wish-${w.id}`}>
+                  <button onClick={() => vote(w)} data-testid={`wish-vote-${w.id}`} aria-pressed={w.voted} title={w.voted ? "Remove your vote" : "Upvote"}
+                    className={`shrink-0 flex flex-col items-center justify-center gap-0.5 w-12 h-12 rounded-xl border transition-colors active:scale-95 ${w.voted ? "border-[#CCFF00]/60 bg-[#CCFF00]/10 text-[#CCFF00]" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-white/25 hover:text-white"}`}>
+                    <ChevronUp className="w-4 h-4" strokeWidth={2.5} />
+                    <span className="font-mono font-bold text-[11px] leading-none tabular-nums">{w.votes}</span>
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
