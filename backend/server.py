@@ -64,10 +64,20 @@ def as_uuid(val):
 
 
 def client_ip(request) -> str:
-    """Real client IP behind nginx (X-Forwarded-For), for per-user rate limiting."""
+    """Real client IP for per-user rate limiting.
+
+    We sit behind exactly one trusted proxy (nginx), which sets X-Real-IP to the
+    real socket peer ($remote_addr). We MUST trust that and NOT the left-most
+    X-Forwarded-For token, which the client fully controls (nginx only *appends*
+    to XFF). Trusting the left-most XFF let attackers rotate a fake IP per request
+    and defeat every rate limit."""
+    real = request.headers.get("x-real-ip")
+    if real:
+        return real.strip()
+    # Fallback: the LAST hop in XFF is the one nginx appended (the real peer).
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -1667,11 +1677,17 @@ async def my_transactions(user: dict = Depends(get_current_user),
 async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("clipper", "admin")),
                    session: AsyncSession = Depends(get_session)):
     uid = as_uuid(user["id"])
+    # Serialize concurrent withdrawals for THIS clipper by row-locking the user.
+    # A second request blocks here until the first commits its reservation, then
+    # re-reads the reduced balance. Without this lock, two concurrent withdrawals
+    # both read the full balance and the payout fires twice.
+    row = await session.scalar(select(User).where(User.id == uid).with_for_update())
+    if not row:
+        raise HTTPException(401, "User not found")
     cents = await _clipper_balance_cents(session, uid)
     if cents < MIN_WITHDRAWAL_CENTS:
         raise HTTPException(400, f"Minimum withdrawal is ${MIN_WITHDRAWAL_CENTS/100:.0f}. "
                                  f"Your balance is ${cents/100:.2f}.")
-    row = await session.get(User, uid)
     method = body.method if body.method in ("usdc", "paypal") else "paypal"
     if method == "paypal":
         dest = (body.destination or "").strip().lower() or (row.paypal_email or "")
@@ -1684,12 +1700,14 @@ async def withdraw(body: WithdrawRequest, user: dict = Depends(require_role("cli
         if not dest:
             raise HTTPException(409, "Set a Solana payout wallet first")
     usd = round(cents / 100, 2)
-    # Record the withdrawal first (pending immediately reduces the available balance,
-    # preventing a double-withdraw), then execute on the chosen rail.
+    # Reserve the funds DURABLY before any money moves: insert the pending
+    # withdrawal and COMMIT it (this also releases the row lock, letting a queued
+    # concurrent request proceed against the now-reduced balance). If the payout
+    # rail then fails we flip it to `failed`, which restores the balance.
     w = Withdrawal(clipper_id=uid, amount=cents, currency=Currency.usd, method=method,
                    destination=dest, status=WithdrawalStatus.pending)
     session.add(w)
-    await session.flush()
+    await session.commit()
     if method == "paypal" and paypal.is_configured():
         try:
             res = await asyncio.to_thread(paypal.send_payout, dest, usd, "24 Hour Clipping earnings")
@@ -1920,13 +1938,30 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user),
     allow_extension = bool(project.allow_extension)
     started = datetime.now(timezone.utc)
     deadline = started + timedelta(hours=base_hours)
+    # Atomically CLAIM the project: only one accept can flip open -> contract_live.
+    # This is the real guard against two bids being accepted (sequentially OR
+    # concurrently) and minting two live contracts / double payout on one budget.
+    # Postgres row-locks the project row, so a racing accept re-reads status and
+    # sees it is no longer 'open'.
+    claim = await session.execute(
+        update(Project).where(Project.id == project.id, Project.status == ProjectStatus.open)
+        .values(status=ProjectStatus.contract_live))
+    if claim.rowcount == 0:
+        await session.rollback()
+        existing = await session.scalar(select(Contract).where(Contract.bid_id == bid.id))
+        if existing:
+            return (await enrich_contracts(session, [existing]))[0]
+        raise HTTPException(409, "This project already has an accepted clipper.")
     bid.status = BidStatus.accepted
+    # Reject the other pending bids on this project (they lost).
+    await session.execute(update(Bid).where(
+        Bid.project_id == project.id, Bid.status == BidStatus.pending, Bid.id != bid.id)
+        .values(status=BidStatus.rejected))
     contract = Contract(bid_id=bid.id, project_id=bid.project_id, clipper_id=bid.clipper_id,
                         price=bid.amount, bond=bid.bond_required, status=ContractStatus.live,
                         base_hours=base_hours, extended_hours=0, allow_extension=allow_extension,
                         started_at=started, deadline_at=deadline, payment_method="escrow")
     session.add(contract)
-    project.status = ProjectStatus.contract_live
     try:
         await session.commit()
     except IntegrityError:
@@ -2182,11 +2217,11 @@ async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_
     proj = await session.get(Project, c.project_id)
     if proj:
         proj.status = ProjectStatus.completed
-    await session.commit()
     split = solpay.payout_split(float(c.price))
-    # Credit the clipper's USD balance (works for Square/fiat- and Solana-funded jobs
-    # alike). The money leaves later via /me/withdraw. Idempotent: one payout ledger
-    # row per contract.
+    # Credit the clipper's USD balance in the SAME transaction as the status flip,
+    # so it's all-or-nothing: no window where the contract is completed but the
+    # clipper was never credited (which the completion guard would then make
+    # permanent). Idempotent: one payout ledger row per contract.
     existing = await session.scalar(select(Transaction.id).where(
         Transaction.kind == TxnKind.payout, Transaction.contract_id == c.id))
     if not existing:
@@ -2199,7 +2234,7 @@ async def approve(contract_id: str, body: RateRequest, user: dict = Depends(get_
                                 contract_id=c.id, project_id=c.project_id,
                                 amount=_base_units(split["fee"], "usd"), currency=Currency.usd,
                                 meta={"at": now_iso()}))
-        await session.commit()
+    await session.commit()
     return {"ok": True, "payout": split["clipper"], "fee": split["fee"],
             "bond_returned": float(c.bond or 0), "credited": True}
 

@@ -19,9 +19,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if not SECRET_KEY:
-    # Never ship this default in production - set SECRET_KEY in the environment.
-    SECRET_KEY = "dev-insecure-change-me"
-    logger.warning("SECRET_KEY not set - using an insecure development default.")
+    # Fail CLOSED. A missing key must never silently fall back to a public default
+    # (that would let anyone forge admin JWTs and signed media URLs). Only an
+    # explicit non-production ENV is allowed to use the throwaway dev key.
+    _env = os.environ.get("ENV", os.environ.get("APP_ENV", "production")).strip().lower()
+    if _env in ("dev", "development", "local", "test"):
+        SECRET_KEY = "dev-insecure-change-me"
+        logger.warning("SECRET_KEY not set - using an insecure dev default (ENV=%s).", _env)
+    else:
+        raise RuntimeError(
+            "SECRET_KEY is not set. Refusing to start with an insecure default. "
+            "Set SECRET_KEY in the environment (or ENV=development for local dev).")
 
 VALID_ROLES = {"customer", "clipper", "admin"}
 
