@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { dbAdapter } from "@/services/dbAdapter";
 import { realtimeAdapter } from "@/services/realtimeAdapter";
@@ -194,6 +194,12 @@ export default function BidRoom() {
                         <span className="flex items-center gap-1 text-[#CCFF00]"><Timer className="w-3 h-3" />{b.clipper?.on_time_pct}% on-time</span>
                         <span>ETA {b.eta_hours}h</span>
                       </div>
+                      {b.clipper?.id && (
+                        <Link to={`/clippers/${b.clipper.id}`} target="_blank" data-testid={`view-clipper-${b.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-white transition-colors mt-1.5">
+                          <BadgeCheck className="w-3.5 h-3.5" /> View profile &amp; portfolio
+                        </Link>
+                      )}
                       <p className="text-sm text-zinc-300 mt-2 italic">“{b.pitch}”</p>
                     </div>
                     <div className="text-right">

@@ -490,6 +490,12 @@ class OnboardingRequest(BaseModel):
     payout_wallet: str = ""
 
 
+class PortfolioItemIn(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=120)
+    video_url: str = Field(max_length=600)
+    thumb_url: Optional[str] = Field(default=None, max_length=600)
+
+
 class ClipperProfileUpdate(BaseModel):
     name: Optional[str] = None
     specialty: Optional[str] = None
@@ -498,6 +504,8 @@ class ClipperProfileUpdate(BaseModel):
     bio: Optional[str] = None
     avatar_key: Optional[str] = None
     avatar_url: Optional[str] = None
+    # Full replace of the clipper's portfolio links (None = leave unchanged).
+    portfolio: Optional[List[PortfolioItemIn]] = None
 
 
 # ============================ AUTH / IDENTITY HELPERS ============================
@@ -680,6 +688,29 @@ def _parse_price_range(s):
     if len(nums) == 1:
         return float(nums[0]), float(nums[0])
     return None, None
+
+
+_YOUTUBE_RE = re.compile(r"(?:youtube\.com/(?:watch\?v=|shorts/|embed/|live/)|youtu\.be/)([\w-]{11})")
+
+
+def _normalize_link(url: str) -> str:
+    """Trim and ensure a scheme so hrefs work; empty stays empty."""
+    url = (url or "").strip()
+    if not url:
+        return ""
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url[:600]
+
+
+def _derive_thumb(url: str) -> Optional[str]:
+    """Best-effort poster image for a portfolio link. YouTube exposes a stable
+    thumbnail by video id; other platforms (TikTok/IG/X) don't without an API,
+    so the frontend renders a branded placeholder for those."""
+    m = _YOUTUBE_RE.search(url or "")
+    if m:
+        return f"https://i.ytimg.com/vi/{m.group(1)}/hqdefault.jpg"
+    return None
 
 
 def _price_range_str(prof: ClipperProfile) -> str:
@@ -1147,7 +1178,12 @@ async def complete_onboarding(body: OnboardingRequest, user: dict = Depends(get_
         if body.tools:
             prof.tools = body.tools
         if body.samples:
-            prof.portfolio = [PortfolioItem(video_url=s, position=i) for i, s in enumerate(body.samples)]
+            items = []
+            for s in body.samples:
+                url = _normalize_link(s)
+                if url:
+                    items.append(PortfolioItem(video_url=url, thumb_url=_derive_thumb(url), position=len(items)))
+            prof.portfolio = items
 
     await session.commit()
     merged = prev | set(roles)
@@ -1701,6 +1737,17 @@ async def update_clipper_profile(body: ClipperProfileUpdate,
         prof.tools = [t.strip() for t in body.tools if t.strip()][:12]
     if body.bio is not None:
         prof.bio = body.bio.strip()[:1000]
+    if body.portfolio is not None:
+        items = []
+        for it in body.portfolio[:24]:
+            url = _normalize_link(it.video_url)
+            if not url:
+                continue
+            thumb = _normalize_link(it.thumb_url) or _derive_thumb(url)
+            items.append(PortfolioItem(
+                title=((it.title or "").strip()[:120] or None),
+                video_url=url, thumb_url=thumb, position=len(items)))
+        prof.portfolio = items
     if body.avatar_key:
         row.avatar_url = storage.sign_media_url(body.avatar_key, expires_in=365 * 24 * 3600)
     elif body.avatar_url:

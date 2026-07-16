@@ -4,9 +4,22 @@ import { dbAdapter } from "@/services/dbAdapter";
 import { storageAdapter } from "@/services/storageAdapter";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
-import { Star, BadgeCheck, Timer, Play, ArrowLeft, Pencil, Camera, X, Loader2, Check } from "lucide-react";
+import { Star, BadgeCheck, Timer, Play, ArrowLeft, Pencil, Camera, X, Loader2, Check, Plus, Trash2, Link2 } from "lucide-react";
 
 const TOOL_OPTIONS = ["Premiere Pro", "CapCut", "After Effects", "DaVinci Resolve", "Final Cut", "Photoshop", "Motion"];
+
+// Label + accent color per platform so portfolio cards read at a glance.
+const platformOf = (url = "") => {
+  const u = url.toLowerCase();
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return { name: "YouTube", cls: "text-red-400" };
+  if (u.includes("tiktok.com")) return { name: "TikTok", cls: "text-pink-300" };
+  if (u.includes("instagram.com")) return { name: "Instagram", cls: "text-fuchsia-300" };
+  if (u.includes("twitch.tv")) return { name: "Twitch", cls: "text-purple-300" };
+  if (u.includes("x.com") || u.includes("twitter.com")) return { name: "X", cls: "text-zinc-300" };
+  if (u.includes("vimeo.com")) return { name: "Vimeo", cls: "text-sky-300" };
+  if (u.includes("drive.google")) return { name: "Drive", cls: "text-emerald-300" };
+  return { name: "Link", cls: "text-zinc-400" };
+};
 
 export default function ClipperProfile() {
   const { id } = useParams();
@@ -74,21 +87,47 @@ export default function ClipperProfile() {
           ))}
         </div>
 
-        <h2 className="font-display font-bold text-xl mb-4">Portfolio</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-xl">Portfolio</h2>
+          {isOwner && c.portfolio.length > 0 && (
+            <button onClick={() => setEditing(true)} className="text-sm text-zinc-400 hover:text-white flex items-center gap-1.5 transition-colors" data-testid="edit-portfolio-btn">
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
+        </div>
         {c.portfolio.length === 0 ? (
-          <p className="text-sm text-zinc-600 mb-10">No portfolio clips yet.</p>
+          isOwner ? (
+            <button onClick={() => setEditing(true)} data-testid="add-portfolio-empty"
+              className="w-full rounded-2xl border border-dashed border-white/15 hover:border-[#CCFF00]/50 hover:bg-[#CCFF00]/[0.03] transition-colors p-8 mb-10 flex flex-col items-center gap-2 text-center group">
+              <span className="w-11 h-11 rounded-full bg-white/5 group-hover:bg-[#CCFF00]/10 flex items-center justify-center transition-colors"><Plus className="w-5 h-5 text-zinc-400 group-hover:text-[#CCFF00]" /></span>
+              <span className="text-sm font-bold text-white">Add your best clips</span>
+              <span className="text-xs text-zinc-500 max-w-xs">Paste links to your work (YouTube, TikTok, Instagram...) so creators can see your style before they hire you.</span>
+            </button>
+          ) : (
+            <p className="text-sm text-zinc-600 mb-10">No portfolio clips yet.</p>
+          )
         ) : (
           <div className="grid sm:grid-cols-3 gap-4 mb-10" data-testid="clipper-portfolio">
-            {c.portfolio.map((p, i) => (
-              <div key={i} className="relative rounded-2xl overflow-hidden border border-white/10 group cursor-pointer">
-                <img src={p.thumb} alt="" className="w-full aspect-video object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                  <span className="text-xs font-bold">{p.title}</span>
-                  <span className="w-8 h-8 rounded-full bg-white/10 backdrop-blur flex items-center justify-center"><Play className="w-3.5 h-3.5" fill="white" /></span>
-                </div>
-              </div>
-            ))}
+            {c.portfolio.map((p, i) => {
+              const href = p.url || p.video_url;
+              const plat = platformOf(href);
+              return (
+                <a key={i} href={href} target="_blank" rel="noreferrer" data-testid={`portfolio-item-${i}`}
+                  className="relative block rounded-2xl overflow-hidden border border-white/10 hover:border-white/25 group aspect-video bg-gradient-to-br from-white/[0.07] to-white/[0.01] transition-colors">
+                  {p.thumb ? (
+                    <img src={p.thumb} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center"><Link2 className="w-7 h-7 text-white/25" /></div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                  <span className={`absolute top-3 left-3 text-[10px] font-extrabold uppercase tracking-widest ${plat.cls}`}>{plat.name}</span>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold truncate">{p.title || "Watch clip"}</span>
+                    <span className="w-8 h-8 rounded-full bg-white/10 backdrop-blur flex items-center justify-center shrink-0 group-hover:bg-[#CCFF00] group-hover:text-black transition-colors"><Play className="w-3.5 h-3.5" fill="currentColor" /></span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
 
@@ -126,6 +165,9 @@ function EditProfile({ clipper, onClose, onSaved }) {
   const [priceRange, setPriceRange] = useState(clipper.price_range || "");
   const [bio, setBio] = useState(clipper.bio || "");
   const [tools, setTools] = useState(clipper.tools || []);
+  const [portfolio, setPortfolio] = useState(
+    (clipper.portfolio || []).map((p) => ({ title: p.title || "", video_url: p.url || p.video_url || "" }))
+  );
   const [avatarKey, setAvatarKey] = useState(null);
   const [preview, setPreview] = useState(clipper.avatar);
   const [uploading, setUploading] = useState(false);
@@ -133,6 +175,10 @@ function EditProfile({ clipper, onClose, onSaved }) {
 
   const toolOpts = [...new Set([...TOOL_OPTIONS, ...(clipper.tools || [])])];
   const toggleTool = (t) => setTools((a) => a.includes(t) ? a.filter((x) => x !== t) : [...a, t]);
+
+  const addLink = () => setPortfolio((a) => [...a, { title: "", video_url: "" }]);
+  const removeLink = (i) => setPortfolio((a) => a.filter((_, x) => x !== i));
+  const updateLink = (i, k, v) => setPortfolio((a) => a.map((it, x) => x === i ? { ...it, [k]: v } : it));
 
   const onPick = async (e) => {
     const file = e.target.files?.[0];
@@ -153,7 +199,12 @@ function EditProfile({ clipper, onClose, onSaved }) {
   const save = async () => {
     setSaving(true);
     try {
-      const payload = { name, specialty, price_range: priceRange, bio, tools };
+      const payload = {
+        name, specialty, price_range: priceRange, bio, tools,
+        portfolio: portfolio
+          .filter((p) => p.video_url.trim())
+          .map((p) => ({ title: p.title.trim(), video_url: p.video_url.trim() })),
+      };
       if (avatarKey) payload.avatar_key = avatarKey;
       const updated = await dbAdapter.updateClipperProfile(payload);
       toast.success("Profile updated");
@@ -214,6 +265,37 @@ function EditProfile({ clipper, onClose, onSaved }) {
                 );
               })}
             </div>
+          </Field>
+
+          <Field label="Portfolio links">
+            <p className="text-xs text-zinc-600 -mt-1 mb-2.5">Paste links to your best clips - YouTube, TikTok, Instagram, X, Vimeo, Drive. Creators see these on your profile before they hire you.</p>
+            <div className="space-y-2.5" data-testid="portfolio-editor">
+              {portfolio.map((item, i) => {
+                const plat = platformOf(item.video_url);
+                return (
+                  <div key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5 flex gap-2 items-start">
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="relative">
+                        <Link2 className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input className="input-dark h-10 pl-8 text-sm" placeholder="Paste clip URL" value={item.video_url}
+                          onChange={(e) => updateLink(i, "video_url", e.target.value)} data-testid={`portfolio-url-${i}`} />
+                        {item.video_url.trim() && <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold uppercase tracking-widest ${plat.cls}`}>{plat.name}</span>}
+                      </div>
+                      <input className="input-dark h-9 text-xs" placeholder="Optional title - e.g. Valorant ace montage" value={item.title}
+                        onChange={(e) => updateLink(i, "title", e.target.value)} maxLength={120} data-testid={`portfolio-title-${i}`} />
+                    </div>
+                    <button type="button" onClick={() => removeLink(i)} title="Remove clip"
+                      className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-white/10 text-zinc-500 hover:text-[#FF4500] hover:border-[#FF4500]/40 transition-colors" data-testid={`portfolio-remove-${i}`}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <button type="button" onClick={addLink} data-testid="add-portfolio-link"
+              className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#CCFF00] hover:underline">
+              <Plus className="w-4 h-4" /> Add {portfolio.length > 0 ? "another" : "a"} clip link
+            </button>
           </Field>
         </div>
 
