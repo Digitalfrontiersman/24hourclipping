@@ -20,12 +20,20 @@ die() { echo -e "\n[replit] ERROR: $*\n" >&2; exit 1; }
 
 # ---------------------------------------------------------------- database ---
 if [ -z "${DATABASE_URL:-}" ]; then
-  die "No DATABASE_URL.
+  die "No DATABASE_URL - this Repl needs a Postgres to talk to.
 
-  Enable Postgres for this Repl (one-time):
-    Tools  ->  PostgreSQL  ->  Create a database
+  Option A - Replit's built-in database (one click, may be plan-gated):
+    Tools (left dock) -> 'Database' -> Create a database
+    Replit injects DATABASE_URL for you.
 
-  Replit injects DATABASE_URL automatically, then just press Run again."
+  Option B - any free Postgres (works on every plan, ~2 min):
+    1. neon.tech (or supabase.com) -> free project
+    2. copy the connection string, e.g.
+         postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
+    3. Replit -> Tools -> Secrets -> add  DATABASE_URL = <that string>
+
+  Either way this script rewrites the URL for asyncpg automatically.
+  Then just press Run again."
 fi
 
 # Replit/Neon hand out  postgresql://...?sslmode=require&channel_binding=require
