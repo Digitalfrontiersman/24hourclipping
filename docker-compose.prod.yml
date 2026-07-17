@@ -5,17 +5,6 @@
 #   docker compose -f docker-compose.prod.yml up -d --build
 #   -> http://<server-ip>:8090
 services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   postgres:
     image: postgres:16
     restart: unless-stopped
@@ -35,15 +24,10 @@ services:
     build: ./backend
     restart: unless-stopped
     depends_on:
-      mongo:
-        condition: service_healthy
       postgres:
         condition: service_healthy
     environment:
-      MONGO_URL: mongodb://mongo:27017
-      DB_NAME: clipping
       DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-clipping}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clipping}"
-      DB_BACKEND: "${DB_BACKEND:-mongo}"
       CORS_ORIGINS: "${CORS_ORIGINS:-*}"
       SECRET_KEY: "${SECRET_KEY:?SECRET_KEY is required — set it in .env}"
       ACCESS_TOKEN_EXPIRE_MINUTES: "${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}"
@@ -89,6 +73,40 @@ services:
       - media_data:/data/media
     expose:
       - "8001"
+    healthcheck:
+      # Proves the app is up AND Postgres is reachable, so the frontend never
+      # fronts a dead backend.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/api/health', timeout=5).status == 200 else 1)"]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 40s
+
+  # Automated off-host Postgres backups. The money ledger (transactions,
+  # contracts, withdrawals) lived on a single local volume with NO backup -
+  # one disk failure was total, unrecoverable loss.
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: "${POSTGRES_USER:-clipping}"
+      PGPASSWORD: "${POSTGRES_PASSWORD}"
+      PGDATABASE: "${POSTGRES_DB:-clipping}"
+      BACKUP_INTERVAL_SECONDS: "${BACKUP_INTERVAL_SECONDS:-86400}"
+      KEEP_LOCAL: "${BACKUP_KEEP_LOCAL:-7}"
+      # Off-host copy (reuses the existing S3 credentials). Leave S3_BUCKET
+      # empty to keep local-only dumps.
+      S3_BUCKET: "${BACKUP_S3_BUCKET:-${S3_BUCKET:-}}"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-}"
+      AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+      AWS_DEFAULT_REGION: "${S3_REGION:-us-east-1}"
+    volumes:
+      - backup_data:/backups
 
   frontend:
     build:
@@ -98,11 +116,12 @@ services:
         REACT_APP_GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8090}:80"
 
 volumes:
-  mongo_data:
   postgres_data:
   media_data:
+  backup_data:

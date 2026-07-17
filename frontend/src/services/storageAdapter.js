@@ -14,6 +14,9 @@ export const storageAdapter = {
         filename: file.name,
         content_type: file.type || "application/octet-stream",
         contract_id: opts.contractId,
+        // The URL is signed for exactly this Content-Length (the browser sets it
+        // from the File), so the server-side size cap is actually enforceable.
+        size: file.size,
       });
       await axios.put(data.upload_url, file, {
         headers: { "Content-Type": file.type || "application/octet-stream" },

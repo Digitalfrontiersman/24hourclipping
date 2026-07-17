@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from collections import defaultdict
 
-from sqlalchemy import select, update, delete, func, or_
+from sqlalchemy import select, update, delete, func, or_, text as sql_text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -79,6 +79,16 @@ def client_ip(request) -> str:
     if xff:
         return xff.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
+
+
+def limit_user(user: dict, bucket: str, max_hits: int, window_seconds: int, msg: str = None) -> None:
+    """Per-account rate limit for abuse-prone / cost-incurring endpoints (bids,
+    messages, uploads, AI). These are all authenticated, so the account is the
+    right key - and registration itself is IP-limited, so minting accounts to
+    farm quota is already bounded. Raises 429 when exceeded."""
+    who = (user or {}).get("id") or "anon"
+    if not auth.rate_limit(f"{bucket}:{who}", max_hits, window_seconds):
+        raise HTTPException(429, msg or "Too many requests - slow down and try again shortly.")
 
 
 def bond_for(budget: float) -> float:
@@ -413,7 +423,7 @@ class BidCreate(BaseModel):
 
 class MessageCreate(BaseModel):
     sender: Optional[str] = None
-    text: str
+    text: str = Field(min_length=1, max_length=4000)
 
 class DeliveryCreate(BaseModel):
     note: str = ""
@@ -457,8 +467,8 @@ class BrandProfileUpdate(BaseModel):
     colors: List[str] = Field(default_factory=list)
 
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: str = Field(max_length=100)
+    message: str = Field(min_length=1, max_length=2000)
 
 class BriefRequest(BaseModel):
     session_id: str
@@ -761,8 +771,9 @@ def clipper_public(profile: Optional[ClipperProfile], user: Optional[User]) -> O
     }
 
 
-def project_public(p: Project, customer_name: Optional[str] = None, bids_count: int = 0) -> dict:
-    return {
+def project_public(p: Project, customer_name: Optional[str] = None, bids_count: int = 0,
+                   include_source: bool = False) -> dict:
+    d = {
         "id": str(p.id),
         "owner_id": str(p.owner_id),
         "title": p.title,
@@ -784,8 +795,6 @@ def project_public(p: Project, customer_name: Optional[str] = None, bids_count: 
         "mood": p.mood,
         "style": p.style,
         "cta": p.cta,
-        "source_link": p.source_link,
-        "source_key": p.source_key,
         "source_length": p.source_length,
         "quality_notes": p.quality_notes,
         "deadline_hours": p.deadline_hours,
@@ -799,6 +808,14 @@ def project_public(p: Project, customer_name: Optional[str] = None, bids_count: 
         "posted_at": p.created_at.isoformat() if p.created_at else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
     }
+    # The creator's raw footage link is private. It used to ship in the PUBLIC
+    # project payload, which handed every unlisted YouTube/Drive URL to anyone
+    # browsing the marketplace - and made the gated /source-url check pointless.
+    # Only owner / admin / a bidding or contracted clipper gets it.
+    if include_source:
+        d["source_link"] = p.source_link
+        d["source_key"] = p.source_key
+    return d
 
 
 def bid_public(b: Bid) -> dict:
@@ -918,7 +935,7 @@ async def attach_clipper(session: AsyncSession, items: list) -> list:
     return items
 
 
-async def serialize_projects(session: AsyncSession, projects: list) -> list:
+async def serialize_projects(session: AsyncSession, projects: list, include_source: bool = False) -> list:
     if not projects:
         return []
     owner_ids = {p.owner_id for p in projects}
@@ -927,13 +944,14 @@ async def serialize_projects(session: AsyncSession, projects: list) -> list:
         select(User.id, User.name).where(User.id.in_(owner_ids)))).all())
     counts = dict((await session.execute(
         select(Bid.project_id, func.count()).where(Bid.project_id.in_(pids)).group_by(Bid.project_id))).all())
-    return [project_public(p, names.get(p.owner_id), counts.get(p.id, 0)) for p in projects]
+    return [project_public(p, names.get(p.owner_id), counts.get(p.id, 0), include_source)
+            for p in projects]
 
 
-async def serialize_project(session: AsyncSession, p: Project) -> dict:
+async def serialize_project(session: AsyncSession, p: Project, include_source: bool = False) -> dict:
     name = await session.scalar(select(User.name).where(User.id == p.owner_id))
     cnt = await session.scalar(select(func.count()).select_from(Bid).where(Bid.project_id == p.id))
-    return project_public(p, name, cnt or 0)
+    return project_public(p, name, cnt or 0, include_source)
 
 
 async def _attach_payouts(session: AsyncSession, contracts_json: list) -> None:
@@ -970,7 +988,9 @@ async def enrich_contracts(session: AsyncSession, rows: list) -> list:
     proj_rows = list(await session.scalars(
         select(Project).options(selectinload(Project.references))
         .where(Project.id.in_(pids)))) if pids else []
-    serialized = await serialize_projects(session, proj_rows)
+    # Contract endpoints are party-gated (_require_contract_party), so the
+    # hired clipper and the creator legitimately need the footage link here.
+    serialized = await serialize_projects(session, proj_rows, include_source=True)
     pmap = {as_uuid(pj["id"]): pj for pj in serialized}
     for d in data:
         d["project"] = pmap.get(as_uuid(d["project_id"]))
@@ -1236,6 +1256,9 @@ class PresignRequest(BaseModel):
     filename: str = ""
     content_type: str = "application/octet-stream"
     contract_id: Optional[str] = None
+    # Required so the presigned URL can be bound to an exact Content-Length -
+    # otherwise a direct-to-S3 PUT bypasses the upload size cap entirely.
+    size: Optional[int] = Field(default=None, gt=0)
 
 
 async def _compute_upload_key(kind: str, filename: str, contract_id, user: dict, session: AsyncSession) -> str:
@@ -1260,6 +1283,7 @@ async def presign_upload(body: PresignRequest, user: dict = Depends(get_current_
                          session: AsyncSession = Depends(get_session)):
     """Mint a presigned PUT URL so the browser uploads DIRECTLY to S3 (large video
     files never stream through our server)."""
+    limit_user(user, "presign", 40, 3600, "Too many uploads - try again in a bit.")
     if not storage.is_s3():
         raise HTTPException(503, "Direct uploads are not enabled")
     ct = (body.content_type or "").lower()
@@ -1267,14 +1291,23 @@ async def presign_upload(body: PresignRequest, user: dict = Depends(get_current_
         raise HTTPException(415, "Avatar must be an image")
     if not ct.startswith(("video/", "image/")):
         raise HTTPException(415, "Only video or image files are allowed")
+    # Enforce the same size cap as the server-proxied path. The direct-to-S3 PUT
+    # used to have NO limit, so any user could push an unbounded object into the
+    # bucket. We bind the signature to an exact Content-Length, so S3 itself
+    # rejects a body of any other size - a lying client can't beat it.
+    if body.size is None:
+        raise HTTPException(400, "size is required")
+    if body.size > storage.MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"File exceeds the {storage.MAX_UPLOAD_BYTES // (1024*1024)}MB limit")
     key = await _compute_upload_key(body.kind, body.filename, body.contract_id, user, session)
-    return {"upload_url": storage.presign_put(key, body.content_type), "key": key}
+    return {"upload_url": storage.presign_put(key, body.content_type, size=body.size), "key": key}
 
 
 @api_router.post("/uploads")
 async def upload_media(kind: str = Form("source"), contract_id: Optional[str] = Form(None),
                        file: UploadFile = File(...), user: dict = Depends(get_current_user),
                        session: AsyncSession = Depends(get_session)):
+    limit_user(user, "upload", 40, 3600, "Too many uploads - try again in a bit.")
     if kind == "avatar" and not (file.content_type or "").startswith("image/"):
         raise HTTPException(415, "Avatar must be an image")
     key = await _compute_upload_key(kind, file.filename, contract_id, user, session)
@@ -1327,6 +1360,18 @@ async def project_source_url(project_id: str, user: dict = Depends(get_current_u
         raise HTTPException(403, "Not authorized to access this footage")
     return {"url": storage.sign_media_url(p.source_key)}
 # ========================== END MEDIA / UPLOADS ==========================
+
+
+@api_router.get("/health")
+async def health(session: AsyncSession = Depends(get_session)):
+    """Liveness + readiness: proves the process is up AND Postgres is reachable.
+    Used by the compose healthcheck so nginx isn't fronting a dead backend."""
+    try:
+        await session.execute(sql_text("SELECT 1"))
+    except Exception as e:
+        logger.error("health: db unreachable: %s", e)
+        raise HTTPException(503, "database unreachable")
+    return {"ok": True, "db": "up"}
 
 
 @api_router.get("/")
@@ -1384,13 +1429,31 @@ async def get_projects(status: Optional[str] = None, category: Optional[str] = N
 
 
 @api_router.get("/projects/{project_id}")
-async def get_project(project_id: str, session: AsyncSession = Depends(get_session)):
+async def get_project(project_id: str, user: Optional[dict] = Depends(get_current_user_optional),
+                      session: AsyncSession = Depends(get_session)):
     pid = as_uuid(project_id)
     p = await session.scalar(select(Project).options(selectinload(Project.references))
                              .where(Project.id == pid)) if pid else None
     if not p:
         raise HTTPException(404, "Project not found")
-    return await serialize_project(session, p)
+    return await serialize_project(session, p, include_source=await _may_see_source(session, p, user))
+
+
+async def _may_see_source(session: AsyncSession, p: Project, user: Optional[dict]) -> bool:
+    """Who may see the raw footage link: admin, the owner, or a clipper who has
+    bid on / is contracted for this project. Mirrors /projects/{id}/source-url."""
+    if not user:
+        return False
+    if "admin" in user_roles(user) or str(p.owner_id) == user["id"]:
+        return True
+    uid = as_uuid(user["id"])
+    if not uid:
+        return False
+    has_bid = await session.scalar(select(Bid.id).where(
+        Bid.project_id == p.id, Bid.clipper_id == uid))
+    has_contract = await session.scalar(select(Contract.id).where(
+        Contract.project_id == p.id, Contract.clipper_id == uid))
+    return bool(has_bid or has_contract)
 
 
 def _free_posting_on() -> bool:
@@ -1870,8 +1933,13 @@ async def get_bids(project_id: str, user: dict = Depends(get_current_user),
         Bid.project_id == pid, Bid.clipper_id == as_uuid(user["id"])))
     if not (is_owner or "admin" in user_roles(user) or has_bid):
         raise HTTPException(403, "Not authorized to view bids for this project")
-    rows = list(await session.scalars(
-        select(Bid).where(Bid.project_id == pid).order_by(Bid.created_at.desc()).limit(100)))
+    stmt = select(Bid).where(Bid.project_id == pid)
+    if not (is_owner or "admin" in user_roles(user)):
+        # A competing clipper must only ever see their OWN bid. Returning the full
+        # list let anyone place a throwaway bid and then read every rival's price,
+        # pitch and identity - and undercut them.
+        stmt = stmt.where(Bid.clipper_id == as_uuid(user["id"]))
+    rows = list(await session.scalars(stmt.order_by(Bid.created_at.desc()).limit(100)))
     return await attach_clipper(session, [bid_public(b) for b in rows])
 
 
@@ -1898,6 +1966,7 @@ async def my_bids(user: dict = Depends(get_current_user), session: AsyncSession 
 async def create_bid(project_id: str, body: BidCreate,
                      user: dict = Depends(require_role("clipper", "admin")),
                      session: AsyncSession = Depends(get_session)):
+    limit_user(user, "bid", 30, 3600, "You're bidding very fast - try again in a bit.")
     pid = as_uuid(project_id)
     project = await session.get(Project, pid) if pid else None
     if not project:
@@ -2013,6 +2082,7 @@ async def get_bid_messages(bid_id: str, user: dict = Depends(get_current_user),
 @api_router.post("/bids/{bid_id}/messages")
 async def post_bid_message(bid_id: str, body: MessageCreate, user: dict = Depends(get_current_user),
                            session: AsyncSession = Depends(get_session)):
+    limit_user(user, "msg", 60, 300, "You're sending messages too fast.")
     bid, is_owner = await _bid_party(session, bid_id, user)
     sender = "admin" if user.get("role") == "admin" else ("customer" if is_owner else "clipper")
     msg = Message(bid_id=bid.id, sender_id=as_uuid(user["id"]), sender_role=UserRole(sender), text=body.text)
@@ -2279,6 +2349,7 @@ async def get_messages(contract_id: str, user: dict = Depends(get_current_user),
 @api_router.post("/contracts/{contract_id}/messages")
 async def post_message(contract_id: str, body: MessageCreate, user: dict = Depends(get_current_user),
                        session: AsyncSession = Depends(get_session)):
+    limit_user(user, "msg", 60, 300, "You're sending messages too fast.")
     c = await _require_contract_party(session, contract_id, user)
     sender = "clipper" if str(c.clipper_id) == user["id"] else "customer"
     msg = Message(contract_id=c.id, sender_id=as_uuid(user["id"]), sender_role=UserRole(sender), text=body.text)
@@ -2648,6 +2719,8 @@ def _openai_client():
 @api_router.post("/ai/chat")
 async def ai_chat(body: ChatRequest, user: dict = Depends(require_role("customer", "admin")),
                   session: AsyncSession = Depends(get_session)):
+    # Every call costs real OpenAI spend - cap it per account.
+    limit_user(user, "ai_chat", 40, 3600, "You've hit the concierge limit for now - try again shortly.")
     client = _openai_client()
     history = await _ai_history(session, body.session_id)
     messages = [{"role": "system", "content": CONCIERGE_SYSTEM}]
@@ -2687,6 +2760,7 @@ async def ai_history(session_id: str, user: dict = Depends(require_role("custome
 @api_router.post("/ai/brief")
 async def ai_brief(body: BriefRequest, user: dict = Depends(require_role("customer", "admin")),
                    session: AsyncSession = Depends(get_session)):
+    limit_user(user, "ai_brief", 20, 3600, "You've hit the brief-generation limit - try again shortly.")
     client = _openai_client()
     history = await _ai_history(session, body.session_id)
     if not history:

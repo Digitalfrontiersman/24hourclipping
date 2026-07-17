@@ -19,6 +19,7 @@ import time
 import hmac
 import hashlib
 from pathlib import Path
+from typing import Optional
 
 import auth  # reuse the JWT SECRET_KEY for signing the image proxy
 
@@ -76,12 +77,19 @@ def _guess_type(key: str) -> str:
 
 
 # ---- Direct-to-S3 upload (browser PUTs straight to the bucket) ----
-def presign_put(key: str, content_type: str, expires_in: int = 3600) -> str:
-    return _s3().generate_presigned_url(
-        "put_object",
-        Params={"Bucket": S3_BUCKET, "Key": key, "ContentType": content_type or "application/octet-stream"},
-        ExpiresIn=expires_in,
-    )
+def presign_put(key: str, content_type: str, expires_in: int = 3600,
+                size: Optional[int] = None) -> str:
+    """Presigned PUT for a direct browser->S3 upload.
+
+    When `size` is given it is baked into the signature as ContentLength, so S3
+    rejects any body that isn't exactly that many bytes. Without it a presigned
+    PUT has no size bound at all and the upload cap is unenforceable.
+    """
+    params = {"Bucket": S3_BUCKET, "Key": key,
+              "ContentType": content_type or "application/octet-stream"}
+    if size is not None:
+        params["ContentLength"] = int(size)
+    return _s3().generate_presigned_url("put_object", Params=params, ExpiresIn=expires_in)
 
 
 def presign_get(key: str, expires_in: int = 3600) -> str:
