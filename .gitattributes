@@ -1,0 +1,9 @@
+# Cross-OS safety: this repo is edited on Windows (CRLF) but every one of these
+# files is EXECUTED on Linux (Replit, Docker containers). A CRLF shell script
+# fails there with `bad interpreter: /usr/bin/env bash^M`, so pin them to LF
+# in the repo and on checkout regardless of core.autocrlf.
+*.sh        text eol=lf
+.replit     text eol=lf
+Dockerfile* text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf

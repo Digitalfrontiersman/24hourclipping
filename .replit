@@ -2,9 +2,9 @@ modules = ["nodejs-20", "python-3.12", "web", "bash"]
 
 # This is a MONOREPO: backend/ is FastAPI+Postgres, frontend/ is React (CRA+CRACO).
 # The Repl runs ONLY the frontend and points it at the live production API, so
-# there's no Postgres/Docker to stand up here. Installs on first run, then reuses
-# node_modules so later runs start fast.
-run = "cd frontend && ([ -d node_modules ] || yarn install) && yarn start"
+# there's no Postgres/Docker to stand up here. Import the repo -> press Run.
+# The script ensures yarn exists and installs deps on the first run only.
+run = "bash scripts/replit-start.sh"
 
 [agent]
 expertMode = true
