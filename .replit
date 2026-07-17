@@ -1,0 +1,40 @@
+modules = ["nodejs-20", "python-3.12", "web", "bash"]
+
+# This is a MONOREPO: backend/ is FastAPI+Postgres, frontend/ is React (CRA+CRACO).
+# The Repl runs ONLY the frontend and points it at the live production API, so
+# there's no Postgres/Docker to stand up here. Installs on first run, then reuses
+# node_modules so later runs start fast.
+run = "cd frontend && ([ -d node_modules ] || yarn install) && yarn start"
+
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[env]
+# --- API target -------------------------------------------------------------
+# Frontend-only Repl -> talk to the live backend. The app calls `${URL}/api`.
+# CORS already allows this (wildcard origin, no credentials, Bearer-token auth).
+# NOTE: this is PRODUCTION data - use a throwaway test account, never a real job.
+REACT_APP_BACKEND_URL = "https://24hourclipping.com"
+
+# --- Dev server ------------------------------------------------------------
+# Bind where Replit's proxy can reach it (localhost-only would 502).
+HOST = "0.0.0.0"
+PORT = "3000"
+# NOTE: the "Invalid Host header" problem is solved in craco.config.js by
+# allow-listing *.replit.dev when REPL_ID is present - deliberately NOT by
+# setting DANGEROUSLY_DISABLE_HOST_CHECK, which would drop the dev server's
+# DNS-rebinding protection for everyone, everywhere.
+# Hot reload runs over Replit's HTTPS proxy, which terminates on 443.
+WDS_SOCKET_PORT = "443"
+# Don't try to launch a browser inside the container.
+BROWSER = "none"
+
+# Google Sign-In is intentionally left unset: the UI hides the Google button when
+# REACT_APP_GOOGLE_CLIENT_ID is empty, so sign in with email/password instead.
+
+[[ports]]
+localPort = 3000
+externalPort = 80

@@ -137,6 +137,15 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Replit serves the dev server through a *.replit.dev proxy, so the Host
+  // header isn't localhost and webpack-dev-server answers "Invalid Host header".
+  // Allow-list just that domain (only when actually inside a Repl - REPL_ID is
+  // injected by Replit) rather than disabling the host check globally, which
+  // would drop DNS-rebinding protection for every dev everywhere.
+  if (process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) {
+    devServerConfig.allowedHosts = [".replit.dev", ".repl.co"];
+  }
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
