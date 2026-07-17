@@ -146,6 +146,17 @@ webpackConfig.devServer = (devServerConfig) => {
     devServerConfig.allowedHosts = [".replit.dev", ".repl.co"];
   }
 
+  // Full-stack Repl (and split local dev): proxy /api to the local backend so the
+  // browser talks to a SINGLE origin - exactly what nginx does in production.
+  // Keeps REACT_APP_BACKEND_URL empty and sidesteps CORS entirely.
+  // NB: webpack-dev-server is pinned to v5 (see `resolutions` in package.json),
+  // whose `proxy` option is an ARRAY, not the v4 object map.
+  if (process.env.PROXY_API) {
+    devServerConfig.proxy = [
+      { context: ["/api"], target: process.env.PROXY_API, changeOrigin: true },
+    ];
+  }
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
